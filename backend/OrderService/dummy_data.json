@@ -1,0 +1,215 @@
+[
+  {
+    "Id": "5fdf0a70-7727-5e1b-a418-e817cb144101",
+    "OrderDate": "2026-07-14T09:20:00",
+    "ShippedDate": "2026-07-15T14:00:00",
+    "ShippingAddress": "12 Vitosha Blvd, Sofia",
+    "OrderStatus": "Delivered",
+    "CustomerId": "bfe2437f-73bb-5948-bff8-a8c166d1b859",
+    "Items": [
+      {
+        "ItemId": "9358ed16-052a-545f-b204-df21e516dba9",
+        "Quantity": 20
+      }
+    ],
+    "Invoice": null
+  },
+  {
+    "Id": "bfdd6aa6-cea3-534f-be47-2c03495c8d40",
+    "OrderDate": "2026-08-03T11:05:00",
+    "ShippedDate": "2026-08-05T10:30:00",
+    "ShippingAddress": "3 Primorski Blvd, Varna",
+    "OrderStatus": "Delivered",
+    "CustomerId": "b1820f53-b182-57e0-af7b-8a1fe6664a54",
+    "Items": [
+      {
+        "ItemId": "8788c512-34eb-5684-9528-eed64a82f2fd",
+        "Quantity": 40
+      },
+      {
+        "ItemId": "73138469-49ce-543d-890a-bb0f6478076e",
+        "Quantity": 12
+      },
+      {
+        "ItemId": "164a2241-fd71-58a8-8016-ec1dbc9ecb4f",
+        "Quantity": 6
+      }
+    ],
+    "Invoice": {
+      "InvoiceDate": "2026-08-05T10:30:00",
+      "InvoiceStatus": "Paid"
+    }
+  },
+  {
+    "Id": "3d559675-4cdf-513d-a4b8-fcbc421647a1",
+    "OrderDate": "2026-08-21T15:40:00",
+    "ShippedDate": "2026-08-22T09:15:00",
+    "ShippingAddress": "45 Tsar Boris III Obedinitel Blvd, Plovdiv",
+    "OrderStatus": "Delivered",
+    "CustomerId": "f44d86bd-1e53-508f-9024-9040ceb288bb",
+    "Items": [
+      {
+        "ItemId": "cc17bc7e-8f17-5f1d-b652-dc45283a78e3",
+        "Quantity": 24
+      },
+      {
+        "ItemId": "807e144d-d289-59e3-a15d-2deab99ddf24",
+        "Quantity": 10
+      }
+    ],
+    "Invoice": {
+      "InvoiceDate": "2026-08-22T09:15:00",
+      "InvoiceStatus": "Paid"
+    }
+  },
+  {
+    "Id": "3417f272-235a-5e5c-b186-3da0e1460d4c",
+    "OrderDate": "2026-09-02T08:45:00",
+    "ShippedDate": "2026-09-03T16:20:00",
+    "ShippingAddress": "5 Vasil Levski St, Pleven",
+    "OrderStatus": "Delivered",
+    "CustomerId": "77362615-c440-5fac-b99c-b22bec3b9659",
+    "Items": [
+      {
+        "ItemId": "6d660448-fe86-5bab-9b7b-31eb97a8fc3d",
+        "Quantity": 15
+      },
+      {
+        "ItemId": "7f8925a1-b5cb-5824-b17e-ea18f1a3d808",
+        "Quantity": 10
+      }
+    ],
+    "Invoice": {
+      "InvoiceDate": "2026-09-03T16:20:00",
+      "InvoiceStatus": "Overdue"
+    }
+  },
+  {
+    "Id": "bf8d534e-4b83-52b8-bcd4-96ad59a98625",
+    "OrderDate": "2026-09-18T13:10:00",
+    "ShippedDate": "2026-09-19T11:00:00",
+    "ShippingAddress": "8 Aleksandrovska St, Ruse",
+    "OrderStatus": "Shipped",
+    "CustomerId": "d13d4439-d135-5623-928b-160617e7697c",
+    "Items": [
+      {
+        "ItemId": "4e1d9e90-45c5-51ef-ab83-e15a7013e7ea",
+        "Quantity": 20
+      },
+      {
+        "ItemId": "88be836c-b6e3-535e-a644-b4fab8b24015",
+        "Quantity": 30
+      },
+      {
+        "ItemId": "ed200e5b-bf37-5fd3-8a15-8d3c0ad3d287",
+        "Quantity": 25
+      }
+    ],
+    "Invoice": {
+      "InvoiceDate": "2026-09-19T11:00:00",
+      "InvoiceStatus": "Paid"
+    }
+  },
+  {
+    "Id": "183a6281-652f-5dc1-9474-802a1b24fd5f",
+    "OrderDate": "2026-10-01T10:00:00",
+    "ShippedDate": "2026-10-02T08:30:00",
+    "ShippingAddress": "17 Tsar Simeon Veliki Blvd, Stara Zagora",
+    "OrderStatus": "Shipped",
+    "CustomerId": "6cc7a9cd-a576-5f08-9e1c-bb13b745caaa",
+    "Items": [
+      {
+        "ItemId": "bcc345f5-36bf-538b-9601-63981a6f635d",
+        "Quantity": 8
+      },
+      {
+        "ItemId": "c552ff6f-8bd4-5a75-9de8-b85925c3b46f",
+        "Quantity": 15
+      },
+      {
+        "ItemId": "f62f650f-1bab-5aa7-9ed2-d0a01808d865",
+        "Quantity": 5
+      }
+    ],
+    "Invoice": {
+      "InvoiceDate": "2026-10-02T08:30:00",
+      "InvoiceStatus": "Unpaid"
+    }
+  },
+  {
+    "Id": "c4aac457-c7d2-546f-a05f-2f70904a5432",
+    "OrderDate": "2026-10-08T12:25:00",
+    "ShippedDate": null,
+    "ShippingAddress": "21 Aleksandrovska St, Burgas",
+    "OrderStatus": "Cancelled",
+    "CustomerId": "ce4051bf-b347-5c88-9648-e645ae0825b8",
+    "Items": [
+      {
+        "ItemId": "8788c512-34eb-5684-9528-eed64a82f2fd",
+        "Quantity": 30
+      }
+    ],
+    "Invoice": null
+  },
+  {
+    "Id": "52f67704-04d2-500c-a698-c01572912505",
+    "OrderDate": "2026-10-12T09:50:00",
+    "ShippedDate": null,
+    "ShippingAddress": "34 Gurko St, Veliko Tarnovo",
+    "OrderStatus": "Confirmed",
+    "CustomerId": "23d8dda5-e534-5a5c-b0df-04993315fb0e",
+    "Items": [
+      {
+        "ItemId": "f62f650f-1bab-5aa7-9ed2-d0a01808d865",
+        "Quantity": 10
+      },
+      {
+        "ItemId": "25995618-296a-5b42-8295-9027216184a4",
+        "Quantity": 6
+      },
+      {
+        "ItemId": "d733476f-8f08-5d33-8a54-4ecb9359e2df",
+        "Quantity": 40
+      }
+    ],
+    "Invoice": null
+  },
+  {
+    "Id": "6cf9ca2d-dc52-5a63-9dc3-c795d09765d5",
+    "OrderDate": "2026-10-15T14:35:00",
+    "ShippedDate": null,
+    "ShippingAddress": "9 Todor Aleksandrov St, Blagoevgrad",
+    "OrderStatus": "New",
+    "CustomerId": "37192374-d554-5d3e-9da1-ef357f972169",
+    "Items": [
+      {
+        "ItemId": "ed200e5b-bf37-5fd3-8a15-8d3c0ad3d287",
+        "Quantity": 60
+      }
+    ],
+    "Invoice": null
+  },
+  {
+    "Id": "076790dd-0e8d-5422-a740-463138eb0913",
+    "OrderDate": "2026-10-17T07:55:00",
+    "ShippedDate": null,
+    "ShippingAddress": "22 Slavyanski Blvd, Shumen",
+    "OrderStatus": "New",
+    "CustomerId": "47fa9616-c090-5666-bf8e-594146d08f33",
+    "Items": [
+      {
+        "ItemId": "d733476f-8f08-5d33-8a54-4ecb9359e2df",
+        "Quantity": 80
+      },
+      {
+        "ItemId": "807e144d-d289-59e3-a15d-2deab99ddf24",
+        "Quantity": 12
+      },
+      {
+        "ItemId": "cc17bc7e-8f17-5f1d-b652-dc45283a78e3",
+        "Quantity": 20
+      }
+    ],
+    "Invoice": null
+  }
+]

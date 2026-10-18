@@ -13,4 +13,23 @@
   <ItemGroup>
     <Compile Include="..\Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Development seed data of all three services, used to test the order seeding. -->
+    <None
+      Include="..\..\CustomerService\dummy_data.json"
+      Link="SeedData\customers.json"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+    <None
+      Include="..\..\InventoryService\dummy_data.json"
+      Link="SeedData\products.json"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+    <None
+      Include="..\..\OrderService\dummy_data.json"
+      Link="SeedData\orders.json"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+  </ItemGroup>
 </Project>

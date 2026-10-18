@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Serilog;
 
 namespace CustomerService.DataAccess;
@@ -16,17 +17,26 @@ public static class PrepDB
 {
     public static async Task PrepPopulation(IApplicationBuilder app)
     {
-        using (var serviceScope = app.ApplicationServices.CreateScope())
+        using var serviceScope = app.ApplicationServices.CreateScope();
+        var env = serviceScope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
+        var context = serviceScope.ServiceProvider.GetRequiredService<CustomerContext>();
+
+        await RunMigrations(context);
+
+        // Sample data is for local development only; other environments start empty.
+        if (!env.IsDevelopment())
         {
-            var env = serviceScope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
-            await SeedData(
-                serviceScope.ServiceProvider.GetRequiredService<CustomerContext>(),
-                Path.Combine(env.ContentRootPath, "dummy_data.json")
+            Log.Information(
+                "--> Skipping seed data in the {Environment} environment.",
+                env.EnvironmentName
             );
+            return;
         }
+
+        await SeedData(context, Path.Combine(env.ContentRootPath, "dummy_data.json"));
     }
 
-    private static async Task SeedData(CustomerContext context, string seedFile)
+    private static async Task RunMigrations(CustomerContext context)
     {
         Log.Information("--> Attempting to apply migrations...");
         try
@@ -39,18 +49,21 @@ public static class PrepDB
         {
             Log.Error(ex, "--> Could not run migrations: {Ex}", ex.Message);
         }
+    }
 
-        if (!await context.Customers.AnyAsync())
-        {
-            Log.Information("--> Seeding Data.....");
-            string file = await File.ReadAllTextAsync(seedFile);
-            var people = JsonSerializer.Deserialize<List<Customer>>(file) ?? [];
-            context.Customers.AddRange(people);
-            await context.SaveChangesAsync();
-        }
-        else
+    private static async Task SeedData(CustomerContext context, string seedFile)
+    {
+        if (await context.Customers.AnyAsync())
         {
             Log.Information("--> Data already present.");
+            return;
         }
+
+        Log.Information("--> Seeding Data.....");
+        string file = await File.ReadAllTextAsync(seedFile);
+        var customers = JsonSerializer.Deserialize<List<Customer>>(file) ?? [];
+        context.Customers.AddRange(customers);
+        await context.SaveChangesAsync();
+        Log.Information("--> Seeded {Count} customers.", customers.Count);
     }
 }

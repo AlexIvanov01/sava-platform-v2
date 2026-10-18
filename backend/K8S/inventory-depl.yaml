@@ -15,6 +15,10 @@ spec:
       containers:
         - name: inventoryservice
           image: alexivanov01/inventoryservice:latest
+          env:
+            # Development seeds sample data on an empty database (see DataAccess/PrepDB.cs).
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Development
 ---
 apiVersion: v1
 kind: Service

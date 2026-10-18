@@ -4,12 +4,13 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Sava.Tests.Shared;
 
 namespace InventoryService.Tests;
 
 // Runs the real app against its own MySQL database; RabbitMQ (publisher and subscriber) is replaced.
-public sealed class InventoryApiFactory(MySqlFixture mySql) : WebApplicationFactory<Program>
+public class InventoryApiFactory(MySqlFixture mySql) : WebApplicationFactory<Program>
 {
     private readonly string _connectionString = mySql.GetConnectionString(
         MySqlFixture.NewDatabaseName("api")
@@ -17,9 +18,11 @@ public sealed class InventoryApiFactory(MySqlFixture mySql) : WebApplicationFact
 
     public IMessageBusClient MessageBus { get; } = Substitute.For<IMessageBusClient>();
 
+    protected virtual string HostEnvironment => Environments.Development;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Development");
+        builder.UseEnvironment(HostEnvironment);
         builder.UseSetting("ConnectionStrings:Default", _connectionString);
         builder.ConfigureTestServices(services =>
         {

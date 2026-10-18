@@ -119,7 +119,13 @@ Running locally uses `appsettings.Development.json`, which points at MySQL and R
    docker run -d --name sava-rabbit -p 5672:5672 -p 15672:15672 rabbitmq:4.3-management
    ```
 
-   One MySQL instance is enough because each service uses its own database (`savadb_inv`, `savadb_cust`, `savadb_order`). Migrations and seed data (`dummy_data.json`) are applied automatically on startup.
+   One MySQL instance is enough because each service uses its own database (`savadb_inv`, `savadb_cust`, `savadb_order`). Migrations are applied automatically on startup. In the Development environment, empty databases are also filled with sample data from each service's `dummy_data.json`:
+
+   - **Customers:** 10 Bulgarian companies.
+   - **Inventory:** 15 products with 21 batches, including expired, near-expiry, low-stock and inactive cases.
+   - **Orders:** 10 orders in several statuses; 5 have invoices.
+
+   Other environments only migrate and never seed. Orders reference the seeded customers and batches, so Order seeds them only after it has synced from Customer and Inventory. If either was down, start it and restart Order.
 
 2. Run each service in its own terminal with `dotnet run`. Start Inventory and Customer before Order, because Order syncs items and customers from them over gRPC.
 
@@ -161,6 +167,8 @@ Running locally uses `appsettings.Development.json`, which points at MySQL and R
    ```bash
    kubectl apply -f backend/K8S/
    ```
+
+   The Customer, Inventory and Order deployments set `ASPNETCORE_ENVIRONMENT=Development`, so a fresh cluster is seeded with sample data. That also enables Swagger UI and detailed error pages. `appsettings.Development.json` is excluded from the published images, so the pods keep the cluster settings from `appsettings.json`. Remove the variable for a non-development deployment.
 
    The API gateway is exposed at `http://localhost:80` and the RabbitMQ management UI at `http://localhost:15672`. The MySQL databases are on ports `33061` (inventory), `33062` (customer) and `33063` (order).
 

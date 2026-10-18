@@ -36,4 +36,9 @@
       CopyToPublishDirectory="PreserveNewest"
     />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Local-only settings (localhost connection strings); keep them out of published images. -->
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
 </Project>

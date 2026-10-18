@@ -15,7 +15,7 @@ public class CustomerApiTests(CustomerApiFactory factory) : IClassFixture<Custom
     {
         var customers = await _client.GetFromJsonAsync<List<CustomerReadDto>>("/api/customers", Ct);
 
-        customers.ShouldNotBeNull().ShouldNotBeEmpty();
+        customers.ShouldNotBeNull().Count.ShouldBeGreaterThanOrEqualTo(10);
     }
 
     [Fact]

@@ -1,64 +1,452 @@
 [
-    {
-        "Id": "e94b7a67-4e29-4d77-a8b4-2c4c0b3fdc8e",
-        "Name": "Widget A",
-        "Description": "High-quality widget for various uses.",
-        "Brand": "WidgetCo",
-        "Supplier": "SupplierCo",
-        "ImageURL": "https://example.com/images/widget-a.jpg",
-        "Status": "In Stock",
-        "Barcode": "WIDG-A-001",
-        "ReorderLevel": 20,
-        "Weight": 1.5,
-        "ProductDateAdded": "2023-07-15T08:00:00Z",
-        "ProductDateUpdated": "2023-07-15T08:00:00Z",
-        "Batches": [
-            {
-                "Id": "ff9f8b2e-5e88-4d0d-aaf3-22a7d2e5b9ab",
-                "Lot": "LOT-001",
-                "Quantity": 50,
-                "PurchasePrice": 5.50,
-                "SellPrice": 12.99,
-                "BatchDateAdded": "2023-07-15T08:00:00Z",
-                "BatchDateUpdated": "2023-07-15T08:00:00Z",
-                "ExpirationDate": "2025-01-15"
-            },
-            {
-                "Id": "a2df12c4-d1e4-4bfa-9d10-8f735cc3d2b5",
-                "Lot": "LOT-002",
-                "Quantity": 100,
-                "PurchasePrice": 5.00,
-                "SellPrice": 11.99,
-                "BatchDateAdded": "2023-07-15T08:00:00Z",
-                "BatchDateUpdated": "2023-07-15T08:00:00Z",
-                "ExpirationDate": "2025-02-10"
-            }
-        ]
-    },
-    {
-        "Id": "4fa7f0be-77c4-42e8-8a63-78df5c1d3a32",
-        "Name": "Gadget B",
-        "Description": "Multi-purpose gadget for home and office use.",
-        "Brand": "GadgetCo",
-        "Supplier": "SupplierX",
-        "ImageURL": "https://example.com/images/gadget-b.jpg",
-        "Status": "Out of Stock",
-        "Barcode": "GADG-B-002",
-        "ReorderLevel": 15,
-        "Weight": 0.75,
-        "ProductDateAdded": "2023-07-15T08:00:00Z",
-        "ProductDateUpdated": "2023-07-15T08:00:00Z",
-        "Batches": [
-            {
-                "Id": "b1e9f9f1-2d9c-4e2f-88f7-45d8b8f8e1b4",
-                "Lot": "LOT-003",
-                "Quantity": 200,
-                "PurchasePrice": 7.50,
-                "SellPrice": 14.99,
-                "BatchDateAdded": "2023-07-15T08:00:00Z",
-                "BatchDateUpdated": "2023-07-15T08:00:00Z",
-                "ExpirationDate": "2025-03-20"
-            }
-        ]
-    }
+  {
+    "Id": "3d899c80-0501-5a2a-a23d-c8afc450b43c",
+    "Name": "White Brined Cheese 400 g",
+    "Description": "Cow milk white brined cheese in a vacuum pack.",
+    "Brand": "Rodopa Dairy",
+    "Supplier": "Smolyan Dairy Co",
+    "ImageURL": null,
+    "Status": "Active",
+    "Barcode": "3801001000375",
+    "ReorderLevel": 40,
+    "Weight": 0.4,
+    "ProductDateAdded": "2026-08-02T08:00:00",
+    "ProductDateUpdated": "2026-09-15T08:00:00",
+    "Batches": [
+      {
+        "Id": "9358ed16-052a-545f-b204-df21e516dba9",
+        "Lot": "FET-2608",
+        "Quantity": 12,
+        "PurchasePrice": 3.1,
+        "SellPrice": 4.79,
+        "BatchDateAdded": "2026-08-02T08:00:00",
+        "BatchDateUpdated": "2026-08-02T08:00:00",
+        "ExpirationDate": "2026-11-05T00:00:00"
+      },
+      {
+        "Id": "c552ff6f-8bd4-5a75-9de8-b85925c3b46f",
+        "Lot": "FET-2609",
+        "Quantity": 60,
+        "PurchasePrice": 3.2,
+        "SellPrice": 4.89,
+        "BatchDateAdded": "2026-09-15T08:00:00",
+        "BatchDateUpdated": "2026-09-15T08:00:00",
+        "ExpirationDate": "2027-01-20T00:00:00"
+      }
+    ]
+  },
+  {
+    "Id": "8000e54c-8ced-5c2a-a54a-7c8b9b984d40",
+    "Name": "Plain Yogurt 3.6% 400 g",
+    "Description": "Traditional set yogurt with Lactobacillus bulgaricus.",
+    "Brand": "Rodopa Dairy",
+    "Supplier": "Smolyan Dairy Co",
+    "ImageURL": null,
+    "Status": "Active",
+    "Barcode": "3801002000749",
+    "ReorderLevel": 100,
+    "Weight": 0.4,
+    "ProductDateAdded": "2026-10-10T08:00:00",
+    "ProductDateUpdated": "2026-10-16T08:00:00",
+    "Batches": [
+      {
+        "Id": "8cbeee5f-f435-53ed-92c4-17a8508fffb6",
+        "Lot": "YOG-2610A",
+        "Quantity": 140,
+        "PurchasePrice": 0.62,
+        "SellPrice": 0.99,
+        "BatchDateAdded": "2026-10-10T08:00:00",
+        "BatchDateUpdated": "2026-10-10T08:00:00",
+        "ExpirationDate": "2026-10-30T00:00:00"
+      },
+      {
+        "Id": "d733476f-8f08-5d33-8a54-4ecb9359e2df",
+        "Lot": "YOG-2610B",
+        "Quantity": 200,
+        "PurchasePrice": 0.62,
+        "SellPrice": 0.99,
+        "BatchDateAdded": "2026-10-16T08:00:00",
+        "BatchDateUpdated": "2026-10-16T08:00:00",
+        "ExpirationDate": "2026-11-12T00:00:00"
+      }
+    ]
+  },
+  {
+    "Id": "d9706ec3-7aa8-51fc-b86b-f1cb267e9ac1",
+    "Name": "Kashkaval Cheese 300 g",
+    "Description": "Semi-hard yellow cheese, cow milk.",
+    "Brand": "Rodopa Dairy",
+    "Supplier": "Smolyan Dairy Co",
+    "ImageURL": null,
+    "Status": "Active",
+    "Barcode": "3801003001110",
+    "ReorderLevel": 30,
+    "Weight": 0.3,
+    "ProductDateAdded": "2026-07-20T08:00:00",
+    "ProductDateUpdated": "2026-07-20T08:00:00",
+    "Batches": [
+      {
+        "Id": "807e144d-d289-59e3-a15d-2deab99ddf24",
+        "Lot": "KSH-2607",
+        "Quantity": 45,
+        "PurchasePrice": 3.4,
+        "SellPrice": 5.29,
+        "BatchDateAdded": "2026-07-20T08:00:00",
+        "BatchDateUpdated": "2026-07-20T08:00:00",
+        "ExpirationDate": "2027-02-15T00:00:00"
+      }
+    ]
+  },
+  {
+    "Id": "fb5c6e39-8e7b-53b6-8f89-1c8d4eed7cb4",
+    "Name": "Lyutenitsa 260 g",
+    "Description": "Roasted red pepper and tomato relish in a glass jar.",
+    "Brand": "Thracian Garden",
+    "Supplier": "Plovdiv Preserves Ltd",
+    "ImageURL": null,
+    "Status": "Active",
+    "Barcode": "3801004001485",
+    "ReorderLevel": 50,
+    "Weight": 0.38,
+    "ProductDateAdded": "2026-03-11T08:00:00",
+    "ProductDateUpdated": "2026-08-25T08:00:00",
+    "Batches": [
+      {
+        "Id": "12768e40-de39-54ba-bbfb-c00294305da1",
+        "Lot": "LYU-2603",
+        "Quantity": 30,
+        "PurchasePrice": 1.35,
+        "SellPrice": 2.19,
+        "BatchDateAdded": "2026-03-11T08:00:00",
+        "BatchDateUpdated": "2026-03-11T08:00:00",
+        "ExpirationDate": "2026-09-30T00:00:00"
+      },
+      {
+        "Id": "cc17bc7e-8f17-5f1d-b652-dc45283a78e3",
+        "Lot": "LYU-2608",
+        "Quantity": 180,
+        "PurchasePrice": 1.4,
+        "SellPrice": 2.29,
+        "BatchDateAdded": "2026-08-25T08:00:00",
+        "BatchDateUpdated": "2026-08-25T08:00:00",
+        "ExpirationDate": "2028-02-28T00:00:00"
+      }
+    ]
+  },
+  {
+    "Id": "dd052b2a-1970-569b-83c0-596f7cc16950",
+    "Name": "Bee Honey 450 g",
+    "Description": "Polyfloral honey from the Balkan mountains.",
+    "Brand": "Balkan Apiary",
+    "Supplier": "Stara Planina Bees Ltd",
+    "ImageURL": null,
+    "Status": "Active",
+    "Barcode": "3801005001859",
+    "ReorderLevel": 20,
+    "Weight": 0.62,
+    "ProductDateAdded": "2026-06-14T08:00:00",
+    "ProductDateUpdated": "2026-06-14T08:00:00",
+    "Batches": [
+      {
+        "Id": "f62f650f-1bab-5aa7-9ed2-d0a01808d865",
+        "Lot": "HON-2606",
+        "Quantity": 75,
+        "PurchasePrice": 4.8,
+        "SellPrice": 7.49,
+        "BatchDateAdded": "2026-06-14T08:00:00",
+        "BatchDateUpdated": "2026-06-14T08:00:00",
+        "ExpirationDate": "2028-06-30T00:00:00"
+      }
+    ]
+  },
+  {
+    "Id": "8789030e-d0ae-54c7-b096-b9324118581c",
+    "Name": "Rose Water 330 ml",
+    "Description": "Natural Rosa damascena water from the Rose Valley.",
+    "Brand": "Valley Rose",
+    "Supplier": "Kazanlak Rose Co",
+    "ImageURL": null,
+    "Status": "Active",
+    "Barcode": "3801006002220",
+    "ReorderLevel": 25,
+    "Weight": 0.36,
+    "ProductDateAdded": "2026-05-20T08:00:00",
+    "ProductDateUpdated": "2026-05-20T08:00:00",
+    "Batches": [
+      {
+        "Id": "7f8925a1-b5cb-5824-b17e-ea18f1a3d808",
+        "Lot": "ROS-2605",
+        "Quantity": 18,
+        "PurchasePrice": 2.1,
+        "SellPrice": 3.99,
+        "BatchDateAdded": "2026-05-20T08:00:00",
+        "BatchDateUpdated": "2026-05-20T08:00:00",
+        "ExpirationDate": "2028-05-31T00:00:00"
+      }
+    ]
+  },
+  {
+    "Id": "baf21f57-2ccb-5e2a-ba5c-0859d4b23365",
+    "Name": "Rose Hand Cream 75 ml",
+    "Description": "Hand cream with rose oil and shea butter.",
+    "Brand": "Valley Rose",
+    "Supplier": "Kazanlak Rose Co",
+    "ImageURL": null,
+    "Status": "Active",
+    "Barcode": "3801007002595",
+    "ReorderLevel": 20,
+    "Weight": 0.09,
+    "ProductDateAdded": "2026-04-08T08:00:00",
+    "ProductDateUpdated": "2026-09-02T08:00:00",
+    "Batches": [
+      {
+        "Id": "6d660448-fe86-5bab-9b7b-31eb97a8fc3d",
+        "Lot": "RHC-2604",
+        "Quantity": 40,
+        "PurchasePrice": 2.6,
+        "SellPrice": 4.99,
+        "BatchDateAdded": "2026-04-08T08:00:00",
+        "BatchDateUpdated": "2026-04-08T08:00:00",
+        "ExpirationDate": "2028-04-30T00:00:00"
+      },
+      {
+        "Id": "841c785a-543b-5fe9-a1bb-fb560e94044d",
+        "Lot": "RHC-2609",
+        "Quantity": 60,
+        "PurchasePrice": 2.7,
+        "SellPrice": 5.19,
+        "BatchDateAdded": "2026-09-02T08:00:00",
+        "BatchDateUpdated": "2026-09-02T08:00:00",
+        "ExpirationDate": "2029-09-30T00:00:00"
+      }
+    ]
+  },
+  {
+    "Id": "22b3c6b2-7a32-5152-815e-0eb9d1539778",
+    "Name": "Mineral Water 1.5 L (6 pack)",
+    "Description": "Still mineral water from a Rila mountain spring.",
+    "Brand": "Rila Spring",
+    "Supplier": "Rila Beverages Ltd",
+    "ImageURL": null,
+    "Status": "Active",
+    "Barcode": "3801008002969",
+    "ReorderLevel": 80,
+    "Weight": 9.2,
+    "ProductDateAdded": "2026-09-05T08:00:00",
+    "ProductDateUpdated": "2026-09-05T08:00:00",
+    "Batches": [
+      {
+        "Id": "8788c512-34eb-5684-9528-eed64a82f2fd",
+        "Lot": "MIN-2609",
+        "Quantity": 320,
+        "PurchasePrice": 1.9,
+        "SellPrice": 2.99,
+        "BatchDateAdded": "2026-09-05T08:00:00",
+        "BatchDateUpdated": "2026-09-05T08:00:00",
+        "ExpirationDate": "2027-09-30T00:00:00"
+      }
+    ]
+  },
+  {
+    "Id": "6695a5a1-8bcc-509d-804d-35283a8ac0a0",
+    "Name": "Grape Rakia 700 ml",
+    "Description": "Double distilled grape brandy, 40% ABV.",
+    "Brand": "Sungurlare Distillery",
+    "Supplier": "Sungurlare Distillery",
+    "ImageURL": null,
+    "Status": "Active",
+    "Barcode": "3801009003330",
+    "ReorderLevel": 15,
+    "Weight": 1.2,
+    "ProductDateAdded": "2026-01-22T08:00:00",
+    "ProductDateUpdated": "2026-01-22T08:00:00",
+    "Batches": [
+      {
+        "Id": "164a2241-fd71-58a8-8016-ec1dbc9ecb4f",
+        "Lot": "RAK-2601",
+        "Quantity": 48,
+        "PurchasePrice": 8.5,
+        "SellPrice": 13.99,
+        "BatchDateAdded": "2026-01-22T08:00:00",
+        "BatchDateUpdated": "2026-01-22T08:00:00",
+        "ExpirationDate": "2036-01-31T00:00:00"
+      }
+    ]
+  },
+  {
+    "Id": "a63f4e41-fb29-5658-9354-2cb4e65df8c1",
+    "Name": "Mavrud Red Wine 750 ml",
+    "Description": "Dry red wine from the Mavrud grape, Thracian Valley.",
+    "Brand": "Thracian Valley Wines",
+    "Supplier": "Asenovgrad Cellars Ltd",
+    "ImageURL": null,
+    "Status": "Active",
+    "Barcode": "3801010003701",
+    "ReorderLevel": 24,
+    "Weight": 1.3,
+    "ProductDateAdded": "2026-02-17T08:00:00",
+    "ProductDateUpdated": "2026-07-09T08:00:00",
+    "Batches": [
+      {
+        "Id": "73138469-49ce-543d-890a-bb0f6478076e",
+        "Lot": "MAV-2602",
+        "Quantity": 36,
+        "PurchasePrice": 6.2,
+        "SellPrice": 10.49,
+        "BatchDateAdded": "2026-02-17T08:00:00",
+        "BatchDateUpdated": "2026-02-17T08:00:00",
+        "ExpirationDate": "2031-02-28T00:00:00"
+      },
+      {
+        "Id": "25995618-296a-5b42-8295-9027216184a4",
+        "Lot": "MAV-2607",
+        "Quantity": 72,
+        "PurchasePrice": 6.4,
+        "SellPrice": 10.99,
+        "BatchDateAdded": "2026-07-09T08:00:00",
+        "BatchDateUpdated": "2026-07-09T08:00:00",
+        "ExpirationDate": "2031-07-31T00:00:00"
+      }
+    ]
+  },
+  {
+    "Id": "945a47bd-21f1-5cde-aeeb-99c2beef01d4",
+    "Name": "Lukanka Sausage 250 g",
+    "Description": "Dry cured pork and beef sausage.",
+    "Brand": "Smilyan Meats",
+    "Supplier": "Rhodope Meat Products Ltd",
+    "ImageURL": null,
+    "Status": "Active",
+    "Barcode": "3801011004073",
+    "ReorderLevel": 30,
+    "Weight": 0.25,
+    "ProductDateAdded": "2026-09-18T08:00:00",
+    "ProductDateUpdated": "2026-09-18T08:00:00",
+    "Batches": [
+      {
+        "Id": "bcc345f5-36bf-538b-9601-63981a6f635d",
+        "Lot": "LUK-2609",
+        "Quantity": 22,
+        "PurchasePrice": 3.9,
+        "SellPrice": 6.19,
+        "BatchDateAdded": "2026-09-18T08:00:00",
+        "BatchDateUpdated": "2026-09-18T08:00:00",
+        "ExpirationDate": "2026-12-15T00:00:00"
+      }
+    ]
+  },
+  {
+    "Id": "aeec8d0a-6222-5a09-896a-039e5f3d364f",
+    "Name": "Laundry Detergent 3 kg",
+    "Description": "Powder detergent for white and coloured laundry.",
+    "Brand": "CleanHome",
+    "Supplier": "Sofia Household Supply Ltd",
+    "ImageURL": null,
+    "Status": "Active",
+    "Barcode": "3801012004447",
+    "ReorderLevel": 20,
+    "Weight": 3.1,
+    "ProductDateAdded": "2026-03-04T08:00:00",
+    "ProductDateUpdated": "2026-03-04T08:00:00",
+    "Batches": [
+      {
+        "Id": "4e1d9e90-45c5-51ef-ab83-e15a7013e7ea",
+        "Lot": "DET-2603",
+        "Quantity": 55,
+        "PurchasePrice": 7.9,
+        "SellPrice": 11.99,
+        "BatchDateAdded": "2026-03-04T08:00:00",
+        "BatchDateUpdated": "2026-03-04T08:00:00",
+        "ExpirationDate": "2029-03-31T00:00:00"
+      }
+    ]
+  },
+  {
+    "Id": "f75cfd61-335d-5c92-abe4-ae5e4ec86f5f",
+    "Name": "Dishwashing Liquid 1 L",
+    "Description": "Lemon dishwashing liquid, gentle on hands.",
+    "Brand": "CleanHome",
+    "Supplier": "Sofia Household Supply Ltd",
+    "ImageURL": null,
+    "Status": "Active",
+    "Barcode": "3801013004811",
+    "ReorderLevel": 40,
+    "Weight": 1.05,
+    "ProductDateAdded": "2026-05-12T08:00:00",
+    "ProductDateUpdated": "2026-09-21T08:00:00",
+    "Batches": [
+      {
+        "Id": "88be836c-b6e3-535e-a644-b4fab8b24015",
+        "Lot": "DSH-2605",
+        "Quantity": 25,
+        "PurchasePrice": 1.15,
+        "SellPrice": 1.89,
+        "BatchDateAdded": "2026-05-12T08:00:00",
+        "BatchDateUpdated": "2026-05-12T08:00:00",
+        "ExpirationDate": "2029-05-31T00:00:00"
+      },
+      {
+        "Id": "0d5bd51a-8130-52bd-84f0-fdadd4069141",
+        "Lot": "DSH-2609",
+        "Quantity": 10,
+        "PurchasePrice": 1.2,
+        "SellPrice": 1.99,
+        "BatchDateAdded": "2026-09-21T08:00:00",
+        "BatchDateUpdated": "2026-09-21T08:00:00",
+        "ExpirationDate": "2029-09-30T00:00:00"
+      }
+    ]
+  },
+  {
+    "Id": "649f30a0-fc58-5214-a11c-1ece4172d42b",
+    "Name": "Copy Paper A4 500 Sheets",
+    "Description": "80 g/m2 white office paper.",
+    "Brand": "OfficePro",
+    "Supplier": "Pirin Paper Ltd",
+    "ImageURL": null,
+    "Status": "Active",
+    "Barcode": "3801014005183",
+    "ReorderLevel": 50,
+    "Weight": 2.5,
+    "ProductDateAdded": "2026-08-11T08:00:00",
+    "ProductDateUpdated": "2026-08-11T08:00:00",
+    "Batches": [
+      {
+        "Id": "ed200e5b-bf37-5fd3-8a15-8d3c0ad3d287",
+        "Lot": "PAP-2608",
+        "Quantity": 140,
+        "PurchasePrice": 3.8,
+        "SellPrice": 5.49,
+        "BatchDateAdded": "2026-08-11T08:00:00",
+        "BatchDateUpdated": "2026-08-11T08:00:00",
+        "ExpirationDate": "2036-08-31T00:00:00"
+      }
+    ]
+  },
+  {
+    "Id": "51667e10-5e64-5d61-ae71-7a5aba0a9a0b",
+    "Name": "Sunflower Oil 1 L",
+    "Description": "Refined sunflower oil. Discontinued by the supplier.",
+    "Brand": "Dobrudzha Fields",
+    "Supplier": "Dobrich Oil Mill Ltd",
+    "ImageURL": null,
+    "Status": "Inactive",
+    "Barcode": "3801015005557",
+    "ReorderLevel": 0,
+    "Weight": 0.92,
+    "ProductDateAdded": "2025-12-15T08:00:00",
+    "ProductDateUpdated": "2025-12-15T08:00:00",
+    "Batches": [
+      {
+        "Id": "97e91a1e-2916-5cd8-b914-cee07514b1b2",
+        "Lot": "SUN-2512",
+        "Quantity": 8,
+        "PurchasePrice": 1.45,
+        "SellPrice": 2.39,
+        "BatchDateAdded": "2025-12-15T08:00:00",
+        "BatchDateUpdated": "2025-12-15T08:00:00",
+        "ExpirationDate": "2026-06-30T00:00:00"
+      }
+    ]
+  }
 ]
