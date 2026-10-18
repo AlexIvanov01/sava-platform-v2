@@ -64,7 +64,13 @@ dotnet csharpier format backend   # rewrites files in place
 dotnet csharpier check backend    # fails if any file isn't formatted
 ```
 
-CSharpier also has editor extensions for VS Code, Rider, and Visual Studio that can format on save.
+A pre-commit hook in `.githooks/` formats staged C#, `.csproj`, and `.props` files and re-stages them. For partially staged files, it formats only the staged version and leaves your unstaged edits alone. Enable it once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Use `git commit --no-verify` to skip it for a single commit. CSharpier also has editor extensions for VS Code, Rider, and Visual Studio that can format on save.
 
 ### Run services locally
 

@@ -1,0 +1,56 @@
+#!/bin/sh
+# Formats staged C# and MSBuild files with CSharpier and re-stages them.
+# Enable once per clone: git config core.hooksPath .githooks
+# Skip for a single commit: git commit --no-verify
+set -eu
+
+nl='
+'
+IFS=$nl
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- '*.cs' '*.csproj' '*.props' '*.targets')
+[ -z "$staged" ] && exit 0
+
+if ! dotnet csharpier --version >/dev/null 2>&1; then
+    dotnet tool restore >/dev/null
+fi
+
+full=""
+partial=""
+for f in $staged; do
+    if git diff --quiet -- "$f"; then
+        full="$full$f$nl"
+    else
+        partial="$partial$f$nl"
+    fi
+done
+
+if [ -n "$full" ]; then
+    dotnet csharpier format --log-level Warning $full
+    git add -- $full
+fi
+
+# Files with unstaged changes: format only the staged version so unstaged edits stay unstaged.
+if [ -n "$partial" ]; then
+    tmp=$(mktemp)
+    trap 'rm -f "$tmp"' EXIT
+    for f in $partial; do
+        if ! git show ":$f" | dotnet csharpier format --stdin-path "$f" --log-level Warning >"$tmp"; then
+            echo "pre-commit: CSharpier failed on $f" >&2
+            exit 1
+        fi
+        if [ ! -s "$tmp" ]; then
+            continue
+        fi
+        # Formatting via stdin drops the UTF-8 BOM, so restore it when the staged file had one.
+        if [ "$(git show ":$f" | head -c 3 | od -An -tx1 | tr -d ' \n')" = "efbbbf" ] &&
+            [ "$(head -c 3 "$tmp" | od -An -tx1 | tr -d ' \n')" != "efbbbf" ]; then
+            { printf '\357\273\277'; cat "$tmp"; } >"$tmp.bom"
+            mv "$tmp.bom" "$tmp"
+        fi
+        mode=$(git ls-files -s -- "$f" | cut -d' ' -f1)
+        blob=$(git hash-object -w --path "$f" "$tmp")
+        git update-index --cacheinfo "$mode,$blob,$f"
+    done
+    echo "pre-commit: formatted the staged part of partially staged files; your working tree copies are unchanged." >&2
+fi
