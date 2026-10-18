@@ -32,7 +32,7 @@ public static class PrepDB
         Log.Information("--> Attempting to apply migrations...");
         try
         {
-            Log.Information("--> Waiting 5 seconds for DB iniialization...");
+            Log.Information("--> Waiting 5 seconds for DB initialization...");
             await Task.Delay(5000);
             await context.Database.MigrateAsync();
         }

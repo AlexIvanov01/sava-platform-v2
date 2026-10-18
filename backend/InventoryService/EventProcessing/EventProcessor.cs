@@ -34,13 +34,13 @@ public class EventProcessor : IEventProcessor
         }
     }
 
-    private async Task AddItems(string orderDeltedMessage)
+    private async Task AddItems(string orderDeletedMessage)
     {
         using var scope = _scopeFactory.CreateScope();
 
         var repo = scope.ServiceProvider.GetRequiredService<IProductRepo>();
 
-        var orderPublishedDto = JsonSerializer.Deserialize<OrderPublishedDto>(orderDeltedMessage);
+        var orderPublishedDto = JsonSerializer.Deserialize<OrderPublishedDto>(orderDeletedMessage);
 
         if (orderPublishedDto == null)
         {
@@ -50,14 +50,14 @@ public class EventProcessor : IEventProcessor
         if (!orderPublishedDto.OrderItems.Any())
         {
             Log.Error(
-                "--> Could not update batches because message deserialised with no items: {Dto}",
+                "--> Could not update batches because message deserialized with no items: {Dto}",
                 orderPublishedDto
             );
             return;
         }
 
         await repo.IncrementBatchesAsync(orderPublishedDto.OrderItems);
-        Log.Information("--> Items inceremented successfully.");
+        Log.Information("--> Items incremented successfully.");
     }
 
     private async Task RemoveItems(string orderPublishedMessage)
@@ -78,7 +78,7 @@ public class EventProcessor : IEventProcessor
         if (!orderPublishedDto.OrderItems.Any())
         {
             Log.Error(
-                "--> Could not update batches because message deserialised with no items: {Dto}",
+                "--> Could not update batches because message deserialized with no items: {Dto}",
                 orderPublishedDto
             );
             return;

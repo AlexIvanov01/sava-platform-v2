@@ -56,7 +56,7 @@ public class EventProcessor : IEventProcessor
 
     private async Task DeleteCustomer(string customerDeleteMessage)
     {
-        Log.Information("--> Attemting to delete a customer...");
+        Log.Information("--> Attempting to delete a customer...");
 
         try
         {
@@ -88,7 +88,7 @@ public class EventProcessor : IEventProcessor
 
     private async Task UpdateCustomer(string customerUpdatedMessage)
     {
-        Log.Information("--> Attemting to update an customer...");
+        Log.Information("--> Attempting to update an customer...");
 
         try
         {
@@ -123,7 +123,7 @@ public class EventProcessor : IEventProcessor
 
     private async Task AddCustomer(string customerPublishedMessage)
     {
-        Log.Information("--> Attemting to add an item...");
+        Log.Information("--> Attempting to add an item...");
 
         try
         {
@@ -167,7 +167,7 @@ public class EventProcessor : IEventProcessor
 
     private async Task DeleteProduct(string productNameUpdateMessage)
     {
-        Log.Information("--> Attemting to delete items...");
+        Log.Information("--> Attempting to delete items...");
 
         try
         {
@@ -194,7 +194,7 @@ public class EventProcessor : IEventProcessor
             else
             {
                 Log.Error(
-                    "--> Could not delete items because either mesage was deserialized"
+                    "--> Could not delete items because either message was deserialized"
                         + " to null or the external product id was not set: {Dto}",
                     itemPublishedDto
                 );
@@ -208,7 +208,7 @@ public class EventProcessor : IEventProcessor
 
     private async Task UpdateProductName(string productNameUpdateMessage)
     {
-        Log.Information("--> Attemting to update item names...");
+        Log.Information("--> Attempting to update item names...");
 
         try
         {
@@ -240,7 +240,7 @@ public class EventProcessor : IEventProcessor
             else
             {
                 Log.Error(
-                    "--> Could not update product name because either mesage was deserialized"
+                    "--> Could not update product name because either message was deserialized"
                         + " to null or the external product id was not set or name field was not set: {Dto}",
                     itemPublishedDto
                 );
@@ -254,7 +254,7 @@ public class EventProcessor : IEventProcessor
 
     private async Task DeleteItem(string itemDeletedMessage)
     {
-        Log.Information("--> Attemting to delete an item...");
+        Log.Information("--> Attempting to delete an item...");
 
         try
         {
@@ -279,7 +279,7 @@ public class EventProcessor : IEventProcessor
             else
             {
                 Log.Error(
-                    "--> Could not delete item because either mesage was deserialized"
+                    "--> Could not delete item because either message was deserialized"
                         + " to null or the external batch id was not set: {Dto}",
                     itemPublishedDto
                 );
@@ -293,7 +293,7 @@ public class EventProcessor : IEventProcessor
 
     private async Task UpdateItem(string itemUpdatedMessage)
     {
-        Log.Information("--> Attemting to update an item...");
+        Log.Information("--> Attempting to update an item...");
 
         try
         {
@@ -313,7 +313,7 @@ public class EventProcessor : IEventProcessor
             else
             {
                 Log.Error(
-                    "--> Could not update item because either mesage was deserialized"
+                    "--> Could not update item because either message was deserialized"
                         + " to null or the external batch id was not set: {Dto}",
                     itemPublishedDto
                 );
@@ -327,7 +327,7 @@ public class EventProcessor : IEventProcessor
 
     private async Task AddItem(string itemPublishedMessage)
     {
-        Log.Information("--> Attemting to add an item...");
+        Log.Information("--> Attempting to add an item...");
 
         try
         {

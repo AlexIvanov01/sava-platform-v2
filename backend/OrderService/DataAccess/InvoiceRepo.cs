@@ -36,7 +36,7 @@ public class InvoiceRepo : IInvoiceRepo
         return dbInvoice;
     }
 
-    public async Task<Invoice?> GetInvocieByOrderIdAsync(Guid orderId)
+    public async Task<Invoice?> GetInvoiceByOrderIdAsync(Guid orderId)
     {
         var invoice = await _context
             .Invoices.AsNoTracking()
@@ -51,7 +51,7 @@ public class InvoiceRepo : IInvoiceRepo
         return invoice;
     }
 
-    public async Task<Invoice?> GetInvocieByIdAsync(int id)
+    public async Task<Invoice?> GetInvoiceByIdAsync(int id)
     {
         return await _context
             .Invoices.AsNoTracking()
@@ -64,7 +64,7 @@ public class InvoiceRepo : IInvoiceRepo
             .SingleOrDefaultAsync();
     }
 
-    public async Task<IEnumerable<Invoice>> GetAllInvociesAsync(int? cursor, int pageSize)
+    public async Task<IEnumerable<Invoice>> GetAllInvoicesAsync(int? cursor, int pageSize)
     {
         if (cursor != null)
         {
@@ -108,7 +108,7 @@ public class InvoiceRepo : IInvoiceRepo
         return dbInvoice;
     }
 
-    public async Task<Invoice?> CreateInvocieAsync(Invoice invoice, Guid orderId)
+    public async Task<Invoice?> CreateInvoiceAsync(Invoice invoice, Guid orderId)
     {
         bool invoiceCheck = await _context.Invoices.AnyAsync(i => i.OrderId == orderId);
 

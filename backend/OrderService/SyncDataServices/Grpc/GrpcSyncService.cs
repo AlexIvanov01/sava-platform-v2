@@ -62,7 +62,7 @@ public class GrpcSyncService : BackgroundService
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "An error occured during data synchronisation: {Ex}", ex.Message);
+                Log.Error(ex, "An error occurred during data synchronization: {Ex}", ex.Message);
             }
         }
     }

@@ -50,7 +50,7 @@ namespace CustomerService.Controllers
             catch (Exception ex)
             {
                 Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-                return StatusCode(500, "An internal server error occured.");
+                return StatusCode(500, "An internal server error occurred.");
             }
         }
 
@@ -78,7 +78,7 @@ namespace CustomerService.Controllers
             catch (Exception ex)
             {
                 Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-                return StatusCode(500, "An internal server error occured.");
+                return StatusCode(500, "An internal server error occurred.");
             }
         }
 
@@ -104,7 +104,7 @@ namespace CustomerService.Controllers
             catch (Exception ex)
             {
                 Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-                return StatusCode(500, "An internal server error occured.");
+                return StatusCode(500, "An internal server error occurred.");
             }
 
             //Send Async Message
@@ -154,7 +154,7 @@ namespace CustomerService.Controllers
             catch (Exception ex)
             {
                 Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-                return StatusCode(500, "An internal server error occured.");
+                return StatusCode(500, "An internal server error occurred.");
             }
 
             //Send Async Message
@@ -193,7 +193,7 @@ namespace CustomerService.Controllers
             catch (Exception ex)
             {
                 Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-                return StatusCode(500, "An internal server error occured.");
+                return StatusCode(500, "An internal server error occurred.");
             }
 
             //Send Async Message

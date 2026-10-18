@@ -23,10 +23,10 @@ namespace AuthenticationService.Controllers
             [FromBody] AuthenticationRequest authenticationRequest
         )
         {
-            var authenticationRespone = _jwtTokenHandler.GenerateJwtToken(authenticationRequest);
-            if (authenticationRespone == null)
+            var authenticationResponse = _jwtTokenHandler.GenerateJwtToken(authenticationRequest);
+            if (authenticationResponse == null)
                 return Unauthorized();
-            return authenticationRespone;
+            return authenticationResponse;
         }
     }
 }

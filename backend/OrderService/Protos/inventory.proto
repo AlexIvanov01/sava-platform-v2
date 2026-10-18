@@ -3,7 +3,7 @@ syntax = "proto3";
 option csharp_namespace = "InventoryService";
 
 service GrpcInventory{
-	rpc GetAllItems (GetAllRequest) returns (InventoryRespone);
+	rpc GetAllItems (GetAllRequest) returns (InventoryResponse);
 }
 
 message GetAllRequest {}
@@ -17,7 +17,7 @@ message GrpcInventoryModel{
 	string expirationDate = 6;
 }
 
-message InventoryRespone {
+message InventoryResponse {
 	repeated GrpcInventoryModel item = 1;
 }
 

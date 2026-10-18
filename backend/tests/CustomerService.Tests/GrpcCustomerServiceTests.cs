@@ -1,6 +1,6 @@
 using CustomerService.DataAccess;
 using CustomerService.Models;
-using CustomerService.SyncDataServeces.Grpc;
+using CustomerService.SyncDataServices.Grpc;
 
 namespace CustomerService.Tests;
 

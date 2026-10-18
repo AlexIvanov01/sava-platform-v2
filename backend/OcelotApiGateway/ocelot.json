@@ -65,7 +65,7 @@
                     "Port": 80
                 }
             ],
-            "DownstreamPathTemplate": "/api/Batches/{Productid}",
+            "DownstreamPathTemplate": "/api/Batches/{ProductId}",
             "AuthenticationOptions": {
                 "AuthenticationProviderKeys": [ "Bearer" ],
                 "AllowedScopes": []

@@ -3,7 +3,7 @@ using System.IO;
 using System.Reflection;
 using CustomerService.AsyncDataServices;
 using CustomerService.DataAccess;
-using CustomerService.SyncDataServeces.Grpc;
+using CustomerService.SyncDataServices.Grpc;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;

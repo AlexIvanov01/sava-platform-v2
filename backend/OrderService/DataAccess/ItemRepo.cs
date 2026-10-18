@@ -79,7 +79,7 @@ public class ItemRepo : IItemRepo
 
         if (dbItem == null)
         {
-            //To-do: Create an appropriate respone to an update for an non existent object
+            //To-do: Create an appropriate response to an update for an non existent object
             Log.Error(
                 "Could not find item with external id {Id} in DB to update.",
                 item.ExternalBatchId

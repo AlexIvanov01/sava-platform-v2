@@ -43,7 +43,7 @@ public class CustomerRepo : ICustomerRepo
 
         if (dbCustomer == null)
         {
-            //To-do: Create an appropriate respone to an update for an non existent object
+            //To-do: Create an appropriate response to an update for an non existent object
             Log.Error("Customer for updating was not found: {Id}", customer.ExternalId);
             return;
         }

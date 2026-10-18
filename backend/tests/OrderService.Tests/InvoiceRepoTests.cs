@@ -20,7 +20,7 @@ public class InvoiceRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
         var (_, _, order) = await SeedOrderAsync(1);
         await using var context = Db.CreateContext();
         var invoice = (
-            await new InvoiceRepo(context).CreateInvocieAsync(NewInvoice(), order.Id)
+            await new InvoiceRepo(context).CreateInvoiceAsync(NewInvoice(), order.Id)
         ).ShouldNotBeNull();
         return (order, invoice);
     }
@@ -34,8 +34,8 @@ public class InvoiceRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
         invoice.OrderId.ShouldBe(order.Id);
         await using var context = Db.CreateContext();
         var repo = new InvoiceRepo(context);
-        (await repo.CreateInvocieAsync(NewInvoice(), order.Id)).ShouldBeNull();
-        (await repo.CreateInvocieAsync(NewInvoice(), Guid.NewGuid())).ShouldBeNull();
+        (await repo.CreateInvoiceAsync(NewInvoice(), order.Id)).ShouldBeNull();
+        (await repo.CreateInvoiceAsync(NewInvoice(), Guid.NewGuid())).ShouldBeNull();
         (await repo.GetInvoiceCountAsync()).ShouldBe(1);
     }
 
@@ -49,8 +49,8 @@ public class InvoiceRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
         foreach (
             var loaded in new[]
             {
-                await repo.GetInvocieByIdAsync(invoice.Id),
-                await repo.GetInvocieByOrderIdAsync(order.Id),
+                await repo.GetInvoiceByIdAsync(invoice.Id),
+                await repo.GetInvoiceByOrderIdAsync(order.Id),
             }
         )
         {
@@ -58,7 +58,7 @@ public class InvoiceRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
             loaded.Order.Customer.ShouldNotBeNull();
             loaded.Order.OrderItems.ShouldHaveSingleItem().Item.Name.ShouldNotBeNull();
         }
-        (await repo.GetInvocieByIdAsync(invoice.Id + 1000)).ShouldBeNull();
+        (await repo.GetInvoiceByIdAsync(invoice.Id + 1000)).ShouldBeNull();
     }
 
     [Fact]
@@ -72,8 +72,8 @@ public class InvoiceRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
 
         await using var context = Db.CreateContext();
         var repo = new InvoiceRepo(context);
-        var first = (await repo.GetAllInvociesAsync(null, 2)).ToList();
-        var second = (await repo.GetAllInvociesAsync(first[^1].Id, 2)).ToList();
+        var first = (await repo.GetAllInvoicesAsync(null, 2)).ToList();
+        var second = (await repo.GetAllInvoicesAsync(first[^1].Id, 2)).ToList();
 
         first.Select(i => i.Id).ShouldBe(ids.Take(2));
         second.ShouldHaveSingleItem().Id.ShouldBe(ids[2]);

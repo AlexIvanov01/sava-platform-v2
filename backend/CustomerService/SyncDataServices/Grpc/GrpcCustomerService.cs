@@ -3,7 +3,7 @@ using CustomerService.DataAccess;
 using CustomerService.Mappings;
 using Grpc.Core;
 
-namespace CustomerService.SyncDataServeces.Grpc;
+namespace CustomerService.SyncDataServices.Grpc;
 
 public class GrpcCustomerService : GrpcCustomer.GrpcCustomerBase
 {

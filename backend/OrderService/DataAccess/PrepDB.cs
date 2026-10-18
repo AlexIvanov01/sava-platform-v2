@@ -22,7 +22,9 @@ public static class PrepDB
         var grpcCustomerClient =
             serviceScope.ServiceProvider.GetRequiredService<ICustomerDataClient>();
 
-        Log.Information("--> Waiting 5 seconds for Inventoy and Customer Service initalization...");
+        Log.Information(
+            "--> Waiting 5 seconds for Inventory and Customer Service initialization..."
+        );
         await Task.Delay(5000);
 
         var items = grpcInventoryClient.ReturnAllItems();
@@ -61,7 +63,7 @@ public static class PrepDB
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "--> An error occured while syncing: {Ex}", ex.Message);
+            Log.Error(ex, "--> An error occurred while syncing: {Ex}", ex.Message);
         }
     }
 
@@ -70,7 +72,7 @@ public static class PrepDB
         Log.Information("--> Attempting to apply migrations...");
         try
         {
-            Log.Information("--> Waiting 5 seconds for DB initalization...");
+            Log.Information("--> Waiting 5 seconds for DB initialization...");
             await Task.Delay(5000);
             await context.Database.MigrateAsync();
         }

@@ -57,7 +57,7 @@ namespace InventoryService.Controllers
             catch (Exception ex)
             {
                 Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-                return StatusCode(500, "An internal server error occured.");
+                return StatusCode(500, "An internal server error occurred.");
             }
 
             //Send Async Message
@@ -110,12 +110,12 @@ namespace InventoryService.Controllers
 
                 savedBatch = updated;
 
-                Log.Information("--> Batch uptated: {Id}", id);
+                Log.Information("--> Batch updated: {Id}", id);
             }
             catch (Exception ex)
             {
                 Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-                return StatusCode(500, "An internal server error occured.");
+                return StatusCode(500, "An internal server error occurred.");
             }
 
             //Send Async Message
@@ -168,7 +168,7 @@ namespace InventoryService.Controllers
             catch (Exception ex)
             {
                 Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-                return StatusCode(500, "An internal server error occured.");
+                return StatusCode(500, "An internal server error occurred.");
             }
 
             //Send Async Message

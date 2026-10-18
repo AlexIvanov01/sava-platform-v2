@@ -31,7 +31,7 @@ public class InvoicesControllerTests
     [Fact]
     public async Task GetInvoices_ReturnsPageWithLastInvoiceIdAsCursor()
     {
-        _repo.GetAllInvociesAsync(5, 2).Returns([Invoice(6), Invoice(8)]);
+        _repo.GetAllInvoicesAsync(5, 2).Returns([Invoice(6), Invoice(8)]);
         _repo.GetInvoiceCountAsync().Returns(5);
 
         var result = await _controller.GetInvoices(5, 2);
@@ -47,7 +47,7 @@ public class InvoicesControllerTests
     [Fact]
     public async Task GetInvoices_Empty_ReturnsNotFound()
     {
-        _repo.GetAllInvociesAsync(null, 10).Returns([]);
+        _repo.GetAllInvoicesAsync(null, 10).Returns([]);
 
         (await _controller.GetInvoices(null)).Result.ShouldBeOfType<NotFoundResult>();
     }
@@ -56,7 +56,7 @@ public class InvoicesControllerTests
     public async Task GetInvoices_RepoThrows_Returns500()
     {
         _repo
-            .GetAllInvociesAsync(Arg.Any<int?>(), Arg.Any<int>())
+            .GetAllInvoicesAsync(Arg.Any<int?>(), Arg.Any<int>())
             .ThrowsAsync(new InvalidOperationException());
 
         (await _controller.GetInvoices(null))
@@ -68,7 +68,7 @@ public class InvoicesControllerTests
     public async Task GetInvoiceById_MissingAndExisting()
     {
         var invoice = Invoice(4);
-        _repo.GetInvocieByIdAsync(4).Returns(invoice);
+        _repo.GetInvoiceByIdAsync(4).Returns(invoice);
 
         (await _controller.GetInvoiceById(1)).Result.ShouldBeOfType<NotFoundResult>();
         var dto = (await _controller.GetInvoiceById(4))
@@ -93,7 +93,7 @@ public class InvoicesControllerTests
     public async Task CreateInvoice_Valid_ReturnsCreated()
     {
         var orderId = Guid.NewGuid();
-        _repo.CreateInvocieAsync(Arg.Any<Invoice>(), orderId).Returns(ci => ci.Arg<Invoice>());
+        _repo.CreateInvoiceAsync(Arg.Any<Invoice>(), orderId).Returns(ci => ci.Arg<Invoice>());
 
         var result = await _controller.CreateInvoice(
             new InvoiceCreateDto(null, null, "Draft", 1m),

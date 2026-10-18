@@ -67,10 +67,7 @@ public class OrdersController : ControllerBase
 
             if (!orderPageItems.Any())
             {
-                Log.Warning(
-                    "--> No orderds were found after {Cursor} or cursor not found.",
-                    cursor
-                );
+                Log.Warning("--> No orders were found after {Cursor} or cursor not found.", cursor);
                 return NotFound();
             }
 
@@ -90,7 +87,7 @@ public class OrdersController : ControllerBase
         catch (Exception ex)
         {
             Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-            return StatusCode(500, "An internal server error occured.");
+            return StatusCode(500, "An internal server error occurred.");
         }
     }
 
@@ -120,7 +117,7 @@ public class OrdersController : ControllerBase
         catch (Exception ex)
         {
             Log.Fatal(ex, "Internal server error");
-            return StatusCode(500, "An internal server error occured.");
+            return StatusCode(500, "An internal server error occurred.");
         }
     }
 
@@ -147,7 +144,7 @@ public class OrdersController : ControllerBase
         catch (Exception ex)
         {
             Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-            return StatusCode(500, "An internal server error occured.");
+            return StatusCode(500, "An internal server error occurred.");
         }
 
         //Send Async Message
@@ -198,7 +195,7 @@ public class OrdersController : ControllerBase
         catch (Exception ex)
         {
             Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-            return StatusCode(500, "An internal server error occured.");
+            return StatusCode(500, "An internal server error occurred.");
         }
 
         //Send Async Message
@@ -267,7 +264,7 @@ public class OrdersController : ControllerBase
         catch (Exception ex)
         {
             Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-            return StatusCode(500, "An internal server error occured.");
+            return StatusCode(500, "An internal server error occurred.");
         }
 
         //Send async Message

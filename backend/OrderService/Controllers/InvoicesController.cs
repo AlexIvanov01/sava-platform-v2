@@ -40,7 +40,7 @@ namespace OrderService.Controllers
                     cursor
                 );
 
-                var invoiceItems = await _repository.GetAllInvociesAsync(cursor, pageSize);
+                var invoiceItems = await _repository.GetAllInvoicesAsync(cursor, pageSize);
 
                 if (!invoiceItems.Any())
                 {
@@ -77,7 +77,7 @@ namespace OrderService.Controllers
             catch (Exception ex)
             {
                 Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-                return StatusCode(500, "An internal server error occured.");
+                return StatusCode(500, "An internal server error occurred.");
             }
         }
 
@@ -90,7 +90,7 @@ namespace OrderService.Controllers
             {
                 Log.Information("--> Getting an invoice with id {Id}........", id);
 
-                var invoice = await _repository.GetInvocieByIdAsync(id);
+                var invoice = await _repository.GetInvoiceByIdAsync(id);
 
                 if (invoice == null)
                 {
@@ -106,7 +106,7 @@ namespace OrderService.Controllers
             catch (Exception ex)
             {
                 Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-                return StatusCode(500, "An internal server error occured.");
+                return StatusCode(500, "An internal server error occurred.");
             }
         }
 
@@ -124,7 +124,7 @@ namespace OrderService.Controllers
 
                 var invoiceModel = invoiceCreateDto.ToEntity();
 
-                var nullCheck = await _repository.CreateInvocieAsync(invoiceModel, orderId);
+                var nullCheck = await _repository.CreateInvoiceAsync(invoiceModel, orderId);
 
                 if (nullCheck == null)
                 {
@@ -144,7 +144,7 @@ namespace OrderService.Controllers
             catch (Exception ex)
             {
                 Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-                return StatusCode(500, "An internal server error occured.");
+                return StatusCode(500, "An internal server error occurred.");
             }
         }
 
@@ -170,14 +170,14 @@ namespace OrderService.Controllers
                     return NotFound();
                 }
 
-                Log.Information("--> Invoice uptated: {Id}", id);
+                Log.Information("--> Invoice updated: {Id}", id);
 
                 return Ok(nullCheck.ToReadDto());
             }
             catch (Exception ex)
             {
                 Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-                return StatusCode(500, "An internal server error occured.");
+                return StatusCode(500, "An internal server error occurred.");
             }
         }
 
@@ -204,7 +204,7 @@ namespace OrderService.Controllers
             catch (Exception ex)
             {
                 Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-                return StatusCode(500, "An internal server error occured.");
+                return StatusCode(500, "An internal server error occurred.");
             }
         }
     }

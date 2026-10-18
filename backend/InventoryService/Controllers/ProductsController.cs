@@ -78,7 +78,7 @@ public class ProductsController : ControllerBase
         catch (Exception ex)
         {
             Log.Fatal(ex, "Internal server error: {Message}", ex.Message);
-            return StatusCode(500, "An internal server error occured.");
+            return StatusCode(500, "An internal server error occurred.");
         }
     }
 
@@ -106,7 +106,7 @@ public class ProductsController : ControllerBase
         catch (Exception ex)
         {
             Log.Fatal(ex, "Internal server error: {Message}", ex.Message);
-            return StatusCode(500, "An internal server error occured.");
+            return StatusCode(500, "An internal server error occurred.");
         }
     }
 
@@ -133,7 +133,7 @@ public class ProductsController : ControllerBase
         catch (Exception ex)
         {
             Log.Fatal(ex, "Internal server error: {Message}", ex.Message);
-            return StatusCode(500, "An internal server error occured.");
+            return StatusCode(500, "An internal server error occurred.");
         }
     }
 
@@ -166,7 +166,7 @@ public class ProductsController : ControllerBase
         catch (Exception ex)
         {
             Log.Fatal(ex, "Internal server error: {Message}", ex.Message);
-            return StatusCode(500, "An internal server error occured.");
+            return StatusCode(500, "An internal server error occurred.");
         }
 
         if (productUpdateDto.Name != null)
@@ -213,7 +213,7 @@ public class ProductsController : ControllerBase
         catch (Exception ex)
         {
             Log.Fatal(ex, "Internal server error: {Message}", ex.Message);
-            return StatusCode(500, "An internal server error occured.");
+            return StatusCode(500, "An internal server error occurred.");
         }
 
         //Send Async Message
