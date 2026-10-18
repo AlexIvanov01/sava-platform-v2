@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "kubernetes": {
+      "type": "local",
+      "command": "npx",
+      "args": ["-y", "kubernetes-mcp-server@latest", "--disable-destructive"],
+      "env": {},
+      "tools": ["*"]
+    }
+  }
+}

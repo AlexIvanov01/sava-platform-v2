@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Sava dev UI</title>
+<style>
+  body { font: 14px system-ui, sans-serif; margin: 0; display: flex; height: 100vh; }
+  #side { width: 260px; background: #1e293b; color: #e2e8f0; padding: 12px; overflow: auto; }
+  #main { flex: 1; padding: 16px; overflow: auto; }
+  h3 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; color: #94a3b8; }
+  .ep { display: block; width: 100%; text-align: left; background: none; border: 0; color: inherit; padding: 4px 6px; cursor: pointer; border-radius: 4px; }
+  .ep:hover { background: #334155; }
+  .m { display: inline-block; width: 52px; font-weight: bold; font-size: 11px; }
+  .GET { color: #4ade80; } .POST { color: #facc15; } .PUT { color: #60a5fa; } .DELETE { color: #f87171; }
+  input, select, textarea { font: inherit; padding: 5px; }
+  textarea { width: 100%; height: 160px; font-family: monospace; box-sizing: border-box; }
+  button.go { padding: 6px 16px; cursor: pointer; }
+  pre { background: #0f172a; color: #e2e8f0; padding: 10px; border-radius: 6px; overflow: auto; max-height: 40vh; }
+  table { border-collapse: collapse; margin-top: 8px; }
+  td, th { border: 1px solid #cbd5e1; padding: 3px 8px; font-size: 12px; }
+  th { background: #f1f5f9; }
+  .row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  #status { font-weight: bold; }
+</style>
+</head>
+<body>
+<div id="side">
+  <h3>Login</h3>
+  <div class="row"><input id="u" value="admin" style="width:90px"><input id="p" type="password" value="admin123" style="width:90px"></div>
+  <button class="go" onclick="login()">Get token</button>
+  <div id="who" style="margin-top:6px;font-size:12px;color:#94a3b8">not logged in</div>
+  <div id="eps"></div>
+</div>
+<div id="main">
+  <div class="row">
+    <select id="method"><option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option></select>
+    <input id="path" style="flex:1" value="/api/Products">
+    <button class="go" onclick="send()">Send</button>
+  </div>
+  <div>Body (JSON)</div>
+  <textarea id="body" placeholder="{}"></textarea>
+  <p>Status: <span id="status">-</span></p>
+  <div id="table"></div>
+  <pre id="out"></pre>
+</div>
+<script>
+const EPS = {
+  Inventory: [
+    ["GET", "/api/Products"], ["GET", "/api/Products/1"], ["POST", "/api/Products", "{}"], ["PUT", "/api/Products/1", "{}"], ["DELETE", "/api/Products/1"],
+    ["POST", "/api/Batches/1", "{}"], ["PUT", "/api/Batches/1", "{}"], ["DELETE", "/api/Batches/1"],
+  ],
+  Customers: [["GET", "/api/Customers"], ["GET", "/api/Customers/1"], ["POST", "/api/Customers", "{}"], ["PUT", "/api/Customers/1", "{}"], ["DELETE", "/api/Customers/1"]],
+  Orders: [["GET", "/api/Orders"], ["GET", "/api/Orders/1"], ["POST", "/api/Orders", "{}"], ["PUT", "/api/Orders/1", "{}"], ["DELETE", "/api/Orders/1"]],
+  Invoices: [["GET", "/api/Invoices"], ["GET", "/api/Invoices/1"], ["POST", "/api/Invoices/1", "{}"], ["PUT", "/api/Invoices/1", "{}"], ["DELETE", "/api/Invoices/1"]],
+};
+let token = localStorage.token || "";
+const $ = (id) => document.getElementById(id);
+$("who").textContent = token ? "token loaded" : "not logged in";
+
+for (const [group, list] of Object.entries(EPS)) {
+  $("eps").insertAdjacentHTML("beforeend", `<h3>${group}</h3>`);
+  for (const [m, p, b] of list) {
+    const el = document.createElement("button");
+    el.className = "ep";
+    el.innerHTML = `<span class="m ${m}">${m}</span>${p}`;
+    el.onclick = () => { $("method").value = m; $("path").value = p; $("body").value = b || ""; };
+    $("eps").appendChild(el);
+  }
+}
+
+async function call(method, path, body) {
+  const headers = { "content-type": "application/json" };
+  if (token) headers.authorization = "Bearer " + token;
+  const r = await fetch(path, { method, headers, body: body || undefined });
+  const text = await r.text();
+  let json; try { json = JSON.parse(text); } catch {}
+  return { r, text, json };
+}
+
+async function login() {
+  const { r, json, text } = await call("POST", "/api/Account", JSON.stringify({ userName: $("u").value, password: $("p").value }));
+  if (r.ok && json?.jwtToken) {
+    token = json.jwtToken; localStorage.token = token;
+    $("who").textContent = `logged in as ${json.userName}`;
+  } else $("who").textContent = `login failed (${r.status}) ${text}`;
+}
+
+async function send() {
+  $("status").textContent = "...";
+  const { r, text, json } = await call($("method").value, $("path").value, $("body").value.trim());
+  $("status").textContent = `${r.status} ${r.statusText}`;
+  $("out").textContent = json ? JSON.stringify(json, null, 2) : text;
+  renderTable(json);
+}
+
+function renderTable(json) {
+  const t = $("table");
+  t.innerHTML = "";
+  const rows = Array.isArray(json) ? json : json && Object.values(json).find(Array.isArray);
+  if (!rows?.length || typeof rows[0] !== "object") return;
+  const cols = Object.keys(rows[0]);
+  const cell = (v) => (v && typeof v === "object" ? JSON.stringify(v) : v ?? "");
+  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  t.innerHTML = `<table><tr>${cols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr>` +
+    rows.map((r) => `<tr>${cols.map((c) => `<td>${esc(cell(r[c]))}</td>`).join("")}</tr>`).join("") + "</table>";
+}
+</script>
+</body>
+</html>
