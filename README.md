@@ -72,6 +72,12 @@ dotnet test --solution backend/Sava.slnx --filter-not-trait "Category=Integratio
 dotnet test --project backend/tests/OrderService.Tests                             # one service
 ```
 
+Test data is generated with [Bogus](https://github.com/bchavez/Bogus) through the builders in each test project, so every run uses different values. Each run picks a random seed and failing tests print it in their output (`Test data seed: 123. Set SAVA_TEST_SEED=123 to replay this run.`). To reproduce a failure with the same data, set the variable and rerun:
+
+```bash
+SAVA_TEST_SEED=123 dotnet test --solution backend/Sava.slnx
+```
+
 To produce a coverage report, collect Cobertura files with coverlet and then render them with ReportGenerator. Both tools are pinned in `dotnet-tools.json`, so run `dotnet tool restore` first. `backend/tests/testconfig.json` excludes `Program.cs`, migrations, and generated gRPC code from coverage.
 
 ```bash

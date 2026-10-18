@@ -14,6 +14,7 @@
   <ItemGroup>
     <PackageReference Include="xunit.v3" Version="4.0.2" />
     <PackageReference Include="Shouldly" Version="4.3.0" />
+    <PackageReference Include="Bogus" Version="35.6.5" />
     <PackageReference Include="NSubstitute" Version="6.2.0" />
     <PackageReference Include="NSubstitute.Analyzers.CSharp" Version="1.0.17" PrivateAssets="all" />
     <PackageReference Include="coverlet.MTP" Version="10.1.0" />

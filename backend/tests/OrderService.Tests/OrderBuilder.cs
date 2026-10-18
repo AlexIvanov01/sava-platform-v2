@@ -1,42 +1,54 @@
+using Bogus.Extensions;
 using OrderService.Dtos;
 using OrderService.Models;
+using Sava.Tests.Shared;
 
 namespace OrderService.Tests;
 
+// Fake data from Bogus; lengths are clamped to the model's [MaxLength] limits.
 internal static class OrderBuilder
 {
-    public static Customer Customer(string name = "Ivan Petrov") =>
-        new()
-        {
-            ExternalId = Guid.NewGuid(),
-            Name = name,
-            CompanyName = "Petrov EOOD",
-            Email = "ivan@example.com",
-            City = "Sofia",
-            IBAN = "BG80BNBG96611020345678",
-            VATNumber = "BG123456789",
-        };
+    private static readonly string[] Statuses = ["New", "Confirmed", "Shipped"];
 
-    public static Item Item(string name = "Widget", decimal price = 12.99m) =>
-        new()
+    public static Customer Customer(string? name = null)
+    {
+        var f = TestData.Faker;
+        return new()
         {
-            ExternalBatchId = Guid.NewGuid(),
-            ExternalProductId = Guid.NewGuid(),
-            Name = name,
-            Price = price,
-            Lot = "LOT-1",
-            ExpirationDate = new DateTime(2030, 1, 15, 0, 0, 0, DateTimeKind.Unspecified),
+            ExternalId = f.Random.Guid(),
+            Name = name ?? f.Name.FullName(),
+            CompanyName = f.Company.CompanyName(),
+            Email = f.Internet.Email().ClampLength(max: 100),
+            City = f.Address.City(),
+            IBAN = f.Finance.Iban(),
+            VATNumber = f.Random.Replace("BG#########"),
         };
+    }
+
+    public static Item Item(string? name = null, decimal? price = null)
+    {
+        var f = TestData.Faker;
+        return new()
+        {
+            ExternalBatchId = f.Random.Guid(),
+            ExternalProductId = f.Random.Guid(),
+            Name = name ?? f.Commerce.ProductName(),
+            Price = price ?? f.Finance.Amount(1, 100),
+            Lot = f.Random.Replace("LOT-#####"),
+            ExpirationDate = TestData.Date(2027, 2035),
+        };
+    }
 
     // Sets both navigations explicitly: OrderItem defaults them to new (empty) entities, which EF would insert.
     public static Order Order(Customer customer, params (Item Item, int Quantity)[] lines)
     {
+        var f = TestData.Faker;
         var order = new Order
         {
-            Id = Guid.NewGuid(),
-            OrderDate = new DateTime(2025, 3, 1, 10, 0, 0, DateTimeKind.Unspecified),
-            ShippingAddress = "1 Vitosha Blvd",
-            OrderStatus = "New",
+            Id = f.Random.Guid(),
+            OrderDate = TestData.Date(2024, 2026),
+            ShippingAddress = f.Address.FullAddress(),
+            OrderStatus = f.PickRandom(Statuses),
             CustomerId = customer.ExternalId,
         };
         order.OrderItems = lines
@@ -57,10 +69,10 @@ internal static class OrderBuilder
         params (Guid ItemId, int Quantity)[] lines
     ) =>
         new(
-            new DateTime(2025, 3, 1, 10, 0, 0, DateTimeKind.Unspecified),
+            TestData.Date(2024, 2026),
             null,
-            "1 Vitosha Blvd",
-            "New",
+            TestData.Faker.Address.FullAddress(),
+            TestData.Faker.PickRandom(Statuses),
             customerId,
             [.. lines.Select(l => new OrderItemCreateDto(l.ItemId, l.Quantity))]
         );

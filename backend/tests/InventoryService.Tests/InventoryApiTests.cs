@@ -79,7 +79,7 @@ public class InventoryApiTests(InventoryApiFactory factory) : IClassFixture<Inve
             await productUpdate.Content.ReadFromJsonAsync<ProductReadDto>(Ct)
         ).ShouldNotBeNull();
         updatedProduct.Name.ShouldBe("Renamed");
-        updatedProduct.Brand.ShouldBe("Acme");
+        updatedProduct.Brand.ShouldBe(product.Brand);
 
         var fetched = await _client.GetFromJsonAsync<ProductReadDto>(
             $"/api/products/{product.Id}",
@@ -87,7 +87,7 @@ public class InventoryApiTests(InventoryApiFactory factory) : IClassFixture<Inve
         );
         fetched.ShouldNotBeNull();
         fetched.Name.ShouldBe("Renamed");
-        fetched.Brand.ShouldBe("Acme");
+        fetched.Brand.ShouldBe(product.Brand);
         fetched.Batches.ShouldHaveSingleItem().Quantity.ShouldBe(9);
 
         (await _client.DeleteAsync($"/api/batches/{batch.Id}", Ct)).StatusCode.ShouldBe(

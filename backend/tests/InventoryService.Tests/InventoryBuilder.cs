@@ -1,49 +1,73 @@
+using Bogus;
+using Bogus.Extensions;
 using InventoryService.Dtos;
 using InventoryService.Models;
+using Sava.Tests.Shared;
 
 namespace InventoryService.Tests;
 
+// Fake data from Bogus; lengths are clamped to the model's [MaxLength] limits.
 internal static class InventoryBuilder
 {
-    public static Product Product(string name = "Widget", params ProductBatch[] batches) =>
-        new()
+    public static Product Product(string? name = null, params ProductBatch[] batches)
+    {
+        var f = TestData.Faker;
+        return new()
         {
-            Id = Guid.NewGuid(),
-            Name = name,
-            Description = "A widget",
-            Brand = "Acme",
-            Supplier = "Acme Ltd",
-            Barcode = "3800000000001",
-            ReorderLevel = 5,
-            Weight = 1.5f,
+            Id = f.Random.Guid(),
+            Name = name ?? f.Commerce.ProductName(),
+            Description = f.Commerce.ProductDescription().ClampLength(max: 500),
+            Brand = f.Company.CompanyName().ClampLength(max: 50),
+            Supplier = f.Company.CompanyName().ClampLength(max: 50),
+            ImageURL = f.Image.PicsumUrl(),
+            Status = f.PickRandom("Active", "Inactive"),
+            Barcode = f.Commerce.Ean13(),
+            ReorderLevel = f.Random.Int(1, 50),
+            // One decimal place, so the value survives MySQL's single-precision FLOAT column.
+            Weight = f.Random.Int(1, 500) / 10f,
             Batches = [.. batches],
         };
+    }
 
-    public static ProductBatch Batch(string lot = "LOT-1", int quantity = 10) =>
-        new()
+    public static ProductBatch Batch(string? lot = null, int? quantity = null)
+    {
+        var f = TestData.Faker;
+        var purchasePrice = f.Finance.Amount(1, 50);
+        return new()
         {
-            Id = Guid.NewGuid(),
-            Lot = lot,
-            Quantity = quantity,
-            PurchasePrice = 5.50m,
-            SellPrice = 12.99m,
-            ExpirationDate = new DateTime(2030, 1, 15, 0, 0, 0, DateTimeKind.Unspecified),
+            Id = f.Random.Guid(),
+            Lot = lot ?? f.Random.Replace("LOT-#####"),
+            Quantity = quantity ?? f.Random.Int(1, 100),
+            PurchasePrice = purchasePrice,
+            SellPrice = purchasePrice + f.Finance.Amount(1, 50),
+            ExpirationDate = TestData.Date(2027, 2035),
         };
+    }
 
-    public static ProductCreateDto ProductCreateDto(string name = "Widget") =>
-        new(name, "A widget", "Acme", "Acme Ltd", null, "Active", "3800000000001", 5, 1.5f);
+    public static ProductCreateDto ProductCreateDto(string? name = null)
+    {
+        var p = Product(name);
+        return new(
+            p.Name!,
+            p.Description,
+            p.Brand!,
+            p.Supplier!,
+            p.ImageURL,
+            p.Status,
+            p.Barcode,
+            p.ReorderLevel,
+            p.Weight
+        );
+    }
 
     public static ProductUpdateDto ProductUpdateDto(string? name = null, string? brand = null) =>
         new(name, null, brand, null, null, null, null, null, null);
 
-    public static BatchCreateDto BatchCreateDto(string lot = "LOT-1", int quantity = 10) =>
-        new(
-            lot,
-            quantity,
-            5.50m,
-            12.99m,
-            new DateTime(2030, 1, 15, 0, 0, 0, DateTimeKind.Unspecified)
-        );
+    public static BatchCreateDto BatchCreateDto(string? lot = null, int? quantity = null)
+    {
+        var b = Batch(lot, quantity);
+        return new(b.Lot!, b.Quantity, b.PurchasePrice, b.SellPrice, b.ExpirationDate);
+    }
 
     public static BatchUpdateDto BatchUpdateDto(
         string? lot = null,

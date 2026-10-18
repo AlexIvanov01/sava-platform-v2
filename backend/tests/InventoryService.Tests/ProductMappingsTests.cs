@@ -18,14 +18,14 @@ public class ProductMappingsTests
         dto.Name.ShouldBe("Widget");
         dto.Brand.ShouldBe(product.Brand);
         dto.Barcode.ShouldBe(product.Barcode);
-        dto.ReorderLevel.ShouldBe(5);
-        dto.Weight.ShouldBe(1.5f);
+        dto.ReorderLevel.ShouldBe(product.ReorderLevel!.Value);
+        dto.Weight.ShouldBe(product.Weight!.Value);
         var batchDto = dto.Batches.ShouldHaveSingleItem();
         batchDto.Id.ShouldBe(batch.Id);
         batchDto.Lot.ShouldBe(batch.Lot);
-        batchDto.Quantity.ShouldBe(10);
-        batchDto.PurchasePrice.ShouldBe(5.50m);
-        batchDto.SellPrice.ShouldBe(12.99m);
+        batchDto.Quantity.ShouldBe(batch.Quantity!.Value);
+        batchDto.PurchasePrice.ShouldBe(batch.PurchasePrice!.Value);
+        batchDto.SellPrice.ShouldBe(batch.SellPrice!.Value);
         batchDto.ExpirationDate.ShouldBe(batch.ExpirationDate!.Value);
     }
 
@@ -44,13 +44,15 @@ public class ProductMappingsTests
     [Fact]
     public void ToEntity_FromProductCreateDto_CopiesFields()
     {
-        var product = InventoryBuilder.ProductCreateDto().ToEntity();
+        var dto = InventoryBuilder.ProductCreateDto();
+
+        var product = dto.ToEntity();
 
         product.Id.ShouldBe(Guid.Empty);
-        product.Name.ShouldBe("Widget");
-        product.Supplier.ShouldBe("Acme Ltd");
-        product.Status.ShouldBe("Active");
-        product.Weight.ShouldBe(1.5f);
+        product.Name.ShouldBe(dto.Name);
+        product.Supplier.ShouldBe(dto.Supplier);
+        product.Status.ShouldBe(dto.Status);
+        product.Weight.ShouldBe(dto.Weight);
         product.Batches.ShouldBeEmpty();
     }
 
@@ -70,13 +72,14 @@ public class ProductMappingsTests
     [Fact]
     public void ToEntity_FromBatchDtos_CopiesFields()
     {
-        var created = InventoryBuilder.BatchCreateDto("LOT-9", 3).ToEntity();
+        var createDto = InventoryBuilder.BatchCreateDto("LOT-9", 3);
+        var created = createDto.ToEntity();
         var id = Guid.NewGuid();
         var updated = InventoryBuilder.BatchUpdateDto(quantity: 7).ToEntity(id);
 
         created.Lot.ShouldBe("LOT-9");
         created.Quantity.ShouldBe(3);
-        created.SellPrice.ShouldBe(12.99m);
+        created.SellPrice.ShouldBe(createDto.SellPrice);
         updated.Id.ShouldBe(id);
         updated.Quantity.ShouldBe(7);
         updated.Lot.ShouldBeNull();
@@ -86,7 +89,10 @@ public class ProductMappingsTests
     public void ToGrpcModel_FormatsWithInvariantCultureRegardlessOfCurrentCulture()
     {
         var product = InventoryBuilder.Product("Widget");
-        var batch = InventoryBuilder.Batch();
+        // Explicit values: this test checks the exact string format.
+        var batch = InventoryBuilder.Batch("LOT-1");
+        batch.SellPrice = 12.99m;
+        batch.ExpirationDate = new DateTime(2030, 1, 15, 0, 0, 0, DateTimeKind.Unspecified);
         batch.ProductId = product.Id;
         batch.Product = product;
         var original = CultureInfo.CurrentCulture;

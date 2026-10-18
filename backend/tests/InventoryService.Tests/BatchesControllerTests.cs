@@ -40,10 +40,9 @@ public class BatchesControllerTests
                 return product;
             });
 
-        var result = await _controller.CreateBatch(
-            InventoryBuilder.BatchCreateDto("LOT-7"),
-            product.Id
-        );
+        var dto = InventoryBuilder.BatchCreateDto("LOT-7");
+
+        var result = await _controller.CreateBatch(dto, product.Id);
 
         result
             .Result.ShouldBeOfType<CreatedAtRouteResult>()
@@ -57,7 +56,7 @@ public class BatchesControllerTests
                     && p.ExternalProductId == product.Id
                     && p.Name == "Widget"
                     && p.Lot == "LOT-7"
-                    && p.Price == 12.99m
+                    && p.Price == dto.SellPrice
                 )
             );
     }
@@ -121,7 +120,7 @@ public class BatchesControllerTests
             .Result.ShouldBeOfType<OkObjectResult>()
             .Value.ShouldBeOfType<BatchReadDto>();
         body.Lot.ShouldBe(saved.Lot);
-        body.Quantity.ShouldBe(10);
+        body.Quantity.ShouldBe(saved.Quantity!.Value);
         await _bus.Received(1)
             .PublishNewItemAsync(
                 Arg.Is<ItemPublishedDto>(p =>

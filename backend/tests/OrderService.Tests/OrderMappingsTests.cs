@@ -24,7 +24,7 @@ public class OrderMappingsTests
         var dto = order.ToFullReadDto();
 
         dto.Id.ShouldBe(order.Id);
-        dto.OrderStatus.ShouldBe("New");
+        dto.OrderStatus.ShouldBe(order.OrderStatus);
         dto.Customer.ShouldNotBeNull().ExternalId.ShouldBe(customer.ExternalId);
         dto.Invoice.ShouldNotBeNull().Id.ShouldBe(7);
         var line = dto.Items.ShouldHaveSingleItem();
@@ -85,10 +85,12 @@ public class OrderMappingsTests
         var customerId = Guid.NewGuid();
         var itemId = Guid.NewGuid();
 
-        var order = OrderBuilder.CreateDto(customerId, (itemId, 3)).ToEntity();
+        var dto = OrderBuilder.CreateDto(customerId, (itemId, 3));
+
+        var order = dto.ToEntity();
 
         order.CustomerId.ShouldBe(customerId);
-        order.ShippingAddress.ShouldBe("1 Vitosha Blvd");
+        order.ShippingAddress.ShouldBe(dto.ShippingAddress);
         var line = order.OrderItems.ShouldHaveSingleItem();
         line.ItemId.ShouldBe(itemId);
         line.OrderItemQuantity.ShouldBe(3);
