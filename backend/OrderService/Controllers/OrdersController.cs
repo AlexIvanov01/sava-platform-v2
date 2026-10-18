@@ -164,21 +164,19 @@ public class OrdersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<OrderReadDto>> UpdateOrder(Guid id, OrderUpdateDto orderUpdateDto)
     {
-        Order orderModel;
-        Order preUpdateOrderModel;
+        Order updatedOrder;
+        List<OrderItem> previousItems;
         try
         {
             Log.Information("--> Updating a product with id {Id}....................", id);
 
-            orderModel = orderUpdateDto.ToEntity(id);
+            var result = await _repository.UpdateOrderAsync(orderUpdateDto.ToEntity(id));
 
-            var nullCHeck = await _repository.UpdateOrderAsync(orderModel);
-
-            if (nullCHeck == null)
+            if (result == null)
             {
                 return NotFound();
             }
-            preUpdateOrderModel = nullCHeck;
+            (updatedOrder, previousItems) = result.Value;
 
             Log.Information("--> Order with id {Id} updated", id);
         }
@@ -195,7 +193,7 @@ public class OrdersController : ControllerBase
             {
                 OrderPublishedEvent orderDeletedEvent = new()
                 {
-                    OrderItems = preUpdateOrderModel.OrderItems.ToPublishedDtos(),
+                    OrderItems = previousItems.ToPublishedDtos(),
                     Event = "Order_Deleted"
                 };
 
@@ -215,7 +213,7 @@ public class OrdersController : ControllerBase
             Log.Error(ex, "Error with publishing order message: {Message}", ex.Message);
         }
 
-        return Ok(orderModel.ToReadDto());
+        return Ok(updatedOrder.ToReadDto());
     }
 
     [HttpDelete("{id}")]

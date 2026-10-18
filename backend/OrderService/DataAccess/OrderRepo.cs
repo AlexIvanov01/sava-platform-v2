@@ -167,11 +167,11 @@ public class OrderRepo : IOrderRepo
         return order;
     }
 
-    public async Task<Order?> UpdateOrderAsync(Order order)
+    public async Task<(Order Order, List<OrderItem> PreviousItems)?> UpdateOrderAsync(Order order)
     {
         var dbOrder = await _context.Orders
-            .AsNoTracking()
             .Include(o => o.OrderItems)
+            .Include(o => o.Invoice)
             .SingleOrDefaultAsync(p => p.Id == order.Id);
 
         if (dbOrder == null)
@@ -180,39 +180,72 @@ public class OrderRepo : IOrderRepo
             return null;
         }
 
-        if(order.CustomerId != null)
+        if (order.CustomerId != null)
         {
-            var dbCustomer = await _context.Customers
-            .AsNoTracking()
-            .AnyAsync(c => c.ExternalId == order.CustomerId);
+            var customerExists = await _context.Customers
+                .AnyAsync(c => c.ExternalId == order.CustomerId);
 
-            if (dbCustomer)
+            if (!customerExists)
             {
                 Log.Error("Could not update order: Customer with id {Id} was not found", order.CustomerId);
                 return null;
             }
         }
-        var oldDbOrder = dbOrder;
-        dbOrder = order;
-        _context.Entry(dbOrder).State = EntityState.Modified;
 
-        foreach (var property in _context.Entry(dbOrder).Properties)
+        var previousItems = dbOrder.OrderItems
+            .Select(oi => new OrderItem { OrderId = oi.OrderId, ItemId = oi.ItemId, OrderItemQuantity = oi.OrderItemQuantity })
+            .ToList();
+
+        // Null fields in the update are left unchanged.
+        dbOrder.OrderDate = order.OrderDate ?? dbOrder.OrderDate;
+        dbOrder.ShippedDate = order.ShippedDate ?? dbOrder.ShippedDate;
+        dbOrder.ShippingAddress = order.ShippingAddress ?? dbOrder.ShippingAddress;
+        dbOrder.OrderStatus = order.OrderStatus ?? dbOrder.OrderStatus;
+        dbOrder.CustomerId = order.CustomerId ?? dbOrder.CustomerId;
+
+        // A non-empty item list replaces the order's items; an empty one leaves them unchanged.
+        if (order.OrderItems.Count != 0)
         {
-            if (property.CurrentValue == null)
+            var itemIdList = order.OrderItems.Select(oi => oi.ItemId).ToList();
+
+            var validItems = await _context.Items
+                .Where(i => itemIdList.Contains(i.ExternalBatchId))
+                .ToListAsync();
+
+            if (itemIdList.Count != validItems.Count)
             {
-                property.IsModified = false;
+                Log.Error("Could not update order: Order contains invalid items.");
+                return null;
+            }
+
+            var newQuantities = order.OrderItems.ToDictionary(oi => oi.ItemId, oi => oi.OrderItemQuantity);
+
+            // Merge instead of clear-and-add: re-adding an item with the same (OrderId, ItemId) key would conflict with the tracked one.
+            dbOrder.OrderItems.RemoveAll(oi => !newQuantities.ContainsKey(oi.ItemId));
+
+            foreach (var (itemId, quantity) in newQuantities)
+            {
+                var existing = dbOrder.OrderItems.SingleOrDefault(oi => oi.ItemId == itemId);
+                if (existing != null)
+                {
+                    existing.OrderItemQuantity = quantity;
+                }
+                else
+                {
+                    dbOrder.OrderItems.Add(new OrderItem
+                    {
+                        Order = dbOrder,
+                        OrderId = dbOrder.Id,
+                        Item = validItems.Single(i => i.ExternalBatchId == itemId),
+                        ItemId = itemId,
+                        OrderItemQuantity = quantity
+                    });
+                }
             }
         }
 
-        if (dbOrder.OrderItems.Count == 0)
-        {
-            _context.Entry(dbOrder).Property(p => p.OrderItems).IsModified = false;
-        }
-
-        _context.Entry(dbOrder).Property(p => p.Id).IsModified = false;
-
         await _context.SaveChangesAsync();
 
-        return oldDbOrder;
+        return (dbOrder, previousItems);
     }
 }
