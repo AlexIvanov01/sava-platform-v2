@@ -8,7 +8,7 @@ namespace AuthenticationService.Tests;
 
 public class JwtTokenHandlerTests
 {
-    private readonly JwtTokenHandler _handler = new();
+    private readonly JwtTokenHandler _handler = new(TestJwt.Configuration());
 
     [Theory]
     [InlineData("admin", "admin123", "Administrator")]
@@ -38,7 +38,7 @@ public class JwtTokenHandlerTests
     }
 
     [Fact]
-    public async Task GenerateJwtToken_ValidCredentials_TokenIsSignedWithSharedKey()
+    public async Task GenerateJwtToken_ValidCredentials_TokenIsSignedWithConfiguredKey()
     {
         var response = _handler.GenerateJwtToken(
             new AuthenticationRequest { UserName = "admin", Password = "admin123" }
@@ -48,9 +48,7 @@ public class JwtTokenHandlerTests
             response!.JwtToken,
             new TokenValidationParameters
             {
-                IssuerSigningKey = new SymmetricSecurityKey(
-                    Encoding.ASCII.GetBytes(JwtTokenHandler.JWT_SECURITY_KEY)
-                ),
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestJwt.Key)),
                 ValidateIssuer = false,
                 ValidateAudience = false,
             }
@@ -75,5 +73,18 @@ public class JwtTokenHandlerTests
         );
 
         response.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("too-short-key")]
+    public void Constructor_MissingOrShortSigningKey_Throws(string? key)
+    {
+        var exception = Should.Throw<InvalidOperationException>(() =>
+            new JwtTokenHandler(TestJwt.Configuration(key))
+        );
+
+        exception.Message.ShouldContain(JwtTokenHandler.SigningKeySetting);
     }
 }

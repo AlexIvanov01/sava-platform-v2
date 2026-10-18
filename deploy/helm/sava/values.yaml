@@ -1,0 +1,95 @@
+# Defaults shared by every environment. Install with one of the environment files:
+#   values-dev.yaml   full stack on Docker Desktop Kubernetes (localhost)
+#   values-prod.yaml  hosted cluster with external MySQL and an Ingress
+
+# ASP.NET Core environment for all services. Development seeds sample data on an empty
+# database and enables Swagger UI and detailed error pages.
+environment: Production
+
+image:
+  # Images are <repository>/<service>:<tag>, e.g. alexivanov01/orderservice:3f2c1ab.
+  repository: alexivanov01
+  # Required. Use an immutable tag (git SHA or version) outside development.
+  tag: ""
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# One Secret holds every credential. Keys:
+#   jwt-key, rabbitmq-user, rabbitmq-password, customer-db, inventory-db, order-db,
+#   and mysql-root-password when mysql.enabled is true.
+secrets:
+  # true: the chart creates the Secret from `values` (development only).
+  # false: the Secret must already exist (kubectl create secret / External Secrets).
+  create: false
+  name: sava-secrets
+  values:
+    jwtKey: ""
+    rabbitmqUser: ""
+    rabbitmqPassword: ""
+    mysqlRootPassword: ""
+    # Connection strings. Leave empty to use the in-cluster MySQL (mysql.enabled).
+    customerDb: ""
+    inventoryDb: ""
+    orderDb: ""
+
+# In-cluster MySQL (one instance with all three databases). Disable to use an external server.
+mysql:
+  enabled: false
+  image: mysql:9.7
+  storage: 1Gi
+  storageClassName: ""
+  # Optional LoadBalancer for connecting from the host (e.g. a SQL client on localhost:<port>).
+  expose:
+    enabled: false
+    port: 3307
+  resources:
+    requests: { cpu: 100m, memory: 512Mi }
+    limits: { memory: 1Gi }
+
+# In-cluster RabbitMQ. Credentials come from the Secret (rabbitmq-user / rabbitmq-password).
+rabbitmq:
+  image: rabbitmq:4.3-management
+  # Optional LoadBalancer for the management UI.
+  expose:
+    enabled: false
+    port: 15672
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 512Mi }
+
+gateway:
+  service:
+    # LoadBalancer on localhost for Docker Desktop; ClusterIP behind the Ingress in prod.
+    type: ClusterIP
+    port: 80
+
+ingress:
+  enabled: false
+  className: nginx
+  host: ""
+  annotations: {}
+  tls:
+    enabled: true
+    secretName: sava-tls
+    # Adds the cert-manager.io/cluster-issuer annotation when set.
+    clusterIssuer: ""
+
+# Image used by init containers that wait for dependencies.
+waitImage: busybox:1.37
+
+resources:
+  authentication:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 256Mi }
+  customer:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { memory: 384Mi }
+  inventory:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { memory: 384Mi }
+  order:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { memory: 384Mi }
+  gateway:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 256Mi }

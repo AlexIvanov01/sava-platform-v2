@@ -1,5 +1,7 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 
@@ -7,10 +9,21 @@ namespace OcelotApiGateway.JwtAuthenticationManager
 {
     public static class JwtAuthExtension
     {
-        public const string JWT_SECURITY_KEY = "B63E4B3D-5164-4B07-A889-7628E24BD493";
+        public const string SigningKeySetting = "Jwt:Key";
+        public const int MinimumSigningKeyLength = 32;
 
-        public static void AddJwtAuthentication(this IServiceCollection services)
+        // Must match the key AuthenticationService signs tokens with.
+        public static void AddJwtAuthentication(
+            this IServiceCollection services,
+            IConfiguration configuration
+        )
         {
+            var key = configuration[SigningKeySetting];
+            if (string.IsNullOrWhiteSpace(key) || key.Length < MinimumSigningKeyLength)
+                throw new InvalidOperationException(
+                    $"'{SigningKeySetting}' must be configured with at least {MinimumSigningKeyLength} characters."
+                );
+
             services
                 .AddAuthentication(o =>
                 {
@@ -26,9 +39,7 @@ namespace OcelotApiGateway.JwtAuthenticationManager
                         ValidateIssuerSigningKey = true,
                         ValidateIssuer = false,
                         ValidateAudience = false,
-                        IssuerSigningKey = new SymmetricSecurityKey(
-                            Encoding.ASCII.GetBytes(JWT_SECURITY_KEY)
-                        ),
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
                     };
                 });
         }

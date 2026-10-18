@@ -6,6 +6,7 @@ using InventoryService.DataAccess;
 using InventoryService.EventProcessing;
 using InventoryService.SyncDataServices.Grpc;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -27,6 +28,7 @@ if (!isOpenApiGeneration)
 }
 
 builder.Services.AddOpenApi();
+builder.Services.AddHealthChecks().AddDbContextCheck<ProductContext>(tags: ["ready"]);
 builder.Services.AddDbContext<ProductContext>(options =>
 {
     options.UseMySQL(
@@ -54,6 +56,13 @@ if (app.Environment.IsDevelopment())
 app.UseSerilogRequestLogging();
 
 app.MapControllers();
+
+// Liveness runs no checks; readiness also checks the database connection.
+app.MapHealthChecks("/healthz", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks(
+    "/readyz",
+    new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") }
+);
 app.MapGrpcService<GrpcInventoryService>();
 
 app.MapGet(

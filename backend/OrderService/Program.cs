@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +21,7 @@ var isOpenApiGeneration = Assembly.GetEntryAssembly()?.GetName().Name == "GetDoc
 builder.Services.AddControllers();
 
 builder.Services.AddOpenApi();
+builder.Services.AddHealthChecks().AddDbContextCheck<OrderContext>(tags: ["ready"]);
 builder.Services.AddDbContext<OrderContext>(options =>
 {
     options.UseMySQL(
@@ -57,6 +59,13 @@ if (app.Environment.IsDevelopment())
 app.UseSerilogRequestLogging();
 
 app.MapControllers();
+
+// Liveness runs no checks; readiness also checks the database connection.
+app.MapHealthChecks("/healthz", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks(
+    "/readyz",
+    new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") }
+);
 
 if (!isOpenApiGeneration)
 {

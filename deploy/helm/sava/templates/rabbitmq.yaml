@@ -1,0 +1,70 @@
+# Messages are not persisted; Order's periodic gRPC sync recovers anything lost on a restart.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq-depl
+  labels:
+    {{- include "sava.labels" . | nindent 4 }}
+    app.kubernetes.io/name: rabbitmq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "sava.selectorLabels" (dict "root" . "name" "rabbitmq") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "sava.labels" . | nindent 8 }}
+        app.kubernetes.io/name: rabbitmq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: {{ .Values.rabbitmq.image }}
+          ports:
+            - name: amqp
+              containerPort: 5672
+            - name: management
+              containerPort: 15672
+          env:
+            {{- include "sava.secretEnv" (dict "root" . "name" "RABBITMQ_DEFAULT_USER" "key" "rabbitmq-user") | nindent 12 }}
+            {{- include "sava.secretEnv" (dict "root" . "name" "RABBITMQ_DEFAULT_PASS" "key" "rabbitmq-password") | nindent 12 }}
+          readinessProbe:
+            tcpSocket:
+              port: amqp
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.rabbitmq.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-clusterip-srv
+  labels:
+    {{- include "sava.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "sava.selectorLabels" (dict "root" . "name" "rabbitmq") | nindent 4 }}
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: amqp
+    - name: management
+      port: 15672
+      targetPort: management
+{{- if .Values.rabbitmq.expose.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-management-loadbalancer
+  labels:
+    {{- include "sava.labels" . | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    {{- include "sava.selectorLabels" (dict "root" . "name" "rabbitmq") | nindent 4 }}
+  ports:
+    - name: management
+      port: {{ .Values.rabbitmq.expose.port }}
+      targetPort: management
+{{- end }}

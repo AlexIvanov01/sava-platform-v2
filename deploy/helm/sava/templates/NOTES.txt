@@ -1,0 +1,21 @@
+Sava is installed in namespace {{ .Release.Namespace }} ({{ .Values.environment }}).
+
+Watch the pods start (migrations{{ if eq .Values.environment "Development" }} and sample data seeding{{ end }} run on startup):
+  kubectl get pods -n {{ .Release.Namespace }} -w
+
+{{- if .Values.ingress.enabled }}
+
+API: http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}/api/...
+{{- else if eq .Values.gateway.service.type "LoadBalancer" }}
+
+API: http://localhost:{{ .Values.gateway.service.port }}/api/...
+{{- else }}
+
+API: kubectl port-forward -n {{ .Release.Namespace }} svc/apigateway-srv 8080:{{ .Values.gateway.service.port }}
+{{- end }}
+{{- if and .Values.mysql.enabled .Values.mysql.expose.enabled }}
+MySQL: localhost:{{ .Values.mysql.expose.port }} (user root)
+{{- end }}
+{{- if .Values.rabbitmq.expose.enabled }}
+RabbitMQ management: http://localhost:{{ .Values.rabbitmq.expose.port }}
+{{- end }}

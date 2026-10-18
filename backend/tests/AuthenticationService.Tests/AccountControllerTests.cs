@@ -7,7 +7,9 @@ namespace AuthenticationService.Tests;
 
 public class AccountControllerTests
 {
-    private readonly AccountController _controller = new(new JwtTokenHandler());
+    private readonly AccountController _controller = new(
+        new JwtTokenHandler(TestJwt.Configuration())
+    );
 
     [Fact]
     public void Authenticate_ValidCredentials_ReturnsResponse()

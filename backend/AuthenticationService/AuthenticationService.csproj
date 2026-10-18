@@ -20,4 +20,9 @@
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.3.0" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Local-only settings (development JWT signing key); keep them out of published images. -->
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
 </Project>

@@ -4,18 +4,24 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using JwtAuthenticationManager.Models;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
 namespace JwtAuthenticationManager
 {
     public class JwtTokenHandler
     {
-        public const string JWT_SECURITY_KEY = "B63E4B3D-5164-4B07-A889-7628E24BD493";
+        public const string SigningKeySetting = "Jwt:Key";
+        public const int MinimumSigningKeyLength = 32;
         public const int JWT_TOKEN_VALIDITY_MINS = 60;
+
+        private readonly byte[] _signingKey;
         private readonly List<UserAccount> _userAccounts;
 
-        public JwtTokenHandler()
+        public JwtTokenHandler(IConfiguration configuration)
         {
+            _signingKey = ReadSigningKey(configuration);
+
             // Demo accounts until a real user store exists. Sonar S2068 is acknowledged here.
 #pragma warning disable S2068
             _userAccounts =
@@ -36,6 +42,17 @@ namespace JwtAuthenticationManager
 #pragma warning restore S2068
         }
 
+        // HS256 needs a key of at least 256 bits; the API gateway validates tokens with the same key.
+        public static byte[] ReadSigningKey(IConfiguration configuration)
+        {
+            var key = configuration[SigningKeySetting];
+            if (string.IsNullOrWhiteSpace(key) || key.Length < MinimumSigningKeyLength)
+                throw new InvalidOperationException(
+                    $"'{SigningKeySetting}' must be configured with at least {MinimumSigningKeyLength} characters."
+                );
+            return Encoding.UTF8.GetBytes(key);
+        }
+
         public AuthenticationResponse? GenerateJwtToken(AuthenticationRequest authenticationRequest)
         {
             if (
@@ -54,7 +71,6 @@ namespace JwtAuthenticationManager
                 return null;
 
             var tokenExpiryTimeStamp = DateTime.Now.AddMinutes(JWT_TOKEN_VALIDITY_MINS);
-            var tokenKey = Encoding.ASCII.GetBytes(JWT_SECURITY_KEY);
             var claimsIdentity = new ClaimsIdentity(
                 new List<Claim>
                 {
@@ -64,7 +80,7 @@ namespace JwtAuthenticationManager
             );
 
             var signingCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(tokenKey),
+                new SymmetricSecurityKey(_signingKey),
                 SecurityAlgorithms.HmacSha256Signature
             );
 

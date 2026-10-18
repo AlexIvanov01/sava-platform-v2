@@ -1,0 +1,2 @@
+{{- $env := include "sava.secretEnv" (dict "root" . "name" "Jwt__Key" "key" "jwt-key") }}
+{{- include "sava.app" (dict "root" . "name" "ocelotapigateway" "image" "ocelotapigateway" "service" "apigateway-srv" "resourcesKey" "gateway" "env" $env "serviceType" .Values.gateway.service.type "servicePort" .Values.gateway.service.port) }}

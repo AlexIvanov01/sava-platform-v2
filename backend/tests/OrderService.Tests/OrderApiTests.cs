@@ -231,4 +231,17 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
                 )
             );
     }
+
+    [Theory]
+    [InlineData("/healthz")]
+    [InlineData("/readyz")]
+    public async Task HealthEndpoints_Return200WhenDatabaseIsReachable(string path)
+    {
+        var response = await _client.GetAsync(path, TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).ShouldBe(
+            "Healthy"
+        );
+    }
 }

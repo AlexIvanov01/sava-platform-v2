@@ -1,0 +1,2 @@
+{{- $env := printf "%s\n%s" (include "sava.secretEnv" (dict "root" . "name" "ConnectionStrings__Default" "key" "customer-db")) (include "sava.rabbitmqEnv" .) }}
+{{- include "sava.app" (dict "root" . "name" "customerservice" "image" "customerservice" "service" "customer-clusterip-srv" "resourcesKey" "customer" "grpc" true "env" $env "initContainers" (include "sava.waitForMysql" .)) }}

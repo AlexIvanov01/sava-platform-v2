@@ -1,0 +1,100 @@
+{{- if .Values.mysql.enabled }}
+# Runs only on the first start with an empty data volume.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-init
+  labels:
+    {{- include "sava.labels" . | nindent 4 }}
+data:
+  databases.sql: |
+    CREATE DATABASE IF NOT EXISTS savadb_cust;
+    CREATE DATABASE IF NOT EXISTS savadb_inv;
+    CREATE DATABASE IF NOT EXISTS savadb_order;
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  labels:
+    {{- include "sava.labels" . | nindent 4 }}
+    app.kubernetes.io/name: mysql
+spec:
+  serviceName: mysql
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "sava.selectorLabels" (dict "root" . "name" "mysql") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "sava.labels" . | nindent 8 }}
+        app.kubernetes.io/name: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: {{ .Values.mysql.image }}
+          ports:
+            - name: mysql
+              containerPort: 3306
+          env:
+            {{- include "sava.secretEnv" (dict "root" . "name" "MYSQL_ROOT_PASSWORD" "key" "mysql-root-password") | nindent 12 }}
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.mysql.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: init
+          configMap:
+            name: mysql-init
+  # Helm keeps this PVC on uninstall; delete it to start with an empty database.
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.mysql.storageClassName }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.mysql.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  labels:
+    {{- include "sava.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "sava.selectorLabels" (dict "root" . "name" "mysql") | nindent 4 }}
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: mysql
+{{- if .Values.mysql.expose.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-loadbalancer
+  labels:
+    {{- include "sava.labels" . | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    {{- include "sava.selectorLabels" (dict "root" . "name" "mysql") | nindent 4 }}
+  ports:
+    - name: mysql
+      port: {{ .Values.mysql.expose.port }}
+      targetPort: mysql
+{{- end }}
+{{- end }}

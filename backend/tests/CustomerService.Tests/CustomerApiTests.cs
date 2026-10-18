@@ -107,4 +107,17 @@ public class CustomerApiTests(CustomerApiFactory factory) : IClassFixture<Custom
 
         proto.ShouldContain("service GrpcCustomer");
     }
+
+    [Theory]
+    [InlineData("/healthz")]
+    [InlineData("/readyz")]
+    public async Task HealthEndpoints_Return200WhenDatabaseIsReachable(string path)
+    {
+        var response = await _client.GetAsync(path, TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).ShouldBe(
+            "Healthy"
+        );
+    }
 }

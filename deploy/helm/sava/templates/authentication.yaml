@@ -1,0 +1,2 @@
+{{- $env := include "sava.secretEnv" (dict "root" . "name" "Jwt__Key" "key" "jwt-key") }}
+{{- include "sava.app" (dict "root" . "name" "authenticationservice" "image" "authenticationservice" "service" "authentication-clusterip-srv" "resourcesKey" "authentication" "env" $env) }}

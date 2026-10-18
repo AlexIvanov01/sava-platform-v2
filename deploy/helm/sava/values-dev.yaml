@@ -1,0 +1,51 @@
+# Full stack on Docker Desktop Kubernetes. Build the :dev images first (see README).
+environment: Development
+
+image:
+  tag: dev
+  # Docker Desktop's kind cluster pulls locally built images through its registry mirror.
+  # Always re-pulls, so a rebuild plus `kubectl rollout restart` picks up new code.
+  pullPolicy: Always
+
+secrets:
+  create: true
+  values:
+    # Development-only values. Never reuse them in prod.
+    jwtKey: sava-local-development-signing-key-do-not-use-in-production
+    rabbitmqUser: guest
+    rabbitmqPassword: guest
+    mysqlRootPassword: sava-dev-password
+
+mysql:
+  enabled: true
+  # localhost:3307 (3306 is left free for the `dotnet run` MySQL container).
+  expose:
+    enabled: true
+    port: 3307
+  resources:
+    requests: { cpu: 50m, memory: 384Mi }
+    limits: { memory: 768Mi }
+
+rabbitmq:
+  # Management UI on http://localhost:15673 (15672 is left free for the `dotnet run` container).
+  expose:
+    enabled: true
+    port: 15673
+
+gateway:
+  service:
+    # API on http://localhost:80.
+    type: LoadBalancer
+    port: 80
+
+resources:
+  authentication:
+    requests: { cpu: 10m, memory: 64Mi }
+  customer:
+    requests: { cpu: 10m, memory: 128Mi }
+  inventory:
+    requests: { cpu: 10m, memory: 128Mi }
+  order:
+    requests: { cpu: 10m, memory: 128Mi }
+  gateway:
+    requests: { cpu: 10m, memory: 64Mi }

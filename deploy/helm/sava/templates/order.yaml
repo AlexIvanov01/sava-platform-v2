@@ -1,0 +1,12 @@
+{{- $grpc := `- name: GrpcInventoryService
+  value: http://inventory-clusterip-srv:666
+- name: GrpcCustomerService
+  value: http://customer-clusterip-srv:666` }}
+{{- $env := printf "%s\n%s\n%s" (include "sava.secretEnv" (dict "root" . "name" "ConnectionStrings__Default" "key" "order-db")) (include "sava.rabbitmqEnv" .) $grpc }}
+{{- /* Order syncs customers and items over gRPC at startup (and seeds orders from them in
+Development), so it waits until both services are ready. */}}
+{{- $waitForServices := printf `- name: wait-for-customer-and-inventory
+  image: %s
+  command: ["sh", "-c", "until wget -q -O /dev/null http://customer-clusterip-srv/readyz && wget -q -O /dev/null http://inventory-clusterip-srv/readyz; do echo waiting for customer and inventory; sleep 3; done"]` .Values.waitImage }}
+{{- $init := printf "%s\n%s" (include "sava.waitForMysql" .) $waitForServices | trim }}
+{{- include "sava.app" (dict "root" . "name" "orderservice" "image" "orderservice" "service" "order-clusterip-srv" "resourcesKey" "order" "grpc" true "env" $env "initContainers" $init) }}

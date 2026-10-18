@@ -1,0 +1,29 @@
+# Hosted cluster. Before installing:
+#   1. Push images tagged with the release (git SHA) and pass --set image.tag=<sha>.
+#   2. Create the `sava-secrets` Secret (see README) with the external MySQL connection strings.
+#   3. Install an ingress controller and cert-manager with a ClusterIssuer.
+environment: Production
+
+image:
+  tag: "" # set with --set image.tag=<git sha>
+  pullPolicy: IfNotPresent
+
+secrets:
+  create: false
+  name: sava-secrets
+
+mysql:
+  enabled: false
+
+gateway:
+  service:
+    type: ClusterIP
+
+ingress:
+  enabled: true
+  className: nginx
+  host: sava.example.com # replace with your domain
+  tls:
+    enabled: true
+    secretName: sava-tls
+    clusterIssuer: letsencrypt-prod

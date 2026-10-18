@@ -11,4 +11,9 @@
     <PackageReference Include="Ocelot" Version="25.0.2" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Local-only settings (development JWT signing key); keep them out of published images. -->
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
 </Project>
