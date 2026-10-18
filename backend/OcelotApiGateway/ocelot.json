@@ -26,7 +26,7 @@
             ],
             "DownstreamPathTemplate": "/api/Products",
             "AuthenticationOptions": {
-                "AuthenticationProviderKey": "Bearer",
+                "AuthenticationProviderKeys": [ "Bearer" ],
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
@@ -48,7 +48,7 @@
             ],
             "DownstreamPathTemplate": "/api/Products/{id}",
             "AuthenticationOptions": {
-                "AuthenticationProviderKey": "Bearer",
+                "AuthenticationProviderKeys": [ "Bearer" ],
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
@@ -67,7 +67,7 @@
             ],
             "DownstreamPathTemplate": "/api/Batches/{Productid}",
             "AuthenticationOptions": {
-                "AuthenticationProviderKey": "Bearer",
+                "AuthenticationProviderKeys": [ "Bearer" ],
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
@@ -89,7 +89,7 @@
             ],
             "DownstreamPathTemplate": "/api/Batches/{id}",
             "AuthenticationOptions": {
-                "AuthenticationProviderKey": "Bearer",
+                "AuthenticationProviderKeys": [ "Bearer" ],
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
@@ -109,7 +109,7 @@
             ],
             "DownstreamPathTemplate": "/api/Customers",
             "AuthenticationOptions": {
-                "AuthenticationProviderKey": "Bearer",
+                "AuthenticationProviderKeys": [ "Bearer" ],
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
@@ -131,7 +131,7 @@
             ],
             "DownstreamPathTemplate": "/api/Customers/{id}",
             "AuthenticationOptions": {
-                "AuthenticationProviderKey": "Bearer",
+                "AuthenticationProviderKeys": [ "Bearer" ],
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
@@ -151,7 +151,7 @@
             ],
             "DownstreamPathTemplate": "/api/Orders",
             "AuthenticationOptions": {
-                "AuthenticationProviderKey": "Bearer",
+                "AuthenticationProviderKeys": [ "Bearer" ],
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
@@ -173,7 +173,7 @@
             ],
             "DownstreamPathTemplate": "/api/Orders/{id}",
             "AuthenticationOptions": {
-                "AuthenticationProviderKey": "Bearer",
+                "AuthenticationProviderKeys": [ "Bearer" ],
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
@@ -192,7 +192,7 @@
             ],
             "DownstreamPathTemplate": "/api/Invoices",
             "AuthenticationOptions": {
-                "AuthenticationProviderKey": "Bearer",
+                "AuthenticationProviderKeys": [ "Bearer" ],
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
@@ -214,7 +214,7 @@
             ],
             "DownstreamPathTemplate": "/api/Invoices/{id}",
             "AuthenticationOptions": {
-                "AuthenticationProviderKey": "Bearer",
+                "AuthenticationProviderKeys": [ "Bearer" ],
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
@@ -233,7 +233,7 @@
             ],
             "DownstreamPathTemplate": "/api/Invoices/{orderId}",
             "AuthenticationOptions": {
-                "AuthenticationProviderKey": "Bearer",
+                "AuthenticationProviderKeys": [ "Bearer" ],
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {

@@ -1,6 +1,6 @@
 # Copilot instructions
 
-Microservices platform for a distribution company: ASP.NET Core 8 services in `backend/`, each with its own MySQL database, behind an Ocelot API gateway, deployed to Kubernetes.
+Microservices platform for a distribution company: ASP.NET Core 10 services in `backend/`, each with its own MySQL database, behind an Ocelot API gateway, deployed to Kubernetes.
 
 ## Build and run
 
