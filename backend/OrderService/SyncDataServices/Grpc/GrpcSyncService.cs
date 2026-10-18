@@ -36,19 +36,19 @@ public class GrpcSyncService : BackgroundService
             try
             {
                 using var serviceScope = _serviceProvider.CreateScope();
-                var grpcInventoryClient = serviceScope.ServiceProvider.GetService<IInventoryDataClient>();
-                var grpcCustomerClient = serviceScope.ServiceProvider.GetService<ICustomerDataClient>();
+                var grpcInventoryClient = serviceScope.ServiceProvider.GetRequiredService<IInventoryDataClient>();
+                var grpcCustomerClient = serviceScope.ServiceProvider.GetRequiredService<ICustomerDataClient>();
 
                 var items = grpcInventoryClient.ReturnAllItems();
                 var customers = grpcCustomerClient.ReturnAllCustomers();
 
                 if (items != null)
                 {
-                    await PrepDB.SyncItems(serviceScope.ServiceProvider.GetService<IItemRepo>(), items);
+                    await PrepDB.SyncItems(serviceScope.ServiceProvider.GetRequiredService<IItemRepo>(), items);
                 }
                 if (customers != null)
                 {
-                    await PrepDB.SyncCustomers(serviceScope.ServiceProvider.GetService<ICustomerRepo>(), customers);
+                    await PrepDB.SyncCustomers(serviceScope.ServiceProvider.GetRequiredService<ICustomerRepo>(), customers);
                 }
             }
             catch (Exception ex)

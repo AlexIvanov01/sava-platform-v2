@@ -2,8 +2,8 @@
 {
     public class AuthenticationResponse
     {
-        public string UserName { get; set; }
-        public string JwtToken { get; set; }
+        public required string UserName { get; set; }
+        public required string JwtToken { get; set; }
         public int ExpiresIn { get; set; }
     }
 }

@@ -21,11 +21,11 @@ public record OrderItemUpdateDto([Required] Guid ItemId, [Required]  [Range(1, 1
 public record OrderItemPublishedDto(Guid ItemId, int OrderItemQuantity);
 public record OrderItemCreateDto([Required] Guid ItemId, [Required] [Range(1, 1000)] int OrderItemQuantity);
 
-public record InvoiceCreateDto(int ID, DateTime InvoiceDate,
-     string InvoiceStatus, decimal TotalAmount);
+public record InvoiceCreateDto(int? ID, DateTime? InvoiceDate,
+     string InvoiceStatus, decimal? TotalAmount);
 
-public record OrderCreateDto(DateTime OrderDate, DateTime? ShippedDate, 
-    string ShippingAddress, string OrderStatus,[Required] Guid CustomerId,
+public record OrderCreateDto(DateTime? OrderDate, DateTime? ShippedDate, 
+    string ShippingAddress, string OrderStatus, [Required] Guid? CustomerId,
     [Required] List<OrderItemCreateDto> OrderItems);
 
 public record OrderUpdateDto(DateTime? OrderDate, DateTime? ShippedDate,

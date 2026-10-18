@@ -92,15 +92,8 @@ public class CustomerRepo : ICustomerRepo
         }
         await _context.SaveChangesAsync();
 
-        List<Customer> invalidCustomers = [];
-
-        foreach (var customer in dbCustomerArray)
-        {
-            if (!customers.ToList().Exists(c => c.ExternalId == customer.ExternalId))
-            {
-                invalidCustomers.Add(customer);
-            }
-        }
+        var syncedIds = customers.Select(c => c.ExternalId).ToHashSet();
+        var invalidCustomers = dbCustomerArray.Where(c => !syncedIds.Contains(c.ExternalId)).ToList();
         if (invalidCustomers.Count > 0)
         {
             var validatedCustomers = await _context.Orders

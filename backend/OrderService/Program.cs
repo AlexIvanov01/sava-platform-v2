@@ -22,7 +22,8 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<OrderContext>(options =>
 {
-    options.UseMySQL(builder.Configuration.GetConnectionString("Default"));
+    options.UseMySQL(builder.Configuration.GetConnectionString("Default")
+        ?? throw new InvalidOperationException("Connection string 'Default' is not configured."));
 });
 builder.Services.AddScoped<IOrderRepo, OrderRepo>();
 builder.Services.AddScoped<IInvoiceRepo, InvoiceRepo>();

@@ -63,7 +63,7 @@ namespace OrderService.Controllers
             }
             catch (Exception ex)
             {
-                Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message); ;
+                Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
                 return StatusCode(500, "An internal server error occured.");
             }
         }
@@ -123,7 +123,7 @@ namespace OrderService.Controllers
             }
             catch (Exception ex)
             {
-                Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message); ;
+                Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
                 return StatusCode(500, "An internal server error occured.");
             }
         }

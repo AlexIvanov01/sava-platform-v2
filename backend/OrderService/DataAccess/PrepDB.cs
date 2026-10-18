@@ -15,10 +15,10 @@ public static class PrepDB
     public static async Task PrepPopulation(IApplicationBuilder app)
     {
         using var serviceScope = app.ApplicationServices.CreateScope();
-        await RunMigrations(serviceScope.ServiceProvider.GetService<OrderContext>());
+        await RunMigrations(serviceScope.ServiceProvider.GetRequiredService<OrderContext>());
 
-        var grpcInventoryClient = serviceScope.ServiceProvider.GetService<IInventoryDataClient>();
-        var grpcCustomerClient = serviceScope.ServiceProvider.GetService<ICustomerDataClient>();
+        var grpcInventoryClient = serviceScope.ServiceProvider.GetRequiredService<IInventoryDataClient>();
+        var grpcCustomerClient = serviceScope.ServiceProvider.GetRequiredService<ICustomerDataClient>();
 
         Log.Information("--> Waiting 5 seconds for Inventoy and Customer Service initalization...");
         await Task.Delay(5000);
@@ -28,11 +28,11 @@ public static class PrepDB
 
         if (items != null)
         {
-            await SyncItems(serviceScope.ServiceProvider.GetService<IItemRepo>(), items);
+            await SyncItems(serviceScope.ServiceProvider.GetRequiredService<IItemRepo>(), items);
         }
         if (customers != null)
         {
-            await SyncCustomers(serviceScope.ServiceProvider.GetService<ICustomerRepo>(), customers);
+            await SyncCustomers(serviceScope.ServiceProvider.GetRequiredService<ICustomerRepo>(), customers);
         }
     }
 

@@ -23,7 +23,8 @@ public class InventoryDataClient : IInventoryDataClient
     {
         Log.Information("--> Calling inventory GRPC service {Service}", _configuration["GrpcInventoryService"]);
 
-        var channel = GrpcChannel.ForAddress(_configuration["GrpcInventoryService"]);
+        var channel = GrpcChannel.ForAddress(_configuration["GrpcInventoryService"]
+            ?? throw new InvalidOperationException("GrpcInventoryService is not configured."));
         var client = new GrpcInventory.GrpcInventoryClient(channel);
         var request = new GetAllRequest();
 

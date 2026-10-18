@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using InventoryService.Dtos;
 using InventoryService.Models;
@@ -71,8 +72,8 @@ public static class ProductMappings
         ExternalProductId = batch.ProductId.ToString(),
         ExternalBatchId = batch.Id.ToString(),
         Name = batch.Product.Name ?? string.Empty,
-        Price = batch.SellPrice.ToString(),
-        ExpirationDate = batch.ExpirationDate.ToString(),
+        Price = batch.SellPrice?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+        ExpirationDate = batch.ExpirationDate?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
         Lot = batch.Lot ?? string.Empty
     };
 }

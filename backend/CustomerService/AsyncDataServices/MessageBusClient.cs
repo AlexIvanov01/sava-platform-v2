@@ -121,7 +121,7 @@ public sealed class MessageBusClient : IMessageBusClient, IAsyncDisposable
         }
     }
 
-    private Task RabbitMQ_ConnectionShutdownAsync(object sender, ShutdownEventArgs e)
+    private static Task RabbitMQ_ConnectionShutdownAsync(object sender, ShutdownEventArgs e)
     {
         Log.Warning("--> RabbitMQ Connection Shutdown");
         return Task.CompletedTask;

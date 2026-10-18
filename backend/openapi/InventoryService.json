@@ -526,6 +526,7 @@
           "quantity": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
+              "null",
               "integer",
               "string"
             ],
@@ -534,6 +535,7 @@
           "purchasePrice": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
+              "null",
               "number",
               "string"
             ],
@@ -542,13 +544,17 @@
           "sellPrice": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
+              "null",
               "number",
               "string"
             ],
             "format": "double"
           },
           "expirationDate": {
-            "type": "string",
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           }
         }

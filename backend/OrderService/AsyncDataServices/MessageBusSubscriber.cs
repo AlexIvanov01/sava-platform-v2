@@ -94,7 +94,7 @@ public class MessageBusSubscriber : BackgroundService
         Log.Information("--> Listening on the Message Bus....");
     }
 
-    private Task RabbitMQ_ConnectionShutdownAsync(object sender, ShutdownEventArgs e)
+    private static Task RabbitMQ_ConnectionShutdownAsync(object sender, ShutdownEventArgs e)
     {
         Log.Information("--> Connection Shutdown");
         return Task.CompletedTask;

@@ -78,17 +78,31 @@
   "components": {
     "schemas": {
       "AuthenticationRequest": {
+        "required": [
+          "userName",
+          "password"
+        ],
         "type": "object",
         "properties": {
           "userName": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "password": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
       "AuthenticationResponse": {
+        "required": [
+          "userName",
+          "jwtToken"
+        ],
         "type": "object",
         "properties": {
           "userName": {

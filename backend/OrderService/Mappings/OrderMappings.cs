@@ -13,6 +13,13 @@ public static class OrderMappings
         order.OrderStatus, order.CustomerId.GetValueOrDefault(), order.Invoice?.ToReadDto(),
         order.OrderItems.Select(oi => oi.ToReadDto()).ToList());
 
+    public static OrderItemReadDto ToReadDto(this OrderItem orderItem) =>
+        new(orderItem.ItemId, orderItem.OrderItemQuantity);
+
+    public static InvoiceReadDto ToReadDto(this Invoice invoice) => new(
+        invoice.Id, invoice.InvoiceDate.GetValueOrDefault(), invoice.OrderId,
+        invoice.InvoiceStatus, invoice.TotalAmount.GetValueOrDefault());
+
     public static OrderFullReadDto ToFullReadDto(this Order order) => order.ToFullReadDto(order.Invoice);
 
     public static OrderFullReadDto ToFullReadDto(this Invoice invoice) => invoice.Order.ToFullReadDto(invoice);
@@ -67,22 +74,9 @@ public static class OrderMappings
         }).ToList() ?? []
     };
 
-    public static OrderItemReadDto ToReadDto(this OrderItem orderItem) =>
-        new(orderItem.ItemId, orderItem.OrderItemQuantity);
-
-    public static List<OrderItemPublishedDto> ToPublishedDtos(this IEnumerable<OrderItem> orderItems) =>
-        orderItems.Select(oi => new OrderItemPublishedDto(oi.ItemId, oi.OrderItemQuantity)).ToList();
-
-    public static List<OrderItemPublishedDto> ToPublishedDtos(this IEnumerable<OrderItemUpdateDto> orderItems) =>
-        orderItems.Select(oi => new OrderItemPublishedDto(oi.ItemId, oi.OrderItemQuantity)).ToList();
-
-    public static InvoiceReadDto ToReadDto(this Invoice invoice) => new(
-        invoice.Id, invoice.InvoiceDate.GetValueOrDefault(), invoice.OrderId,
-        invoice.InvoiceStatus, invoice.TotalAmount.GetValueOrDefault());
-
     public static Invoice ToEntity(this InvoiceCreateDto dto) => new()
     {
-        Id = dto.ID,
+        Id = dto.ID ?? 0,
         InvoiceDate = dto.InvoiceDate,
         InvoiceStatus = dto.InvoiceStatus,
         TotalAmount = dto.TotalAmount
@@ -95,4 +89,10 @@ public static class OrderMappings
         InvoiceStatus = dto.InvoiceStatus,
         TotalAmount = dto.TotalAmount
     };
+
+    public static List<OrderItemPublishedDto> ToPublishedDtos(this IEnumerable<OrderItem> orderItems) =>
+        orderItems.Select(oi => new OrderItemPublishedDto(oi.ItemId, oi.OrderItemQuantity)).ToList();
+
+    public static List<OrderItemPublishedDto> ToPublishedDtos(this IEnumerable<OrderItemUpdateDto> orderItems) =>
+        orderItems.Select(oi => new OrderItemPublishedDto(oi.ItemId, oi.OrderItemQuantity)).ToList();
 }

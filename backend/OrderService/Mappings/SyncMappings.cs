@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using CustomerService;
 using InventoryService;
 using OrderService.Dtos;
@@ -25,9 +26,9 @@ public static class SyncMappings
         ExternalBatchId = Guid.Parse(model.ExternalBatchId),
         ExternalProductId = Guid.Parse(model.ExternalProductId),
         Name = model.Name,
-        Price = decimal.Parse(model.Price),
+        Price = decimal.Parse(model.Price, CultureInfo.InvariantCulture),
         Lot = model.Lot,
-        ExpirationDate = DateTime.Parse(model.ExpirationDate)
+        ExpirationDate = DateTime.Parse(model.ExpirationDate, CultureInfo.InvariantCulture)
     };
 
     public static Customer ToEntity(this CustomerPublishedDto dto) => new()

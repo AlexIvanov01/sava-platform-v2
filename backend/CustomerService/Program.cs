@@ -22,7 +22,8 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<CustomerContext>(options =>
 {
-    options.UseMySQL(builder.Configuration.GetConnectionString("Default"));
+    options.UseMySQL(builder.Configuration.GetConnectionString("Default")
+        ?? throw new InvalidOperationException("Connection string 'Default' is not configured."));
 });
 builder.Services.AddScoped<ICustomerRepo, CustomerRepo>();
 builder.Services.AddGrpc();

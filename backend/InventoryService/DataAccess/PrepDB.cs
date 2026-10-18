@@ -17,7 +17,7 @@ public static class PrepDB
     {
         using (var serviceScope = app.ApplicationServices.CreateScope())
         {
-            await SeedData(serviceScope.ServiceProvider.GetService<ProductContext>());
+            await SeedData(serviceScope.ServiceProvider.GetRequiredService<ProductContext>());
         }
     }
 
@@ -39,7 +39,7 @@ public static class PrepDB
         {
             Log.Information("--> Seeding data...");
             string file = await System.IO.File.ReadAllTextAsync("dummy_data.json");
-            var people = JsonSerializer.Deserialize<List<Product>>(file);
+            var people = JsonSerializer.Deserialize<List<Product>>(file) ?? [];
             context.Products.AddRange(people);
             await context.SaveChangesAsync();
         }

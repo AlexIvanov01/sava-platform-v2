@@ -50,15 +50,8 @@ public class ItemRepo : IItemRepo
         }
         await _context.SaveChangesAsync();
 
-        List<Item> invalidItems = [];
-
-        foreach (var item in dbItemArray)
-        {
-            if (!items.ToList().Exists(i => i.ExternalBatchId == item.ExternalBatchId))
-            {
-                invalidItems.Add(item);
-            }
-        }
+        var syncedIds = items.Select(i => i.ExternalBatchId).ToHashSet();
+        var invalidItems = dbItemArray.Where(i => !syncedIds.Contains(i.ExternalBatchId)).ToList();
         if (invalidItems.Count > 0)
         {
            var validatedItems = await _context.OrderItems

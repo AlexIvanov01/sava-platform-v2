@@ -46,6 +46,14 @@ dotnet build
 
 A Debug build also regenerates the service's OpenAPI document in `backend/openapi/<Service>.json`. Commit those files together with API changes.
 
+### Static analysis
+
+`backend/Directory.Build.props` adds the [SonarAnalyzer.CSharp](https://www.nuget.org/packages/SonarAnalyzer.CSharp) analyzer to every backend project. It reports issues as build warnings (rule IDs `S####`) and doesn't fail the build. To list every warning, not only those in changed files, run a full rebuild:
+
+```bash
+dotnet build --no-incremental 2>&1 | grep -E "warning [A-Z]+[0-9]+" | sort -u
+```
+
 ### Run services locally
 
 Running locally uses `appsettings.Development.json`, which points at MySQL and RabbitMQ on `localhost`.

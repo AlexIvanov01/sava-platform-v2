@@ -795,13 +795,17 @@
           "id": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
+              "null",
               "integer",
               "string"
             ],
             "format": "int32"
           },
           "invoiceDate": {
-            "type": "string",
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           },
           "invoiceStatus": {
@@ -810,6 +814,7 @@
           "totalAmount": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
+              "null",
               "number",
               "string"
             ],
@@ -985,7 +990,10 @@
         "type": "object",
         "properties": {
           "orderDate": {
-            "type": "string",
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           },
           "shippedDate": {
@@ -1002,7 +1010,10 @@
             "type": "string"
           },
           "customerId": {
-            "type": "string",
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           },
           "orderItems": {

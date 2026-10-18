@@ -22,7 +22,8 @@ public class CustomerDataClient : ICustomerDataClient
     {
         Log.Information("--> Calling customer GRPC service {Service}", _configuration["GrpcCustomerService"]);
 
-        var channel = GrpcChannel.ForAddress(_configuration["GrpcCustomerService"]);
+        var channel = GrpcChannel.ForAddress(_configuration["GrpcCustomerService"]
+            ?? throw new InvalidOperationException("GrpcCustomerService is not configured."));
         var client = new GrpcCustomer.GrpcCustomerClient(channel);
         var request = new GetAllRequest();
 

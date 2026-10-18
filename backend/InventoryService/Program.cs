@@ -29,7 +29,8 @@ if (!isOpenApiGeneration)
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<ProductContext>(options =>
 {
-    options.UseMySQL(builder.Configuration.GetConnectionString("Default"));
+    options.UseMySQL(builder.Configuration.GetConnectionString("Default")
+        ?? throw new InvalidOperationException("Connection string 'Default' is not configured."));
 });
 builder.Services.AddScoped<IProductRepo, ProductRepo>();
 builder.Services.AddSingleton<IMessageBusClient, MessageBusClient>();

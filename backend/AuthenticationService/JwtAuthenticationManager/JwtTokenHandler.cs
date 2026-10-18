@@ -16,11 +16,14 @@ namespace JwtAuthenticationManager
 
         public JwtTokenHandler()
         {
+            // Demo accounts until a real user store exists. Sonar S2068 is acknowledged here.
+#pragma warning disable S2068
             _userAccounts =
             [
                new UserAccount{ UserName = "admin", Password = "admin123", Role = "Administrator" },
                new UserAccount{ UserName = "user", Password = "user123", Role = "User" }
             ];
+#pragma warning restore S2068
         }
 
         public AuthenticationResponse? GenerateJwtToken(AuthenticationRequest authenticationRequest)

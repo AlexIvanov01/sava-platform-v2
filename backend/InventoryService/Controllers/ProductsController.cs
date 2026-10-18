@@ -55,7 +55,7 @@ public class ProductsController : ControllerBase
             ProductPageReadDto productPageReadDto = new()
             {
                 ProductReadDtos = dtos,
-                Cursor = dtos.Last().Id,
+                Cursor = dtos[^1].Id,
                 Pages = (int)pageCount
             };
 
