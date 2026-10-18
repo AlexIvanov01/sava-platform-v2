@@ -94,29 +94,24 @@ public class ProductRepo : IProductRepo
 
     public async Task<Product?> UpdateProductAsync(Product product)
     {
-        var DbProduct = await _context
-            .Products.AsNoTracking()
-            .SingleOrDefaultAsync(p => p.Id == product.Id);
+        var DbProduct = await _context.Products.SingleOrDefaultAsync(p => p.Id == product.Id);
 
         if (DbProduct == null)
         {
             return null;
         }
 
-        DbProduct = product;
-        _context.Entry(DbProduct).State = EntityState.Modified;
+        // Null fields in the update are left unchanged.
+        DbProduct.Name = product.Name ?? DbProduct.Name;
+        DbProduct.Description = product.Description ?? DbProduct.Description;
+        DbProduct.Brand = product.Brand ?? DbProduct.Brand;
+        DbProduct.Supplier = product.Supplier ?? DbProduct.Supplier;
+        DbProduct.ImageURL = product.ImageURL ?? DbProduct.ImageURL;
+        DbProduct.Status = product.Status ?? DbProduct.Status;
+        DbProduct.Barcode = product.Barcode ?? DbProduct.Barcode;
+        DbProduct.ReorderLevel = product.ReorderLevel ?? DbProduct.ReorderLevel;
+        DbProduct.Weight = product.Weight ?? DbProduct.Weight;
         DbProduct.ProductDateUpdated = DateTime.Now;
-
-        foreach (var property in _context.Entry(DbProduct).Properties)
-        {
-            if (property.CurrentValue == null)
-            {
-                property.IsModified = false;
-            }
-        }
-
-        _context.Entry(DbProduct).Property(p => p.Id).IsModified = false;
-        _context.Entry(DbProduct).Property(p => p.ProductDateAdded).IsModified = false;
 
         await _context.SaveChangesAsync();
 
@@ -125,29 +120,20 @@ public class ProductRepo : IProductRepo
 
     public async Task<ProductBatch?> UpdateBatchAsync(ProductBatch batch)
     {
-        var DbBatch = await _context
-            .ProductBatches.AsNoTracking()
-            .SingleOrDefaultAsync(b => b.Id == batch.Id);
+        var DbBatch = await _context.ProductBatches.SingleOrDefaultAsync(b => b.Id == batch.Id);
 
         if (DbBatch == null)
         {
             return null;
         }
 
-        DbBatch = batch;
-        _context.Entry(DbBatch).State = EntityState.Modified;
+        // Null fields in the update are left unchanged; the batch stays on its product.
+        DbBatch.Lot = batch.Lot ?? DbBatch.Lot;
+        DbBatch.Quantity = batch.Quantity ?? DbBatch.Quantity;
+        DbBatch.PurchasePrice = batch.PurchasePrice ?? DbBatch.PurchasePrice;
+        DbBatch.SellPrice = batch.SellPrice ?? DbBatch.SellPrice;
+        DbBatch.ExpirationDate = batch.ExpirationDate ?? DbBatch.ExpirationDate;
         DbBatch.BatchDateUpdated = DateTime.Now;
-
-        foreach (var property in _context.Entry(DbBatch).Properties)
-        {
-            if (property.CurrentValue == null)
-            {
-                property.IsModified = false;
-            }
-        }
-
-        _context.Entry(DbBatch).Property(p => p.ProductId).IsModified = false;
-        _context.Entry(DbBatch).Property(p => p.BatchDateAdded).IsModified = false;
 
         await _context.SaveChangesAsync();
         return DbBatch;

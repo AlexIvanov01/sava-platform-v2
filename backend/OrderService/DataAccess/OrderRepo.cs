@@ -70,23 +70,28 @@ public class OrderRepo : IOrderRepo
         return order;
     }
 
-    public async Task<Order?> DeleteOrderAsync(Guid id)
+    public async Task<(DeleteOrderStatus Status, Order? Order)> DeleteOrderAsync(Guid id)
     {
         var dbOrder = await _context
             .Orders.AsNoTracking()
             .Include(o => o.OrderItems)
+            .Include(o => o.Invoice)
             .SingleOrDefaultAsync(x => x.Id == id);
 
         if (dbOrder == null)
         {
-            return null;
+            return (DeleteOrderStatus.NotFound, null);
         }
 
-        await _context.OrderItems.Where(oi => oi.OrderId == id).ExecuteDeleteAsync();
+        if (dbOrder.Invoice != null)
+        {
+            return (DeleteOrderStatus.HasInvoice, dbOrder);
+        }
 
+        // A single statement keeps the delete atomic; the database cascades it to the order's items.
         await _context.Orders.Where(o => o.Id == id).ExecuteDeleteAsync();
 
-        return dbOrder;
+        return (DeleteOrderStatus.Deleted, dbOrder);
     }
 
     public async Task<int> GetOrderCountAsync()

@@ -29,6 +29,12 @@
 
   <ItemGroup>
     <Protobuf Include="Protos\customer.proto" GrpcServices="Server" />
+    <!-- Served as-is by the /protos endpoint, so it must be in the publish output. -->
+    <None
+      Update="Protos\customer.proto"
+      CopyToOutputDirectory="PreserveNewest"
+      CopyToPublishDirectory="PreserveNewest"
+    />
   </ItemGroup>
 
   <ItemGroup>

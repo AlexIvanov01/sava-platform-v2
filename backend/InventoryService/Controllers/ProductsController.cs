@@ -145,21 +145,21 @@ public class ProductsController : ControllerBase
         ProductUpdateDto productUpdateDto
     )
     {
-        Product productModel;
+        Product savedProduct;
 
         try
         {
             Log.Information("--> Updating a product with id {Id}....................", id);
 
-            productModel = productUpdateDto.ToEntity(id);
+            var updated = await _repository.UpdateProductAsync(productUpdateDto.ToEntity(id));
 
-            var nullCHeck = await _repository.UpdateProductAsync(productModel);
-
-            if (nullCHeck == null)
+            if (updated == null)
             {
                 Log.Warning("Product with id {Id} not found for updating.", id);
                 return NotFound();
             }
+
+            savedProduct = updated;
 
             Log.Information("--> Product with id {Id} updated", id);
         }
@@ -177,7 +177,7 @@ public class ProductsController : ControllerBase
                 ItemPublishedDto itemPublishedDto = new()
                 {
                     ExternalProductId = id,
-                    Name = productModel.Name,
+                    Name = savedProduct.Name,
                     Event = "ProductName_Updated",
                 };
                 await _messageBusClient.PublishNewItemAsync(itemPublishedDto);
@@ -188,7 +188,7 @@ public class ProductsController : ControllerBase
             }
         }
 
-        return Ok(productModel.ToReadDto());
+        return Ok(savedProduct.ToReadDto());
     }
 
     [HttpDelete("{id}")]

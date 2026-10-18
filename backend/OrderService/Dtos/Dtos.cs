@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 
 namespace OrderService.Dtos;
 
@@ -67,7 +68,11 @@ public record OrderCreateDto(
     string OrderStatus,
     [Required] Guid? CustomerId,
     [Required] List<OrderItemCreateDto> OrderItems
-);
+) : IValidatableObject
+{
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
+        OrderItemValidation.RejectDuplicateItems(OrderItems?.Select(i => i.ItemId));
+}
 
 public record OrderUpdateDto(
     DateTime? OrderDate,
@@ -76,7 +81,31 @@ public record OrderUpdateDto(
     string? OrderStatus,
     Guid? CustomerId,
     List<OrderItemUpdateDto>? OrderItems
-);
+) : IValidatableObject
+{
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
+        OrderItemValidation.RejectDuplicateItems(OrderItems?.Select(i => i.ItemId));
+}
+
+internal static class OrderItemValidation
+{
+    public static IEnumerable<ValidationResult> RejectDuplicateItems(IEnumerable<Guid>? itemIds)
+    {
+        var duplicates = (itemIds ?? [])
+            .GroupBy(id => id)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+
+        if (duplicates.Count > 0)
+        {
+            yield return new ValidationResult(
+                $"Each item can appear only once in an order. Duplicate item ids: {string.Join(", ", duplicates)}.",
+                [nameof(OrderCreateDto.OrderItems)]
+            );
+        }
+    }
+}
 
 public record InvoiceUpdateDto(DateTime? InvoiceDate, string? InvoiceStatus, decimal? TotalAmount);
 

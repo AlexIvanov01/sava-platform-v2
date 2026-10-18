@@ -26,11 +26,17 @@ public static class SyncMappings
         new()
         {
             ExternalBatchId = Guid.Parse(model.ExternalBatchId),
-            ExternalProductId = Guid.Parse(model.ExternalProductId),
+            ExternalProductId = string.IsNullOrEmpty(model.ExternalProductId)
+                ? null
+                : Guid.Parse(model.ExternalProductId),
             Name = model.Name,
-            Price = decimal.Parse(model.Price, CultureInfo.InvariantCulture),
+            Price = string.IsNullOrEmpty(model.Price)
+                ? null
+                : decimal.Parse(model.Price, CultureInfo.InvariantCulture),
             Lot = model.Lot,
-            ExpirationDate = DateTime.Parse(model.ExpirationDate, CultureInfo.InvariantCulture),
+            ExpirationDate = string.IsNullOrEmpty(model.ExpirationDate)
+                ? null
+                : DateTime.Parse(model.ExpirationDate, CultureInfo.InvariantCulture),
         };
 
     public static Customer ToEntity(this CustomerPublishedDto dto) =>

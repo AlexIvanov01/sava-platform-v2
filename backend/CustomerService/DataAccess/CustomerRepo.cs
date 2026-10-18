@@ -56,26 +56,28 @@ namespace CustomerService.DataAccess
 
         public async Task<Customer?> UpdateCustomerAsync(Customer customer)
         {
-            var dbCustomer = await _context
-                .Customers.AsNoTracking()
-                .SingleOrDefaultAsync(p => p.Id == customer.Id);
+            var dbCustomer = await _context.Customers.SingleOrDefaultAsync(p =>
+                p.Id == customer.Id
+            );
 
             if (dbCustomer == null)
             {
                 return null;
             }
 
-            dbCustomer = customer;
-            _context.Entry(dbCustomer).State = EntityState.Modified;
-
-            foreach (var property in _context.Entry(dbCustomer).Properties)
-            {
-                if (property.CurrentValue == null)
-                {
-                    property.IsModified = false;
-                }
-            }
-            _context.Entry(dbCustomer).Property(p => p.Id).IsModified = false;
+            // Null fields in the update are left unchanged.
+            dbCustomer.Name = customer.Name ?? dbCustomer.Name;
+            dbCustomer.CompanyName = customer.CompanyName ?? dbCustomer.CompanyName;
+            dbCustomer.Email = customer.Email ?? dbCustomer.Email;
+            dbCustomer.PhoneNumber = customer.PhoneNumber ?? dbCustomer.PhoneNumber;
+            dbCustomer.Address = customer.Address ?? dbCustomer.Address;
+            dbCustomer.City = customer.City ?? dbCustomer.City;
+            dbCustomer.Country = customer.Country ?? dbCustomer.Country;
+            dbCustomer.BankName = customer.BankName ?? dbCustomer.BankName;
+            dbCustomer.IBAN = customer.IBAN ?? dbCustomer.IBAN;
+            dbCustomer.BIC = customer.BIC ?? dbCustomer.BIC;
+            dbCustomer.VATNumber = customer.VATNumber ?? dbCustomer.VATNumber;
+            dbCustomer.UIC = customer.UIC ?? dbCustomer.UIC;
 
             await _context.SaveChangesAsync();
 

@@ -234,6 +234,7 @@ public class OrdersController : ControllerBase
     [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> DeleteOrder(Guid id)
     {
         Order preDeleteOrderModel;
@@ -241,17 +242,27 @@ public class OrdersController : ControllerBase
         {
             Log.Information("--> Deleting an order...........");
 
-            var nullCheck = await _repository.DeleteOrderAsync(id);
+            var (status, deletedOrder) = await _repository.DeleteOrderAsync(id);
 
-            if (nullCheck == null)
+            if (status == DeleteOrderStatus.NotFound)
             {
                 Log.Warning("--> Order with id {Id} not found for deleting.", id);
                 return NotFound();
             }
 
+            if (status == DeleteOrderStatus.HasInvoice)
+            {
+                Log.Warning("--> Order with id {Id} has an invoice and was not deleted.", id);
+                return Problem(
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Order has an invoice",
+                    detail: $"Order {id} has an invoice. Delete the invoice before deleting the order."
+                );
+            }
+
             Log.Information("--> Order with id {Id} deleted", id);
 
-            preDeleteOrderModel = nullCheck;
+            preDeleteOrderModel = deletedOrder!;
         }
         catch (Exception ex)
         {

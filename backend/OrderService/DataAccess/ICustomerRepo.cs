@@ -9,7 +9,7 @@ public interface ICustomerRepo
 {
     Task<bool> ExternalCustomerExistsAsync(Guid? externalId);
     Task<Customer?> GetCustomerAsync(Guid id);
-    Task АddCustomerAsync(Customer customer);
+    Task AddCustomerAsync(Customer customer);
     Task DeleteCustomerAsync(Guid id);
     Task UpdateCustomerAsync(Customer customer);
     Task SyncCustomersAsync(IEnumerable<Customer> customers);

@@ -172,7 +172,7 @@ namespace OrderService.Controllers
 
                 Log.Information("--> Invoice uptated: {Id}", id);
 
-                return Ok(invoiceModel.ToReadDto());
+                return Ok(nullCheck.ToReadDto());
             }
             catch (Exception ex)
             {

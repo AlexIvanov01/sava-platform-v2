@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using CustomerService.Models;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
@@ -17,11 +18,15 @@ public static class PrepDB
     {
         using (var serviceScope = app.ApplicationServices.CreateScope())
         {
-            await SeedData(serviceScope.ServiceProvider.GetRequiredService<CustomerContext>());
+            var env = serviceScope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
+            await SeedData(
+                serviceScope.ServiceProvider.GetRequiredService<CustomerContext>(),
+                Path.Combine(env.ContentRootPath, "dummy_data.json")
+            );
         }
     }
 
-    private static async Task SeedData(CustomerContext context)
+    private static async Task SeedData(CustomerContext context, string seedFile)
     {
         Log.Information("--> Attempting to apply migrations...");
         try
@@ -38,7 +43,7 @@ public static class PrepDB
         if (!await context.Customers.AnyAsync())
         {
             Log.Information("--> Seeding Data.....");
-            string file = await File.ReadAllTextAsync("dummy_data.json");
+            string file = await File.ReadAllTextAsync(seedFile);
             var people = JsonSerializer.Deserialize<List<Customer>>(file) ?? [];
             context.Customers.AddRange(people);
             await context.SaveChangesAsync();

@@ -17,7 +17,7 @@ public class CustomerRepo : ICustomerRepo
         _context = context;
     }
 
-    public async Task АddCustomerAsync(Customer customer)
+    public async Task AddCustomerAsync(Customer customer)
     {
         if (customer.ExternalId != Guid.Empty)
         {

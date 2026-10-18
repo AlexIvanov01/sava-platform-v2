@@ -95,20 +95,20 @@ namespace InventoryService.Controllers
             BatchUpdateDto productBatchDto
         )
         {
-            ProductBatch batchModel;
+            ProductBatch savedBatch;
             try
             {
                 Log.Information("--> Updating batch.............");
 
-                batchModel = productBatchDto.ToEntity(id);
+                var updated = await _repository.UpdateBatchAsync(productBatchDto.ToEntity(id));
 
-                var nullCheck = await _repository.UpdateBatchAsync(batchModel);
-
-                if (nullCheck == null)
+                if (updated == null)
                 {
                     Log.Warning("--> Batch with id {Id} not found for updating.", id);
                     return NotFound();
                 }
+
+                savedBatch = updated;
 
                 Log.Information("--> Batch uptated: {Id}", id);
             }
@@ -129,10 +129,10 @@ namespace InventoryService.Controllers
                 {
                     ItemPublishedDto itemPublishedDto = new()
                     {
-                        ExternalBatchId = batchModel.Id,
-                        Lot = batchModel.Lot,
-                        Price = batchModel.SellPrice,
-                        ExpirationDate = batchModel.ExpirationDate,
+                        ExternalBatchId = savedBatch.Id,
+                        Lot = savedBatch.Lot,
+                        Price = savedBatch.SellPrice,
+                        ExpirationDate = savedBatch.ExpirationDate,
                         Event = "Item_Updated",
                     };
 
@@ -144,7 +144,7 @@ namespace InventoryService.Controllers
                 }
             }
 
-            return Ok(batchModel.ToReadDto());
+            return Ok(savedBatch.ToReadDto());
         }
 
         [HttpDelete("{id}")]

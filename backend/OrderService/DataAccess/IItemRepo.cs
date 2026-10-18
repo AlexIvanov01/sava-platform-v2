@@ -8,7 +8,7 @@ namespace OrderService.DataAccess;
 public interface IItemRepo
 {
     Task<bool> ExternalItemExistsAsync(Guid? externalId);
-    Task АddItemAsync(Item item);
+    Task AddItemAsync(Item item);
     Task DeleteItemAsync(Guid? id);
     Task UpdateItemAsync(Item item);
     Task UpdateProductNameAsync(Guid? productId, string newProductName);

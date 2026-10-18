@@ -151,7 +151,7 @@ public class EventProcessor : IEventProcessor
 
             if (!checkCustomer)
             {
-                await repo.АddCustomerAsync(customer);
+                await repo.AddCustomerAsync(customer);
                 Log.Information("--> Customer added!");
             }
             else
@@ -357,11 +357,11 @@ public class EventProcessor : IEventProcessor
 
             var item = itemPublishedDto.ToEntity();
 
-            var checkItem = await repo.ExternalItemExistsAsync(item.ExternalProductId);
+            var checkItem = await repo.ExternalItemExistsAsync(item.ExternalBatchId);
 
             if (!checkItem)
             {
-                await repo.АddItemAsync(item);
+                await repo.AddItemAsync(item);
                 Log.Information("--> Item added!");
             }
             else

@@ -37,7 +37,13 @@ The platform follows a microservices architecture, with each service having its 
 
 ### Build
 
-There is no root solution. Each service in `backend/` is a standalone project, so run commands from the service directory:
+`backend/Sava.slnx` contains every service and test project. Build everything from the repository root:
+
+```bash
+dotnet build backend/Sava.slnx
+```
+
+Each service also keeps its own `.sln`, so you can build one service from its directory:
 
 ```bash
 cd backend/InventoryService   # or CustomerService, OrderService, AuthenticationService, OcelotApiGateway
@@ -53,6 +59,30 @@ A Debug build also regenerates the service's OpenAPI document in `backend/openap
 ```bash
 dotnet build --no-incremental 2>&1 | grep -E "warning [A-Z]+[0-9]+" | sort -u
 ```
+
+### Tests
+
+Each business service has a test project in `backend/tests/<Service>.Tests` (xUnit v3, Shouldly, NSubstitute). Unit tests cover controllers, mappings, and event processing with substituted dependencies. Integration tests, marked with the `Category=Integration` trait, run repositories and the HTTP API (`WebApplicationFactory`) against a real MySQL 9.7 database. [Testcontainers](https://dotnet.testcontainers.org) starts the database in Docker. RabbitMQ and gRPC clients are always substituted.
+
+Run from the repository root:
+
+```bash
+dotnet test --solution backend/Sava.slnx                                          # all tests; Docker must be running
+dotnet test --solution backend/Sava.slnx --filter-not-trait "Category=Integration" # unit tests only, no Docker
+dotnet test --project backend/tests/OrderService.Tests                             # one service
+```
+
+To produce a coverage report, collect Cobertura files with coverlet and then render them with ReportGenerator. Both tools are pinned in `dotnet-tools.json`, so run `dotnet tool restore` first. `backend/tests/testconfig.json` excludes `Program.cs`, migrations, and generated gRPC code from coverage.
+
+```bash
+dotnet test --solution backend/Sava.slnx --coverlet --results-directory "$PWD/TestResults"
+dotnet reportgenerator -reports:"TestResults/*.cobertura*.xml" -targetdir:TestResults/coverage-report -reporttypes:"Html;TextSummary"
+open TestResults/coverage-report/index.html
+```
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on pushes to `main` and on pull requests. It checks formatting with CSharpier, builds `backend/Sava.slnx`, and runs all tests with coverage. The coverage summary goes to the job summary, and the HTML report is uploaded as the `coverage-report` artifact.
 
 ### Formatting
 

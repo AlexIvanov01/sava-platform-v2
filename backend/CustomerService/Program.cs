@@ -51,7 +51,11 @@ app.MapGet(
     "/protos/customer.proto",
     async context =>
     {
-        await context.Response.WriteAsync(await File.ReadAllTextAsync("Protos/customer.proto"));
+        await context.Response.WriteAsync(
+            await File.ReadAllTextAsync(
+                Path.Combine(app.Environment.ContentRootPath, "Protos", "customer.proto")
+            )
+        );
     }
 );
 

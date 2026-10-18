@@ -19,28 +19,17 @@ public class InvoiceRepo : IInvoiceRepo
 
     public async Task<Invoice?> UpdateInvoiceAsync(Invoice invoice)
     {
-        var dbInvoice = await _context
-            .Invoices.AsNoTracking()
-            .SingleOrDefaultAsync(p => p.Id == invoice.Id);
+        var dbInvoice = await _context.Invoices.SingleOrDefaultAsync(p => p.Id == invoice.Id);
 
         if (dbInvoice == null)
         {
             return null;
         }
 
-        dbInvoice = invoice;
-        _context.Entry(dbInvoice).State = EntityState.Modified;
-
-        foreach (var property in _context.Entry(dbInvoice).Properties)
-        {
-            if (property.CurrentValue == null)
-            {
-                property.IsModified = false;
-            }
-        }
-        _context.Entry(dbInvoice).Property(p => p.Id).IsModified = false;
-        _context.Entry(dbInvoice).Property(p => p.OrderId).IsModified = false;
-        _context.Entry(dbInvoice).Property(p => p.Order).IsModified = false;
+        // Null fields in the update are left unchanged; the linked order cannot be changed.
+        dbInvoice.InvoiceDate = invoice.InvoiceDate ?? dbInvoice.InvoiceDate;
+        dbInvoice.InvoiceStatus = invoice.InvoiceStatus ?? dbInvoice.InvoiceStatus;
+        dbInvoice.TotalAmount = invoice.TotalAmount ?? dbInvoice.TotalAmount;
 
         await _context.SaveChangesAsync();
 

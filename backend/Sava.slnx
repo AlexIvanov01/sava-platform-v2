@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/AuthenticationService.Tests/AuthenticationService.Tests.csproj" />
+    <Project Path="tests/CustomerService.Tests/CustomerService.Tests.csproj" />
+    <Project Path="tests/InventoryService.Tests/InventoryService.Tests.csproj" />
+    <Project Path="tests/OrderService.Tests/OrderService.Tests.csproj" />
+  </Folder>
+  <Project Path="AuthenticationService/AuthenticationService.csproj" />
+  <Project Path="CustomerService/CustomerService.csproj" />
+  <Project Path="InventoryService/InventoryService.csproj" />
+  <Project Path="OcelotApiGateway/OcelotApiGateway.csproj" />
+  <Project Path="OrderService/OrderService.csproj" />
+</Solution>

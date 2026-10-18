@@ -133,21 +133,21 @@ namespace CustomerService.Controllers
             CustomerUpdateDto customerUpdateDto
         )
         {
-            Customer customerModel;
+            Customer savedCustomer;
 
             try
             {
                 Log.Information("--> Updating a customer with id {Id}....................", id);
 
-                customerModel = customerUpdateDto.ToEntity(id);
+                var updated = await _repository.UpdateCustomerAsync(customerUpdateDto.ToEntity(id));
 
-                var nullCHeck = await _repository.UpdateCustomerAsync(customerModel);
-
-                if (nullCHeck == null)
+                if (updated == null)
                 {
                     Log.Warning("--> Customer with id {Id} not found for updating.", id);
                     return NotFound();
                 }
+
+                savedCustomer = updated;
 
                 Log.Information("--> Customer with id {Id} updated", id);
             }
@@ -160,7 +160,7 @@ namespace CustomerService.Controllers
             //Send Async Message
             try
             {
-                var customerPublishedDto = customerModel.ToPublishedDto("Customer_Updated");
+                var customerPublishedDto = savedCustomer.ToPublishedDto("Customer_Updated");
                 await _messageBusClient.PublishNewCustomerAsync(customerPublishedDto);
             }
             catch (Exception ex)
@@ -168,7 +168,7 @@ namespace CustomerService.Controllers
                 Log.Error(ex, "Error with publishing customer message: {Message}", ex.Message);
             }
 
-            return Ok(customerModel.ToReadDto());
+            return Ok(savedCustomer.ToReadDto());
         }
 
         [HttpDelete("{id}")]

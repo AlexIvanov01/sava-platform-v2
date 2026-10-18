@@ -1,0 +1,36 @@
+<Project>
+  <!-- Shared settings for every test project. Also imports backend/Directory.Build.props (SonarAnalyzer). -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" Version="4.0.2" />
+    <PackageReference Include="Shouldly" Version="4.3.0" />
+    <PackageReference Include="NSubstitute" Version="6.2.0" />
+    <PackageReference Include="NSubstitute.Analyzers.CSharp" Version="1.0.17" PrivateAssets="all" />
+    <PackageReference Include="coverlet.MTP" Version="10.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="Shouldly" />
+    <Using Include="NSubstitute" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Coverage settings for coverlet.MTP, read from the output directory at run time. -->
+    <None
+      Include="$(MSBuildThisFileDirectory)testconfig.json"
+      Link="testconfig.json"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+  </ItemGroup>
+</Project>

@@ -111,7 +111,7 @@ public class ItemRepo : IItemRepo
             .ExecuteUpdateAsync(p => p.SetProperty(i => i.Name, newProductName));
     }
 
-    public async Task АddItemAsync(Item item)
+    public async Task AddItemAsync(Item item)
     {
         _context.Items.Add(item);
         await _context.SaveChangesAsync();

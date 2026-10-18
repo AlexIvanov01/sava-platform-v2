@@ -17,5 +17,12 @@ public interface IOrderRepo
     );
     Task<Order?> CreateOrderAsync(Order order);
     Task<(Order Order, List<OrderItem> PreviousItems)?> UpdateOrderAsync(Order order);
-    Task<Order?> DeleteOrderAsync(Guid id);
+    Task<(DeleteOrderStatus Status, Order? Order)> DeleteOrderAsync(Guid id);
+}
+
+public enum DeleteOrderStatus
+{
+    NotFound,
+    Deleted,
+    HasInvoice,
 }
