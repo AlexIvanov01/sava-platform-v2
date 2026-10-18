@@ -71,7 +71,7 @@ namespace InventoryService.Controllers
                         ExpirationDate = batchCreateDto.ExpirationDate,
                         Event = "Item_Published"
                     };
-                _messageBusClient.PublishNewItem(itemPublishedDto);
+                await _messageBusClient.PublishNewItemAsync(itemPublishedDto);
             }
             catch(Exception ex)
             {
@@ -126,7 +126,7 @@ namespace InventoryService.Controllers
                         Event = "Item_Updated"
                     };
 
-                    _messageBusClient.PublishNewItem(itemPublishedDto);
+                    await _messageBusClient.PublishNewItemAsync(itemPublishedDto);
                 }
                 catch (Exception ex)
                 {
@@ -170,7 +170,7 @@ namespace InventoryService.Controllers
                     Event = "Item_Deleted"
                 };
 
-                _messageBusClient.PublishNewItem(itemPublishedDto);
+                await _messageBusClient.PublishNewItemAsync(itemPublishedDto);
             }
             catch (Exception ex)
             {

@@ -1,8 +1,9 @@
-﻿using CustomerService.Dtos;
+﻿using System.Threading.Tasks;
+using CustomerService.Dtos;
 
 namespace CustomerService.AsyncDataServices;
 
 public interface IMessageBusClient
 {
-    void PublishNewCustomer(CustomerPublishedDto customerPublishedDto);
+    Task PublishNewCustomerAsync(CustomerPublishedDto customerPublishedDto);
 }

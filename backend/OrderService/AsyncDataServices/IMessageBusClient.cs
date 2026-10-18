@@ -1,9 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System.Threading.Tasks;
 using OrderService.Dtos;
 
 namespace OrderService.AsyncDataServices;
 
 public interface IMessageBusClient
 {
-    void PublishNewOrder(OrderPublishedEvent order);
+    Task PublishNewOrderAsync(OrderPublishedEvent order);
 }

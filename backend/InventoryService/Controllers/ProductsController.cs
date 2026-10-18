@@ -159,7 +159,7 @@ public class ProductsController : ControllerBase
                     Name = productModel.Name,
                     Event = "ProductName_Updated"
                 };
-                _messageBusClient.PublishNewItem(itemPublishedDto);
+                await _messageBusClient.PublishNewItemAsync(itemPublishedDto);
             }
             catch (Exception ex)
             {
@@ -206,7 +206,7 @@ public class ProductsController : ControllerBase
                 Event = "Product_Deleted"
             };
 
-            _messageBusClient.PublishNewItem(itemPublishedDto);
+            await _messageBusClient.PublishNewItemAsync(itemPublishedDto);
         }
         catch (Exception ex)
         {

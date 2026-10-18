@@ -110,7 +110,7 @@ namespace CustomerService.Controllers
             try
             {
                 var customerPublishedDto = customerModel.ToPublishedDto("Customer_Published");
-                _messageBusClient.PublishNewCustomer(customerPublishedDto);
+                await _messageBusClient.PublishNewCustomerAsync(customerPublishedDto);
             }
             catch (Exception ex)
             {
@@ -154,7 +154,7 @@ namespace CustomerService.Controllers
             try
             {
                 var customerPublishedDto = customerModel.ToPublishedDto("Customer_Updated");
-                _messageBusClient.PublishNewCustomer(customerPublishedDto);
+                await _messageBusClient.PublishNewCustomerAsync(customerPublishedDto);
             }
             catch (Exception ex)
             {
@@ -199,7 +199,7 @@ namespace CustomerService.Controllers
                     ExternalId = id,
                     Event = "Customer_Deleted"
                 };
-                _messageBusClient.PublishNewCustomer(customerPublishedDto);
+                await _messageBusClient.PublishNewCustomerAsync(customerPublishedDto);
             }
             catch (Exception ex)
             {

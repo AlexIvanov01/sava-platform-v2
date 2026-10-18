@@ -179,43 +179,31 @@ public class ProductRepo : IProductRepo
        return await _context.Products.CountAsync();
     }
 
-    public async Task DecrementBatchesAsync(IEnumerable<OrderItemPublishedDto> OrderItems)
+    public Task DecrementBatchesAsync(IEnumerable<OrderItemPublishedDto> OrderItems)
     {
-        var OrderItemsDict = OrderItems.ToDictionary(oi => oi.ItemId, oi => oi.OrderItemQuantity);
-
-        var batches =  await _context.ProductBatches
-           .Select(b => new ProductBatch
-           {
-               Id = b.Id,
-               Quantity = b.Quantity
-           })
-           .Where(b => OrderItemsDict.Keys.Contains(b.Id))
-           .ToListAsync();
-
-        foreach (var b in batches)
-        {
-            b.Quantity -= OrderItemsDict[b.Id];
-        }
-
-        await _context.SaveChangesAsync();
+        return AdjustBatchQuantitiesAsync(OrderItems, -1);
     }
 
-    public async Task IncrementBatchesAsync(IEnumerable<OrderItemPublishedDto> OrderItems)
+    public Task IncrementBatchesAsync(IEnumerable<OrderItemPublishedDto> OrderItems)
     {
-        var OrderItemsDict = OrderItems.ToDictionary(oi => oi.ItemId, oi => oi.OrderItemQuantity);
+        return AdjustBatchQuantitiesAsync(OrderItems, 1);
+    }
 
+    private async Task AdjustBatchQuantitiesAsync(IEnumerable<OrderItemPublishedDto> orderItems, int direction)
+    {
+        var quantities = orderItems
+            .GroupBy(oi => oi.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(oi => oi.OrderItemQuantity));
+        var ids = quantities.Keys.ToList();
+
+        // Load tracked entities (not a projection) so EF Core detects and saves the quantity changes.
         var batches = await _context.ProductBatches
-           .Select(b => new ProductBatch
-           {
-               Id = b.Id,
-               Quantity = b.Quantity
-           })
-           .Where(b => OrderItemsDict.Keys.Contains(b.Id))
+           .Where(b => ids.Contains(b.Id))
            .ToListAsync();
 
         foreach (var b in batches)
         {
-            b.Quantity += OrderItemsDict[b.Id];
+            b.Quantity += direction * quantities[b.Id];
         }
 
         await _context.SaveChangesAsync();

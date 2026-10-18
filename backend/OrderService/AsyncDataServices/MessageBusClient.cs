@@ -1,77 +1,129 @@
 ﻿using System;
-using System.Collections.Generic;
-using Microsoft.Extensions.Configuration;
-using System.Text.Json;
 using System.Text;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using OrderService.Dtos;
+using Microsoft.Extensions.Configuration;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
 using Serilog;
 
 namespace OrderService.AsyncDataServices;
 
-public class MessageBusClient : IMessageBusClient
+public sealed class MessageBusClient : IMessageBusClient, IAsyncDisposable
 {
-    private readonly IConfiguration _configuration;
-    private readonly IConnection _connection;
-    private readonly IModel _channel;
+    private const string Exchange = "order_exchange";
+    private const string RoutingKey = "order.published";
+
+    private readonly ConnectionFactory _factory;
+    private readonly SemaphoreSlim _lock = new(1, 1);
+    private IConnection? _connection;
+    private IChannel? _channel;
 
     public MessageBusClient(IConfiguration configuration)
     {
+        _factory = new ConnectionFactory()
+        {
+            HostName = configuration["RabbitMQHost"]!,
+            Port = int.Parse(configuration["RabbitMQPort"]!)
+        };
+    }
+
+    public async Task PublishNewOrderAsync(OrderPublishedEvent order)
+    {
+        var message = JsonSerializer.Serialize(order);
+        var body = Encoding.UTF8.GetBytes(message);
+
+        await _lock.WaitAsync();
         try
         {
-            _configuration = configuration;
-            var factory = new ConnectionFactory()
+            var channel = await GetChannelAsync();
+            if (channel is null)
             {
-                HostName = _configuration["RabbitMQHost"],
-                Port = int.Parse(_configuration["RabbitMQPort"])
-            };
-            _connection = factory.CreateConnection();
-            _channel = _connection.CreateModel();
-            _channel.ExchangeDeclare(exchange: "order_exchange", type: ExchangeType.Direct);
-            _connection.ConnectionShutdown += RabbitMQ_ConnectionShutdown;
+                Log.Warning("--> RabbitMQ connection unavailable, not sending.");
+                return;
+            }
+
+            await channel.BasicPublishAsync(exchange: Exchange, routingKey: RoutingKey, body: body);
+            Log.Information("--> We have sent {Message}", message);
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
+    // Connects lazily so the service can start before RabbitMQ is up, and reconnects if the channel was closed.
+    private async Task<IChannel?> GetChannelAsync()
+    {
+        if (_channel is { IsOpen: true })
+        {
+            return _channel;
+        }
+
+        try
+        {
+            await DisposeConnectionAsync();
+
+            _connection = await _factory.CreateConnectionAsync();
+            _connection.ConnectionShutdownAsync += RabbitMQ_ConnectionShutdownAsync;
+            _channel = await _connection.CreateChannelAsync();
+            await _channel.ExchangeDeclareAsync(exchange: Exchange, type: ExchangeType.Direct);
             Log.Information("--> Connected to MessageBus");
+            return _channel;
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Could not connect to a message bus: {Message}", ex.Message);
+            await DisposeConnectionAsync();
+            return null;
         }
     }
 
-    public void PublishNewOrder(OrderPublishedEvent order)
+    private async Task DisposeConnectionAsync()
     {
-        var message = JsonSerializer.Serialize(order);
-
-        if (_connection.IsOpen)
+        if (_channel is not null)
         {
-            Log.Information("--> RabbitMQ Connection Open, sedning message...");
-            SendMessage(message);
+            await _channel.DisposeAsync();
+            _channel = null;
         }
-        else
+
+        if (_connection is not null)
         {
-            Log.Information("--> RabbitMQ connection closed, not sending.");
+            _connection.ConnectionShutdownAsync -= RabbitMQ_ConnectionShutdownAsync;
+            await _connection.DisposeAsync();
+            _connection = null;
         }
     }
 
-    private void SendMessage(string message)
-    {
-        var body = Encoding.UTF8.GetBytes(message);
-
-        _channel.BasicPublish(exchange: "order_exchange", routingKey: "order.published", basicProperties: null, body: body);
-        Log.Information("--> We have sent {Message}", message);
-    }
-
-    public void MQDispose()
+    public async ValueTask DisposeAsync()
     {
         Log.Information("MessageBus Disposed");
-        if (_channel.IsOpen)
+        await _lock.WaitAsync();
+        try
         {
-            _channel.Close();
-            _connection.Close();
+            if (_channel is { IsOpen: true })
+            {
+                await _channel.CloseAsync();
+            }
+
+            if (_connection is { IsOpen: true })
+            {
+                await _connection.CloseAsync();
+            }
+
+            await DisposeConnectionAsync();
+        }
+        finally
+        {
+            _lock.Release();
         }
     }
 
-    private void RabbitMQ_ConnectionShutdown(object? sender, ShutdownEventArgs e)
+    private Task RabbitMQ_ConnectionShutdownAsync(object sender, ShutdownEventArgs e)
     {
         Log.Warning("--> RabbitMQ Connection Shutdown");
+        return Task.CompletedTask;
     }
 }

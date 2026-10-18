@@ -13,88 +13,123 @@ namespace OrderService.AsyncDataServices;
 
 public class MessageBusSubscriber : BackgroundService
 {
-    private readonly IConfiguration _configuration;
+    private const string Exchange = "trigger";
+    private const string RoutingKey = "";
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(5);
+
+    private readonly ConnectionFactory _factory;
     private readonly IEventProcessor _eventProcessor;
-    private IConnection _connection;
-    private IModel _channel;
-    private string _queueName;
+    private IConnection? _connection;
+    private IChannel? _channel;
 
     public MessageBusSubscriber(IConfiguration configuration, IEventProcessor eventProcessor)
     {
-        _configuration = configuration;
         _eventProcessor = eventProcessor;
-
-        InitializeRabbitMQ();
+        _factory = new ConnectionFactory()
+        {
+            HostName = configuration["RabbitMQHost"]!,
+            Port = int.Parse(configuration["RabbitMQPort"]!)
+        };
     }
 
-    private void InitializeRabbitMQ()
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        try
+        // Retry until the broker is reachable; after that the client's automatic recovery handles dropped connections.
+        while (!stoppingToken.IsCancellationRequested)
         {
-            var factory = new ConnectionFactory()
+            try
             {
-                HostName = _configuration["RabbitMQHost"],
-                Port = int.Parse(_configuration["RabbitMQPort"])
-            };
+                await StartConsumingAsync(stoppingToken);
+                return;
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "--> Could not connect to Message Bus to listen for events: {Ex}", ex.Message);
+                await DisposeConnectionAsync();
+            }
 
-            _connection = factory.CreateConnection();
-            _channel = _connection.CreateModel();
-            _channel.ExchangeDeclare(exchange: "trigger", type: ExchangeType.Fanout);
-            _queueName = _channel.QueueDeclare().QueueName;
-            _channel.QueueBind(queue: _queueName, exchange: "trigger", routingKey: "");
-
-            Log.Information("--> Listening on the Message Bus....");
-
-            _connection.ConnectionShutdown += RabbitMQ_ConnectionShutdown;
-        }
-        catch(Exception ex)
-        {
-            Log.Error(ex, "--> Could not connect to Message Bus to listen for events: {Ex}", ex.Message);
+            try
+            {
+                await Task.Delay(RetryDelay, stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
         }
     }
 
-    private void RabbitMQ_ConnectionShutdown(object? sender, ShutdownEventArgs e)
+    private async Task StartConsumingAsync(CancellationToken stoppingToken)
+    {
+        _connection = await _factory.CreateConnectionAsync(stoppingToken);
+        _connection.ConnectionShutdownAsync += RabbitMQ_ConnectionShutdownAsync;
+        _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
+        await _channel.ExchangeDeclareAsync(exchange: Exchange, type: ExchangeType.Fanout, cancellationToken: stoppingToken);
+        var queueName = (await _channel.QueueDeclareAsync(cancellationToken: stoppingToken)).QueueName;
+        await _channel.QueueBindAsync(queue: queueName, exchange: Exchange, routingKey: RoutingKey, cancellationToken: stoppingToken);
+
+        var consumer = new AsyncEventingBasicConsumer(_channel);
+        consumer.ReceivedAsync += async (_, ea) =>
+        {
+            Log.Information("--> Event Received!");
+
+            var notificationMessage = Encoding.UTF8.GetString(ea.Body.Span);
+
+            try
+            {
+                await _eventProcessor.ProcessEvent(notificationMessage);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "--> Could not process event: {Ex}", ex.Message);
+            }
+        };
+
+        await _channel.BasicConsumeAsync(queue: queueName, autoAck: true, consumer: consumer, cancellationToken: stoppingToken);
+
+        Log.Information("--> Listening on the Message Bus....");
+    }
+
+    private Task RabbitMQ_ConnectionShutdownAsync(object sender, ShutdownEventArgs e)
     {
         Log.Information("--> Connection Shutdown");
+        return Task.CompletedTask;
     }
 
-    protected override Task ExecuteAsync(CancellationToken stoppingToken)
+    public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        try
+        await base.StopAsync(cancellationToken);
+
+        if (_channel is { IsOpen: true })
         {
-            stoppingToken.ThrowIfCancellationRequested();
-
-            var consumer = new EventingBasicConsumer(_channel);
-
-            consumer.Received += (ModuleHandle, ea) =>
-            {
-                Log.Information("--> Event Received!");
-
-                var body = ea.Body;
-                var notificationMessage = Encoding.UTF8.GetString(body.ToArray());
-
-                _eventProcessor.ProcessEvent(notificationMessage);
-            };
-
-            _channel.BasicConsume(queue: _queueName, autoAck: true, consumer: consumer);
-
-            return Task.CompletedTask;
+            await _channel.CloseAsync(cancellationToken);
         }
-        catch (Exception ex)
+
+        if (_connection is { IsOpen: true })
         {
-            Log.Error(ex, "--> Could not connect to Message Bus to listen for events: {Ex}", ex.Message);
-            return Task.CompletedTask;
+            await _connection.CloseAsync(cancellationToken);
         }
+
+        await DisposeConnectionAsync();
     }
 
-    public override void Dispose()
+    private async Task DisposeConnectionAsync()
     {
-        if(_channel.IsOpen)
+        if (_channel is not null)
         {
-            _channel.Close();
-            _connection.Close();
+            await _channel.DisposeAsync();
+            _channel = null;
         }
 
-        base.Dispose();
+        if (_connection is not null)
+        {
+            _connection.ConnectionShutdownAsync -= RabbitMQ_ConnectionShutdownAsync;
+            await _connection.DisposeAsync();
+            _connection = null;
+        }
     }
 }

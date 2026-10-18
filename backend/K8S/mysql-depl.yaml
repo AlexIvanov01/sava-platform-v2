@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: mysql
-          image: mysql:latest
+          image: mysql:9.7
           ports:
             - containerPort: 3306
           env:
@@ -75,7 +75,7 @@ spec:
     spec:
       containers:
         - name: mysql
-          image: mysql:latest
+          image: mysql:9.7
           ports:
             - containerPort: 3306
           env:
@@ -136,7 +136,7 @@ spec:
     spec:
       containers:
         - name: mysql
-          image: mysql:latest
+          image: mysql:9.7
           ports:
             - containerPort: 3306
           env:

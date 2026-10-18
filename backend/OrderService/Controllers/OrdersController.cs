@@ -147,7 +147,7 @@ public class OrdersController : ControllerBase
                 Event = "Order_Published"
             };
 
-            _messageBusClient.PublishNewOrder(orderPublishedEvent);
+            await _messageBusClient.PublishNewOrderAsync(orderPublishedEvent);
         }
         catch (Exception ex)
         {
@@ -199,7 +199,7 @@ public class OrdersController : ControllerBase
                     Event = "Order_Deleted"
                 };
 
-                _messageBusClient.PublishNewOrder(orderDeletedEvent);
+                await _messageBusClient.PublishNewOrderAsync(orderDeletedEvent);
 
                 OrderPublishedEvent orderPublishedEvent = new()
                 {
@@ -207,7 +207,7 @@ public class OrdersController : ControllerBase
                     Event = "Order_Published"
                 };
 
-                _messageBusClient.PublishNewOrder(orderPublishedEvent);
+                await _messageBusClient.PublishNewOrderAsync(orderPublishedEvent);
             }
         }
         catch (Exception ex)
@@ -256,7 +256,7 @@ public class OrdersController : ControllerBase
                 Event = "Order_Deleted"
             };
 
-            _messageBusClient.PublishNewOrder(orderDeletedEvent);
+            await _messageBusClient.PublishNewOrderAsync(orderDeletedEvent);
         }
         catch (Exception ex)
         {

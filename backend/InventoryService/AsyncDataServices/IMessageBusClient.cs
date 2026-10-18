@@ -1,8 +1,9 @@
-﻿using InventoryService.Dtos;
+﻿using System.Threading.Tasks;
+using InventoryService.Dtos;
 
 namespace InventoryService.AsyncDataServices;
 
 public interface IMessageBusClient
 {
-    void PublishNewItem(ItemPublishedDto itemPublishedDto);
+    Task PublishNewItemAsync(ItemPublishedDto itemPublishedDto);
 }

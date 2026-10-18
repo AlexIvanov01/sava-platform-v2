@@ -53,8 +53,8 @@ Running locally uses `appsettings.Development.json`, which points at MySQL and R
 1. Start the infrastructure. Use the MySQL password from the services' `appsettings.Development.json`:
 
    ```bash
-   docker run -d --name sava-mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=<password> mysql:8.4
-   docker run -d --name sava-rabbit -p 5672:5672 -p 15672:15672 rabbitmq:4-management
+   docker run -d --name sava-mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=<password> mysql:9.7
+   docker run -d --name sava-rabbit -p 5672:5672 -p 15672:15672 rabbitmq:4.3-management
    ```
 
    One MySQL instance is enough because each service uses its own database (`savadb_inv`, `savadb_cust`, `savadb_order`). Migrations and seed data (`dummy_data.json`) are applied automatically on startup.
