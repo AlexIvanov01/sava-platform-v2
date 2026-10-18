@@ -14,6 +14,7 @@ namespace CustomerService.DataAccess
         {
             _context = context;
         }
+
         public async Task CreateCustomerAsync(Customer customer)
         {
             await _context.Customers.AddAsync(customer);
@@ -22,9 +23,9 @@ namespace CustomerService.DataAccess
 
         public async Task<Customer?> DeleteCustomerAsync(Guid id)
         {
-            var dbCustomer = await _context.Customers
-            .AsNoTracking()
-            .SingleOrDefaultAsync(x => x.Id == id);
+            var dbCustomer = await _context
+                .Customers.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == id);
 
             if (dbCustomer == null)
             {
@@ -41,25 +42,23 @@ namespace CustomerService.DataAccess
 
         public async Task<IEnumerable<Customer>> GetAllCustomersAsync()
         {
-            return await _context.Customers
-            .AsNoTracking()
-            .ToListAsync();
+            return await _context.Customers.AsNoTracking().ToListAsync();
         }
 
         public async Task<Customer?> GetCustomerAsync(Guid id)
         {
-            var customer = await _context.Customers
-            .AsNoTracking()
-            .SingleOrDefaultAsync(p => p.Id == id);
+            var customer = await _context
+                .Customers.AsNoTracking()
+                .SingleOrDefaultAsync(p => p.Id == id);
 
             return customer;
         }
 
         public async Task<Customer?> UpdateCustomerAsync(Customer customer)
         {
-            var dbCustomer = await _context.Customers
-            .AsNoTracking()
-            .SingleOrDefaultAsync(p => p.Id == customer.Id);
+            var dbCustomer = await _context
+                .Customers.AsNoTracking()
+                .SingleOrDefaultAsync(p => p.Id == customer.Id);
 
             if (dbCustomer == null)
             {

@@ -16,6 +16,7 @@ public class ItemRepo : IItemRepo
     {
         _context = context;
     }
+
     public async Task DeleteItemAsync(Guid? id)
     {
         await _context.Items.Where(i => i.ExternalBatchId == id).ExecuteDeleteAsync();
@@ -33,9 +34,7 @@ public class ItemRepo : IItemRepo
 
     public async Task SyncItemsAsync(IEnumerable<Item> items)
     {
-        var dbItemArray = await _context.Items
-            .AsNoTracking()
-            .ToListAsync();
+        var dbItemArray = await _context.Items.AsNoTracking().ToListAsync();
 
         foreach (var item in items)
         {
@@ -54,11 +53,9 @@ public class ItemRepo : IItemRepo
         var invalidItems = dbItemArray.Where(i => !syncedIds.Contains(i.ExternalBatchId)).ToList();
         if (invalidItems.Count > 0)
         {
-           var validatedItems = await _context.OrderItems
-                .Select(io => io.ItemId)
-                .ToListAsync();
+            var validatedItems = await _context.OrderItems.Select(io => io.ItemId).ToListAsync();
 
-            foreach(var itemId in validatedItems)
+            foreach (var itemId in validatedItems)
             {
                 var itemToBeRemoved = invalidItems.Find(c => c.ExternalBatchId == itemId);
                 if (itemToBeRemoved != null)
@@ -69,23 +66,24 @@ public class ItemRepo : IItemRepo
 
             if (invalidItems.Count > 0)
             {
-                await _context.Items
-                .Where(i => invalidItems.Contains(i))
-                .ExecuteDeleteAsync();
+                await _context.Items.Where(i => invalidItems.Contains(i)).ExecuteDeleteAsync();
             }
         }
     }
 
     public async Task UpdateItemAsync(Item item)
     {
-        var dbItem = await _context.Items
-            .AsNoTracking()
+        var dbItem = await _context
+            .Items.AsNoTracking()
             .SingleOrDefaultAsync(p => p.ExternalBatchId == item.ExternalBatchId);
 
         if (dbItem == null)
         {
             //To-do: Create an appropriate respone to an update for an non existent object
-            Log.Error("Could not find item with external id {Id} in DB to update.", item.ExternalBatchId);
+            Log.Error(
+                "Could not find item with external id {Id} in DB to update.",
+                item.ExternalBatchId
+            );
             return;
         }
 
@@ -108,8 +106,8 @@ public class ItemRepo : IItemRepo
 
     public async Task UpdateProductNameAsync(Guid? productId, string newProductName)
     {
-        await _context.Items
-            .Where(i => i.ExternalProductId == productId)
+        await _context
+            .Items.Where(i => i.ExternalProductId == productId)
             .ExecuteUpdateAsync(p => p.SetProperty(i => i.Name, newProductName));
     }
 

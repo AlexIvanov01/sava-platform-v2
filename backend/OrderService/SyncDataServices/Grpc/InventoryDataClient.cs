@@ -21,10 +21,15 @@ public class InventoryDataClient : IInventoryDataClient
 
     public IEnumerable<Item>? ReturnAllItems()
     {
-        Log.Information("--> Calling inventory GRPC service {Service}", _configuration["GrpcInventoryService"]);
+        Log.Information(
+            "--> Calling inventory GRPC service {Service}",
+            _configuration["GrpcInventoryService"]
+        );
 
-        var channel = GrpcChannel.ForAddress(_configuration["GrpcInventoryService"]
-            ?? throw new InvalidOperationException("GrpcInventoryService is not configured."));
+        var channel = GrpcChannel.ForAddress(
+            _configuration["GrpcInventoryService"]
+                ?? throw new InvalidOperationException("GrpcInventoryService is not configured.")
+        );
         var client = new GrpcInventory.GrpcInventoryClient(channel);
         var request = new GetAllRequest();
 

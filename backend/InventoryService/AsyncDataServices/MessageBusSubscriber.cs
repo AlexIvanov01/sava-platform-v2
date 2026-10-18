@@ -2,9 +2,9 @@
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using InventoryService.EventProcessing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using InventoryService.EventProcessing;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Serilog;
@@ -28,7 +28,7 @@ public class MessageBusSubscriber : BackgroundService
         _factory = new ConnectionFactory()
         {
             HostName = configuration["RabbitMQHost"]!,
-            Port = int.Parse(configuration["RabbitMQPort"]!)
+            Port = int.Parse(configuration["RabbitMQPort"]!),
         };
     }
 
@@ -48,7 +48,11 @@ public class MessageBusSubscriber : BackgroundService
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "--> Could not connect to Message Bus to listen for events: {Ex}", ex.Message);
+                Log.Error(
+                    ex,
+                    "--> Could not connect to Message Bus to listen for events: {Ex}",
+                    ex.Message
+                );
                 await DisposeConnectionAsync();
             }
 
@@ -68,9 +72,20 @@ public class MessageBusSubscriber : BackgroundService
         _connection = await _factory.CreateConnectionAsync(stoppingToken);
         _connection.ConnectionShutdownAsync += RabbitMQ_ConnectionShutdownAsync;
         _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
-        await _channel.ExchangeDeclareAsync(exchange: Exchange, type: ExchangeType.Direct, cancellationToken: stoppingToken);
-        var queueName = (await _channel.QueueDeclareAsync(cancellationToken: stoppingToken)).QueueName;
-        await _channel.QueueBindAsync(queue: queueName, exchange: Exchange, routingKey: RoutingKey, cancellationToken: stoppingToken);
+        await _channel.ExchangeDeclareAsync(
+            exchange: Exchange,
+            type: ExchangeType.Direct,
+            cancellationToken: stoppingToken
+        );
+        var queueName = (
+            await _channel.QueueDeclareAsync(cancellationToken: stoppingToken)
+        ).QueueName;
+        await _channel.QueueBindAsync(
+            queue: queueName,
+            exchange: Exchange,
+            routingKey: RoutingKey,
+            cancellationToken: stoppingToken
+        );
 
         var consumer = new AsyncEventingBasicConsumer(_channel);
         consumer.ReceivedAsync += async (_, ea) =>
@@ -89,7 +104,12 @@ public class MessageBusSubscriber : BackgroundService
             }
         };
 
-        await _channel.BasicConsumeAsync(queue: queueName, autoAck: true, consumer: consumer, cancellationToken: stoppingToken);
+        await _channel.BasicConsumeAsync(
+            queue: queueName,
+            autoAck: true,
+            consumer: consumer,
+            cancellationToken: stoppingToken
+        );
 
         Log.Information("--> Listening on the Message Bus....");
     }

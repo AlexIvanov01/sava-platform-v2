@@ -33,7 +33,8 @@ public class OrdersController : ControllerBase
     public async Task<ActionResult<OrderPageReadDto>> GetAllOrdersAsync(
         Guid? cursor,
         Guid? customerId,
-        [Range(1, 50)] int pageSize = 10)
+        [Range(1, 50)] int pageSize = 10
+    )
     {
         try
         {
@@ -41,28 +42,39 @@ public class OrdersController : ControllerBase
 
             if (customerId == null)
             {
-                Log.Information("--> Getting {PageSize} amount of orders after cursor {Cursor}", pageSize, cursor);
+                Log.Information(
+                    "--> Getting {PageSize} amount of orders after cursor {Cursor}",
+                    pageSize,
+                    cursor
+                );
                 orderPageItems = await _repository.GetAllOrdersAsync(cursor, pageSize);
             }
             else
             {
-                Log.Information("--> Getting {PageSize} amount of orders made by customer {Customer} after cursor {Cursor}",
-                    pageSize, customerId, cursor);
+                Log.Information(
+                    "--> Getting {PageSize} amount of orders made by customer {Customer} after cursor {Cursor}",
+                    pageSize,
+                    customerId,
+                    cursor
+                );
 
                 orderPageItems = await _repository.GetAllOrdersByCustomerIdAsync(
                     customerId,
                     cursor,
-                    pageSize);
+                    pageSize
+                );
             }
 
             if (!orderPageItems.Any())
             {
-                Log.Warning("--> No orderds were found after {Cursor} or cursor not found.", cursor);
+                Log.Warning(
+                    "--> No orderds were found after {Cursor} or cursor not found.",
+                    cursor
+                );
                 return NotFound();
             }
 
-            var pageCount = Math.Ceiling(
-                await _repository.GetOrderCountAsync() / (float)pageSize);
+            var pageCount = Math.Ceiling(await _repository.GetOrderCountAsync() / (float)pageSize);
 
             List<OrderFullReadDto> dtos = orderPageItems.Select(o => o.ToFullReadDto()).ToList();
 
@@ -70,7 +82,7 @@ public class OrdersController : ControllerBase
             {
                 OrderFullReadDtos = dtos,
                 Cursor = dtos[dtos.Count - 1].Id,
-                Pages = (int)pageCount
+                Pages = (int)pageCount,
             };
 
             return Ok(pageDto);
@@ -144,7 +156,7 @@ public class OrdersController : ControllerBase
             OrderPublishedEvent orderPublishedEvent = new()
             {
                 OrderItems = orderModel.OrderItems.ToPublishedDtos(),
-                Event = "Order_Published"
+                Event = "Order_Published",
             };
 
             await _messageBusClient.PublishNewOrderAsync(orderPublishedEvent);
@@ -162,7 +174,10 @@ public class OrdersController : ControllerBase
     [HttpPut("{id}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<OrderReadDto>> UpdateOrder(Guid id, OrderUpdateDto orderUpdateDto)
+    public async Task<ActionResult<OrderReadDto>> UpdateOrder(
+        Guid id,
+        OrderUpdateDto orderUpdateDto
+    )
     {
         Order updatedOrder;
         List<OrderItem> previousItems;
@@ -194,7 +209,7 @@ public class OrdersController : ControllerBase
                 OrderPublishedEvent orderDeletedEvent = new()
                 {
                     OrderItems = previousItems.ToPublishedDtos(),
-                    Event = "Order_Deleted"
+                    Event = "Order_Deleted",
                 };
 
                 await _messageBusClient.PublishNewOrderAsync(orderDeletedEvent);
@@ -202,7 +217,7 @@ public class OrdersController : ControllerBase
                 OrderPublishedEvent orderPublishedEvent = new()
                 {
                     OrderItems = orderUpdateDto.OrderItems.ToPublishedDtos(),
-                    Event = "Order_Published"
+                    Event = "Order_Published",
                 };
 
                 await _messageBusClient.PublishNewOrderAsync(orderPublishedEvent);
@@ -237,7 +252,6 @@ public class OrdersController : ControllerBase
             Log.Information("--> Order with id {Id} deleted", id);
 
             preDeleteOrderModel = nullCheck;
-
         }
         catch (Exception ex)
         {
@@ -251,7 +265,7 @@ public class OrdersController : ControllerBase
             OrderPublishedEvent orderDeletedEvent = new()
             {
                 OrderItems = preDeleteOrderModel.OrderItems.ToPublishedDtos(),
-                Event = "Order_Deleted"
+                Event = "Order_Deleted",
             };
 
             await _messageBusClient.PublishNewOrderAsync(orderDeletedEvent);
@@ -262,5 +276,4 @@ public class OrdersController : ControllerBase
         }
         return NoContent();
     }
-
 }

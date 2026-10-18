@@ -28,25 +28,38 @@ namespace OrderService.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<InvoicePageReadDto>> GetInvoices(
-        int? cursor,
-        [Range(1, 100)] int pageSize = 10)
+            int? cursor,
+            [Range(1, 100)] int pageSize = 10
+        )
         {
             try
             {
-                Log.Information("--> Getting {PageSize} amount of invoices after cursor {Cursor}", pageSize, cursor);
+                Log.Information(
+                    "--> Getting {PageSize} amount of invoices after cursor {Cursor}",
+                    pageSize,
+                    cursor
+                );
 
                 var invoiceItems = await _repository.GetAllInvociesAsync(cursor, pageSize);
- 
 
                 if (!invoiceItems.Any())
                 {
-                    Log.Warning("--> No invoices found in database after cursor {Cursor} or cursor not found.", cursor);
+                    Log.Warning(
+                        "--> No invoices found in database after cursor {Cursor} or cursor not found.",
+                        cursor
+                    );
                     return NotFound();
                 }
 
-                Log.Information("--> Fetched {PageSize} amount of invoices from database after cursor {Cursor}.", pageSize, cursor);
+                Log.Information(
+                    "--> Fetched {PageSize} amount of invoices from database after cursor {Cursor}.",
+                    pageSize,
+                    cursor
+                );
 
-                var pageCount = Math.Ceiling(await _repository.GetInvoiceCountAsync() / (float)pageSize);
+                var pageCount = Math.Ceiling(
+                    await _repository.GetInvoiceCountAsync() / (float)pageSize
+                );
 
                 List<OrderFullReadDto> dtos = invoiceItems.Select(i => i.ToFullReadDto()).ToList();
 
@@ -55,7 +68,7 @@ namespace OrderService.Controllers
                 {
                     OrderReadDtos = dtos,
                     Cursor = dtos.Select(o => o.Invoice).Last().Id,
-                    Pages = (int)pageCount
+                    Pages = (int)pageCount,
                 };
 #pragma warning restore CS8602 // Dereference of a possibly null reference.
 
@@ -88,7 +101,7 @@ namespace OrderService.Controllers
                 Log.Information("--> Fetched an invoice with id {Id}.", id);
 
                 var dto = invoice.ToFullReadDto();
-                    return Ok(dto);
+                return Ok(dto);
             }
             catch (Exception ex)
             {
@@ -100,7 +113,10 @@ namespace OrderService.Controllers
         [HttpPost("{orderId}")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<InvoiceReadDto>> CreateInvoice(InvoiceCreateDto invoiceCreateDto, Guid orderId)
+        public async Task<ActionResult<InvoiceReadDto>> CreateInvoice(
+            InvoiceCreateDto invoiceCreateDto,
+            Guid orderId
+        )
         {
             try
             {
@@ -119,7 +135,11 @@ namespace OrderService.Controllers
 
                 var invoiceReadDto = invoiceModel.ToReadDto();
 
-                return CreatedAtRoute(nameof(GetInvoiceById), new { Id = invoiceReadDto.Id }, invoiceReadDto);
+                return CreatedAtRoute(
+                    nameof(GetInvoiceById),
+                    new { Id = invoiceReadDto.Id },
+                    invoiceReadDto
+                );
             }
             catch (Exception ex)
             {
@@ -131,7 +151,10 @@ namespace OrderService.Controllers
         [HttpPut("{id}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<InvoiceReadDto>> UpdateInvoice(int id, InvoiceUpdateDto invoiceUpdateDto)
+        public async Task<ActionResult<InvoiceReadDto>> UpdateInvoice(
+            int id,
+            InvoiceUpdateDto invoiceUpdateDto
+        )
         {
             try
             {

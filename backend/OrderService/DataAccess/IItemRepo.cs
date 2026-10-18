@@ -1,7 +1,7 @@
-﻿using OrderService.Models;
-using System.Threading.Tasks;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using OrderService.Models;
 
 namespace OrderService.DataAccess;
 
@@ -15,4 +15,3 @@ public interface IItemRepo
     Task DeleteItemsByProductIdAsync(Guid? productId);
     Task SyncItemsAsync(IEnumerable<Item> items);
 }
-

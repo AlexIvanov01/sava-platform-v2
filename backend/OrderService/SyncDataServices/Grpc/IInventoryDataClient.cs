@@ -7,4 +7,3 @@ public interface IInventoryDataClient
 {
     IEnumerable<Item>? ReturnAllItems();
 }
- 

@@ -26,8 +26,8 @@ public class ProductRepo : IProductRepo
 
     public async Task<Product?> DeleteProductAsync(Guid id)
     {
-        var dbProduct = await _context.Products
-            .AsNoTracking()
+        var dbProduct = await _context
+            .Products.AsNoTracking()
             .SingleOrDefaultAsync(x => x.Id == id);
 
         if (dbProduct == null)
@@ -45,8 +45,8 @@ public class ProductRepo : IProductRepo
 
     public async Task<ProductBatch?> DeleteBatchAsync(Guid id)
     {
-        var dbBatch = await _context.ProductBatches
-            .AsNoTracking()
+        var dbBatch = await _context
+            .ProductBatches.AsNoTracking()
             .SingleOrDefaultAsync(b => b.Id == id);
 
         if (dbBatch == null)
@@ -66,16 +66,16 @@ public class ProductRepo : IProductRepo
     {
         if (cursor != null)
         {
-            return await _context.Products
-                .AsNoTracking()
+            return await _context
+                .Products.AsNoTracking()
                 .Include(a => a.Batches)
                 .Where(p => p.Id > cursor)
                 .OrderBy(p => p.Id)
                 .Take(pageSize)
                 .ToListAsync();
         }
-        return await _context.Products
-            .AsNoTracking()
+        return await _context
+            .Products.AsNoTracking()
             .Include(a => a.Batches)
             .OrderBy(p => p.Id)
             .Take(pageSize)
@@ -84,8 +84,8 @@ public class ProductRepo : IProductRepo
 
     public async Task<Product?> GetProductAsync(Guid id)
     {
-        var product = await _context.Products
-            .AsNoTracking()
+        var product = await _context
+            .Products.AsNoTracking()
             .Include(a => a.Batches)
             .SingleOrDefaultAsync(p => p.Id == id);
 
@@ -94,8 +94,8 @@ public class ProductRepo : IProductRepo
 
     public async Task<Product?> UpdateProductAsync(Product product)
     {
-        var DbProduct = await _context.Products
-            .AsNoTracking()
+        var DbProduct = await _context
+            .Products.AsNoTracking()
             .SingleOrDefaultAsync(p => p.Id == product.Id);
 
         if (DbProduct == null)
@@ -125,8 +125,8 @@ public class ProductRepo : IProductRepo
 
     public async Task<ProductBatch?> UpdateBatchAsync(ProductBatch batch)
     {
-        var DbBatch = await _context.ProductBatches
-            .AsNoTracking()
+        var DbBatch = await _context
+            .ProductBatches.AsNoTracking()
             .SingleOrDefaultAsync(b => b.Id == batch.Id);
 
         if (DbBatch == null)
@@ -141,7 +141,6 @@ public class ProductRepo : IProductRepo
         foreach (var property in _context.Entry(DbBatch).Properties)
         {
             if (property.CurrentValue == null)
-
             {
                 property.IsModified = false;
             }
@@ -156,8 +155,8 @@ public class ProductRepo : IProductRepo
 
     public async Task<Product?> AddBatchAsync(ProductBatch batch, Guid ProductId)
     {
-        var product = await _context.Products
-            .Include(a => a.Batches)
+        var product = await _context
+            .Products.Include(a => a.Batches)
             .SingleOrDefaultAsync(p => p.Id == ProductId);
 
         if (product == null)
@@ -176,7 +175,7 @@ public class ProductRepo : IProductRepo
 
     public async Task<int> GetAllProductsCountAsync()
     {
-       return await _context.Products.CountAsync();
+        return await _context.Products.CountAsync();
     }
 
     public Task DecrementBatchesAsync(IEnumerable<OrderItemPublishedDto> OrderItems)
@@ -189,7 +188,10 @@ public class ProductRepo : IProductRepo
         return AdjustBatchQuantitiesAsync(OrderItems, 1);
     }
 
-    private async Task AdjustBatchQuantitiesAsync(IEnumerable<OrderItemPublishedDto> orderItems, int direction)
+    private async Task AdjustBatchQuantitiesAsync(
+        IEnumerable<OrderItemPublishedDto> orderItems,
+        int direction
+    )
     {
         var quantities = orderItems
             .GroupBy(oi => oi.ItemId)
@@ -197,9 +199,7 @@ public class ProductRepo : IProductRepo
         var ids = quantities.Keys.ToList();
 
         // Load tracked entities (not a projection) so EF Core detects and saves the quantity changes.
-        var batches = await _context.ProductBatches
-           .Where(b => ids.Contains(b.Id))
-           .ToListAsync();
+        var batches = await _context.ProductBatches.Where(b => ids.Contains(b.Id)).ToListAsync();
 
         foreach (var b in batches)
         {
@@ -211,14 +211,10 @@ public class ProductRepo : IProductRepo
 
     public async Task<IEnumerable<Product>> GetAllProductBatchesAsync()
     {
-        return await _context.Products
-            .AsNoTracking()
+        return await _context
+            .Products.AsNoTracking()
             .Include(p => p.Batches)
-            .Select(p => new Product
-            {
-                Name = p.Name,
-                Batches = p.Batches
-            })
+            .Select(p => new Product { Name = p.Name, Batches = p.Batches })
             .ToArrayAsync();
     }
 }

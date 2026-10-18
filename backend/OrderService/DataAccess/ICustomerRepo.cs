@@ -13,5 +13,4 @@ public interface ICustomerRepo
     Task DeleteCustomerAsync(Guid id);
     Task UpdateCustomerAsync(Customer customer);
     Task SyncCustomersAsync(IEnumerable<Customer> customers);
-
 }

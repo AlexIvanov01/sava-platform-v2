@@ -29,16 +29,17 @@ if (!isOpenApiGeneration)
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<ProductContext>(options =>
 {
-    options.UseMySQL(builder.Configuration.GetConnectionString("Default")
-        ?? throw new InvalidOperationException("Connection string 'Default' is not configured."));
+    options.UseMySQL(
+        builder.Configuration.GetConnectionString("Default")
+            ?? throw new InvalidOperationException("Connection string 'Default' is not configured.")
+    );
 });
 builder.Services.AddScoped<IProductRepo, ProductRepo>();
 builder.Services.AddSingleton<IMessageBusClient, MessageBusClient>();
 builder.Services.AddGrpc();
 builder.Services.AddSingleton<IEventProcessor, EventProcessor>();
 
-Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(builder.Configuration).CreateLogger();
+Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration).CreateLogger();
 
 builder.Host.UseSerilog();
 
@@ -55,10 +56,13 @@ app.UseSerilogRequestLogging();
 app.MapControllers();
 app.MapGrpcService<GrpcInventoryService>();
 
-app.MapGet("/protos/inventory.proto", async context =>
-{
-    await context.Response.WriteAsync(await File.ReadAllTextAsync("Protos/inventory.proto"));
-});
+app.MapGet(
+    "/protos/inventory.proto",
+    async context =>
+    {
+        await context.Response.WriteAsync(await File.ReadAllTextAsync("Protos/inventory.proto"));
+    }
+);
 
 if (!isOpenApiGeneration)
 {

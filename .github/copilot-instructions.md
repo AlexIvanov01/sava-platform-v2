@@ -19,7 +19,7 @@ docker build -t alexivanov01/inventoryservice .
 kubectl apply -f ../K8S/
 ```
 
-The repository has no test projects. Static analysis comes from `backend/Directory.Build.props`, which adds the SonarAnalyzer.CSharp Roslyn analyzer to every backend project. Its findings are build warnings (`S####`) and don't fail the build. Run `dotnet build --no-incremental` to see all of them. Docker builds use the service folder as the build context, so they don't import this file.
+The repository has no test projects. Static analysis comes from `backend/Directory.Build.props`, which adds the SonarAnalyzer.CSharp Roslyn analyzer to every backend project. Its findings are build warnings (`S####`) and don't fail the build. Run `dotnet build --no-incremental` to see all of them. Docker builds use the service folder as the build context, so they don't import this file. C# formatting uses CSharpier, pinned in the root `dotnet-tools.json`. Run `dotnet tool restore`, then `dotnet csharpier format backend` before committing.
 
 ## Architecture
 

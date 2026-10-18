@@ -12,5 +12,4 @@ public interface ICustomerRepo
     Task CreateCustomerAsync(Customer customer);
     Task<Customer?> DeleteCustomerAsync(Guid id);
     Task<Customer?> UpdateCustomerAsync(Customer customer);
-
 }

@@ -20,39 +20,59 @@ namespace JwtAuthenticationManager
 #pragma warning disable S2068
             _userAccounts =
             [
-               new UserAccount{ UserName = "admin", Password = "admin123", Role = "Administrator" },
-               new UserAccount{ UserName = "user", Password = "user123", Role = "User" }
+                new UserAccount
+                {
+                    UserName = "admin",
+                    Password = "admin123",
+                    Role = "Administrator",
+                },
+                new UserAccount
+                {
+                    UserName = "user",
+                    Password = "user123",
+                    Role = "User",
+                },
             ];
 #pragma warning restore S2068
         }
 
         public AuthenticationResponse? GenerateJwtToken(AuthenticationRequest authenticationRequest)
         {
-            if (string.IsNullOrWhiteSpace(authenticationRequest.UserName) || string.IsNullOrWhiteSpace(authenticationRequest.Password))
+            if (
+                string.IsNullOrWhiteSpace(authenticationRequest.UserName)
+                || string.IsNullOrWhiteSpace(authenticationRequest.Password)
+            )
                 return null;
 
             /* Validation */
 
-            var userAccount = _userAccounts.Find(x => x.UserName == authenticationRequest.UserName && x.Password == authenticationRequest.Password);
-            if (userAccount == null) return null;
+            var userAccount = _userAccounts.Find(x =>
+                x.UserName == authenticationRequest.UserName
+                && x.Password == authenticationRequest.Password
+            );
+            if (userAccount == null)
+                return null;
 
             var tokenExpiryTimeStamp = DateTime.Now.AddMinutes(JWT_TOKEN_VALIDITY_MINS);
             var tokenKey = Encoding.ASCII.GetBytes(JWT_SECURITY_KEY);
-            var claimsIdenity = new ClaimsIdentity(new List<Claim>
-            {
-                new Claim(JwtRegisteredClaimNames.Name, authenticationRequest.UserName),
-                new Claim("Role", userAccount.Role),
-            });
+            var claimsIdenity = new ClaimsIdentity(
+                new List<Claim>
+                {
+                    new Claim(JwtRegisteredClaimNames.Name, authenticationRequest.UserName),
+                    new Claim("Role", userAccount.Role),
+                }
+            );
 
             var signingCredentials = new SigningCredentials(
                 new SymmetricSecurityKey(tokenKey),
-                SecurityAlgorithms.HmacSha256Signature);
+                SecurityAlgorithms.HmacSha256Signature
+            );
 
             var securityTokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = claimsIdenity,
                 Expires = tokenExpiryTimeStamp,
-                SigningCredentials = signingCredentials
+                SigningCredentials = signingCredentials,
             };
 
             var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();

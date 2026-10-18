@@ -3,8 +3,8 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using OrderService.Dtos;
 using Microsoft.Extensions.Configuration;
+using OrderService.Dtos;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Serilog;
@@ -26,7 +26,7 @@ public sealed class MessageBusClient : IMessageBusClient, IAsyncDisposable
         _factory = new ConnectionFactory()
         {
             HostName = configuration["RabbitMQHost"]!,
-            Port = int.Parse(configuration["RabbitMQPort"]!)
+            Port = int.Parse(configuration["RabbitMQPort"]!),
         };
     }
 

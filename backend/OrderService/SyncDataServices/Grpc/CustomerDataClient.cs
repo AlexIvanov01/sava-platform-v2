@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Grpc.Net.Client;
 using CustomerService;
+using Grpc.Net.Client;
 using Microsoft.Extensions.Configuration;
 using OrderService.Mappings;
 using OrderService.Models;
@@ -13,6 +13,7 @@ namespace OrderService.SyncDataServices.Grpc;
 public class CustomerDataClient : ICustomerDataClient
 {
     private readonly IConfiguration _configuration;
+
     public CustomerDataClient(IConfiguration configuration)
     {
         _configuration = configuration;
@@ -20,10 +21,15 @@ public class CustomerDataClient : ICustomerDataClient
 
     public IEnumerable<Customer>? ReturnAllCustomers()
     {
-        Log.Information("--> Calling customer GRPC service {Service}", _configuration["GrpcCustomerService"]);
+        Log.Information(
+            "--> Calling customer GRPC service {Service}",
+            _configuration["GrpcCustomerService"]
+        );
 
-        var channel = GrpcChannel.ForAddress(_configuration["GrpcCustomerService"]
-            ?? throw new InvalidOperationException("GrpcCustomerService is not configured."));
+        var channel = GrpcChannel.ForAddress(
+            _configuration["GrpcCustomerService"]
+                ?? throw new InvalidOperationException("GrpcCustomerService is not configured.")
+        );
         var client = new GrpcCustomer.GrpcCustomerClient(channel);
         var request = new GetAllRequest();
 

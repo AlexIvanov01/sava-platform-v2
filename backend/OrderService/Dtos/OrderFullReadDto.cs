@@ -1,6 +1,6 @@
-﻿using OrderService.Models;
+﻿using System;
 using System.Collections.Generic;
-using System;
+using OrderService.Models;
 
 namespace OrderService.Dtos;
 

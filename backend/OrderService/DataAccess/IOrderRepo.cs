@@ -10,8 +10,11 @@ public interface IOrderRepo
     Task<IEnumerable<Order>> GetAllOrdersAsync(Guid? cursor, int pageSize);
     Task<int> GetOrderCountAsync();
     Task<Order?> GetOrderByIdAsync(Guid id);
-    Task<IEnumerable<Order>> GetAllOrdersByCustomerIdAsync
-        (Guid? customerId, Guid? cursor, int pageSize);
+    Task<IEnumerable<Order>> GetAllOrdersByCustomerIdAsync(
+        Guid? customerId,
+        Guid? cursor,
+        int pageSize
+    );
     Task<Order?> CreateOrderAsync(Order order);
     Task<(Order Order, List<OrderItem> PreviousItems)?> UpdateOrderAsync(Order order);
     Task<Order?> DeleteOrderAsync(Guid id);

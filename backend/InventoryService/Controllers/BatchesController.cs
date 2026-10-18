@@ -1,5 +1,6 @@
-﻿using System.Threading.Tasks;
-using System;
+﻿using System;
+using System.Threading.Tasks;
+using InventoryService.AsyncDataServices;
 using InventoryService.DataAccess;
 using InventoryService.Dtos;
 using InventoryService.Mappings;
@@ -7,7 +8,6 @@ using InventoryService.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
-using InventoryService.AsyncDataServices;
 
 namespace InventoryService.Controllers
 {
@@ -23,11 +23,14 @@ namespace InventoryService.Controllers
             _repository = repository;
             _messageBusClient = messageBusClient;
         }
-        
+
         [HttpPost("{ProductId}")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<ProductReadDto>> CreateBatch(BatchCreateDto batchCreateDto, Guid ProductId)
+        public async Task<ActionResult<ProductReadDto>> CreateBatch(
+            BatchCreateDto batchCreateDto,
+            Guid ProductId
+        )
         {
             Product? productItem;
             ProductBatch batchModel;
@@ -50,7 +53,6 @@ namespace InventoryService.Controllers
                 Log.Information("--> Created batch for product: {Id}", productItem.Id);
 
                 productReadDto = productItem.ToReadDto();
-
             }
             catch (Exception ex)
             {
@@ -62,30 +64,36 @@ namespace InventoryService.Controllers
             try
             {
                 ItemPublishedDto itemPublishedDto = new()
-                    {
-                        ExternalBatchId = batchModel.Id,
-                        ExternalProductId = ProductId,
-                        Name = productItem.Name,
-                        Lot = batchCreateDto.Lot,
-                        Price = batchCreateDto.SellPrice,
-                        ExpirationDate = batchCreateDto.ExpirationDate,
-                        Event = "Item_Published"
-                    };
+                {
+                    ExternalBatchId = batchModel.Id,
+                    ExternalProductId = ProductId,
+                    Name = productItem.Name,
+                    Lot = batchCreateDto.Lot,
+                    Price = batchCreateDto.SellPrice,
+                    ExpirationDate = batchCreateDto.ExpirationDate,
+                    Event = "Item_Published",
+                };
                 await _messageBusClient.PublishNewItemAsync(itemPublishedDto);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Log.Error(ex, "Error with publishing item message: {Message}", ex.Message);
             }
 
-            return CreatedAtRoute(nameof(ProductsController.GetProductById), new { Id = productReadDto.Id }, productReadDto);
-            
+            return CreatedAtRoute(
+                nameof(ProductsController.GetProductById),
+                new { Id = productReadDto.Id },
+                productReadDto
+            );
         }
 
         [HttpPut("{id}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<BatchReadDto>> UpdateBatch(Guid id, BatchUpdateDto productBatchDto)
+        public async Task<ActionResult<BatchReadDto>> UpdateBatch(
+            Guid id,
+            BatchUpdateDto productBatchDto
+        )
         {
             ProductBatch batchModel;
             try
@@ -111,9 +119,11 @@ namespace InventoryService.Controllers
             }
 
             //Send Async Message
-            if (productBatchDto.Lot != null ||
-                productBatchDto.SellPrice != null ||
-                productBatchDto.ExpirationDate != null)
+            if (
+                productBatchDto.Lot != null
+                || productBatchDto.SellPrice != null
+                || productBatchDto.ExpirationDate != null
+            )
             {
                 try
                 {
@@ -123,7 +133,7 @@ namespace InventoryService.Controllers
                         Lot = batchModel.Lot,
                         Price = batchModel.SellPrice,
                         ExpirationDate = batchModel.ExpirationDate,
-                        Event = "Item_Updated"
+                        Event = "Item_Updated",
                     };
 
                     await _messageBusClient.PublishNewItemAsync(itemPublishedDto);
@@ -167,7 +177,7 @@ namespace InventoryService.Controllers
                 ItemPublishedDto itemPublishedDto = new()
                 {
                     ExternalBatchId = id,
-                    Event = "Item_Deleted"
+                    Event = "Item_Deleted",
                 };
 
                 await _messageBusClient.PublishNewItemAsync(itemPublishedDto);

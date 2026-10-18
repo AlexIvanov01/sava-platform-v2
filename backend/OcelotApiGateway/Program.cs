@@ -1,12 +1,13 @@
-using OcelotApiGateway.JwtAuthenticationManager;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
+using OcelotApiGateway.JwtAuthenticationManager;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Configuration.SetBasePath(builder.Environment.ContentRootPath)
+builder
+    .Configuration.SetBasePath(builder.Environment.ContentRootPath)
     .AddJsonFile("ocelot.json", optional: false, reloadOnChange: true)
     .AddEnvironmentVariables();
 

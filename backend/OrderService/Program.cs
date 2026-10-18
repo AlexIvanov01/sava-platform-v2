@@ -22,8 +22,10 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<OrderContext>(options =>
 {
-    options.UseMySQL(builder.Configuration.GetConnectionString("Default")
-        ?? throw new InvalidOperationException("Connection string 'Default' is not configured."));
+    options.UseMySQL(
+        builder.Configuration.GetConnectionString("Default")
+            ?? throw new InvalidOperationException("Connection string 'Default' is not configured.")
+    );
 });
 builder.Services.AddScoped<IOrderRepo, OrderRepo>();
 builder.Services.AddScoped<IInvoiceRepo, InvoiceRepo>();
@@ -40,8 +42,7 @@ if (!isOpenApiGeneration)
     builder.Services.AddHostedService<GrpcSyncService>();
 }
 
-Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(builder.Configuration).CreateLogger();
+Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration).CreateLogger();
 
 builder.Host.UseSerilog();
 

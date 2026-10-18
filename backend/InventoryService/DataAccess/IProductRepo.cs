@@ -20,5 +20,4 @@ public interface IProductRepo
     Task DecrementBatchesAsync(IEnumerable<OrderItemPublishedDto> OrderItems);
     Task IncrementBatchesAsync(IEnumerable<OrderItemPublishedDto> OrderItems);
     Task<IEnumerable<Product>> GetAllProductBatchesAsync();
-
 }

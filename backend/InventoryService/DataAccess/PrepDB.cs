@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using InventoryService.Models;
 using System.Text.Json;
+using System.Threading.Tasks;
+using InventoryService.Models;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
-using Microsoft.EntityFrameworkCore;
-using System.Threading.Tasks;
 
 namespace InventoryService.DataAccess;
 
@@ -28,7 +28,7 @@ public static class PrepDB
         {
             Log.Information("--> Waiting 5 seconds for DB iniialization...");
             await Task.Delay(5000);
-            await context.Database.MigrateAsync(); 
+            await context.Database.MigrateAsync();
         }
         catch (Exception ex)
         {

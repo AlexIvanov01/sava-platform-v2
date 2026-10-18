@@ -14,7 +14,10 @@ public class GrpcInventoryService : GrpcInventory.GrpcInventoryBase
         _repository = repository;
     }
 
-    public override async Task<InventoryResponse> GetAllItems(GetAllRequest request, ServerCallContext context)
+    public override async Task<InventoryResponse> GetAllItems(
+        GetAllRequest request,
+        ServerCallContext context
+    )
     {
         var response = new InventoryResponse();
 
@@ -22,7 +25,7 @@ public class GrpcInventoryService : GrpcInventory.GrpcInventoryBase
 
         foreach (var product in products)
         {
-            foreach(var batch in product.Batches)
+            foreach (var batch in product.Batches)
             {
                 batch.Product = product;
                 var item = batch.ToGrpcModel();
@@ -31,5 +34,4 @@ public class GrpcInventoryService : GrpcInventory.GrpcInventoryBase
         }
         return response;
     }
-
 }

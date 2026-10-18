@@ -19,14 +19,14 @@ public class OrderRepo : IOrderRepo
 
     public async Task<Order?> CreateOrderAsync(Order order)
     {
-        if (order.OrderItems.Count == 0) 
+        if (order.OrderItems.Count == 0)
         {
             Log.Error("Invalid order: Order has no items.");
             return null;
         }
 
-        var dbCustomer = await _context.Customers
-            .AsNoTracking()
+        var dbCustomer = await _context
+            .Customers.AsNoTracking()
             .SingleOrDefaultAsync(c => c.ExternalId == order.CustomerId);
 
         if (dbCustomer == null)
@@ -42,8 +42,8 @@ public class OrderRepo : IOrderRepo
             itemIdList.Add(item.ItemId);
         }
 
-        var validItems = await _context.Items
-            .Where(i => itemIdList.Contains(i.ExternalBatchId))
+        var validItems = await _context
+            .Items.Where(i => itemIdList.Contains(i.ExternalBatchId))
             .ToListAsync();
 
         if (itemIdList.Count != validItems.Count)
@@ -72,8 +72,8 @@ public class OrderRepo : IOrderRepo
 
     public async Task<Order?> DeleteOrderAsync(Guid id)
     {
-        var dbOrder = await _context.Orders
-            .AsNoTracking()
+        var dbOrder = await _context
+            .Orders.AsNoTracking()
             .Include(o => o.OrderItems)
             .SingleOrDefaultAsync(x => x.Id == id);
 
@@ -82,13 +82,9 @@ public class OrderRepo : IOrderRepo
             return null;
         }
 
-        await _context.OrderItems
-            .Where(oi => oi.OrderId == id)
-            .ExecuteDeleteAsync();
+        await _context.OrderItems.Where(oi => oi.OrderId == id).ExecuteDeleteAsync();
 
-        await _context.Orders
-            .Where(o => o.Id == id)
-            .ExecuteDeleteAsync();
+        await _context.Orders.Where(o => o.Id == id).ExecuteDeleteAsync();
 
         return dbOrder;
     }
@@ -102,50 +98,53 @@ public class OrderRepo : IOrderRepo
     {
         if (cursor != null)
         {
-            return await _context.Orders
-                .AsNoTracking()
+            return await _context
+                .Orders.AsNoTracking()
                 .Where(o => o.Id > cursor)
                 .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Item)
+                    .ThenInclude(oi => oi.Item)
                 .Include(o => o.Invoice)
                 .Include(o => o.Customer)
                 .OrderBy(o => o.Id)
                 .Take(pageSize)
                 .ToArrayAsync();
         }
-        return await _context.Orders
-            .AsNoTracking()
+        return await _context
+            .Orders.AsNoTracking()
             .Include(o => o.Invoice)
             .Include(o => o.Customer)
             .Include(o => o.OrderItems)
-            .ThenInclude(oi => oi.Item)
+                .ThenInclude(oi => oi.Item)
             .OrderBy(o => o.Id)
             .Take(pageSize)
             .ToArrayAsync();
     }
 
-    public async Task<IEnumerable<Order>> GetAllOrdersByCustomerIdAsync 
-        (Guid? customerId, Guid? cursor, int pageSize)
+    public async Task<IEnumerable<Order>> GetAllOrdersByCustomerIdAsync(
+        Guid? customerId,
+        Guid? cursor,
+        int pageSize
+    )
     {
         if (cursor != null)
         {
-            return await _context.Orders
-                .AsNoTracking()
+            return await _context
+                .Orders.AsNoTracking()
                 .Where(o => o.CustomerId == customerId)
                 .Where(o => o.Id > cursor)
                 .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Item)
+                    .ThenInclude(oi => oi.Item)
                 .Include(o => o.Customer)
                 .Include(o => o.Invoice)
                 .OrderBy(o => o.Id)
                 .Take(pageSize)
-                .ToListAsync();           
+                .ToListAsync();
         }
-        return await _context.Orders
-            .AsNoTracking()
+        return await _context
+            .Orders.AsNoTracking()
             .Where(o => o.CustomerId == customerId)
             .Include(o => o.OrderItems)
-            .ThenInclude(oi => oi.Item)
+                .ThenInclude(oi => oi.Item)
             .Include(o => o.Customer)
             .Include(o => o.Invoice)
             .OrderBy(o => o.Id)
@@ -155,11 +154,11 @@ public class OrderRepo : IOrderRepo
 
     public async Task<Order?> GetOrderByIdAsync(Guid id)
     {
-        var order = await _context.Orders
-            .AsNoTracking()
+        var order = await _context
+            .Orders.AsNoTracking()
             .Where(p => p.Id == id)
             .Include(o => o.OrderItems)
-            .ThenInclude(oi => oi.Item)
+                .ThenInclude(oi => oi.Item)
             .Include(o => o.Customer)
             .Include(o => o.Invoice)
             .SingleOrDefaultAsync();
@@ -169,8 +168,8 @@ public class OrderRepo : IOrderRepo
 
     public async Task<(Order Order, List<OrderItem> PreviousItems)?> UpdateOrderAsync(Order order)
     {
-        var dbOrder = await _context.Orders
-            .Include(o => o.OrderItems)
+        var dbOrder = await _context
+            .Orders.Include(o => o.OrderItems)
             .Include(o => o.Invoice)
             .SingleOrDefaultAsync(p => p.Id == order.Id);
 
@@ -182,18 +181,27 @@ public class OrderRepo : IOrderRepo
 
         if (order.CustomerId != null)
         {
-            var customerExists = await _context.Customers
-                .AnyAsync(c => c.ExternalId == order.CustomerId);
+            var customerExists = await _context.Customers.AnyAsync(c =>
+                c.ExternalId == order.CustomerId
+            );
 
             if (!customerExists)
             {
-                Log.Error("Could not update order: Customer with id {Id} was not found", order.CustomerId);
+                Log.Error(
+                    "Could not update order: Customer with id {Id} was not found",
+                    order.CustomerId
+                );
                 return null;
             }
         }
 
-        var previousItems = dbOrder.OrderItems
-            .Select(oi => new OrderItem { OrderId = oi.OrderId, ItemId = oi.ItemId, OrderItemQuantity = oi.OrderItemQuantity })
+        var previousItems = dbOrder
+            .OrderItems.Select(oi => new OrderItem
+            {
+                OrderId = oi.OrderId,
+                ItemId = oi.ItemId,
+                OrderItemQuantity = oi.OrderItemQuantity,
+            })
             .ToList();
 
         // Null fields in the update are left unchanged.
@@ -208,8 +216,8 @@ public class OrderRepo : IOrderRepo
         {
             var itemIdList = order.OrderItems.Select(oi => oi.ItemId).ToList();
 
-            var validItems = await _context.Items
-                .Where(i => itemIdList.Contains(i.ExternalBatchId))
+            var validItems = await _context
+                .Items.Where(i => itemIdList.Contains(i.ExternalBatchId))
                 .ToListAsync();
 
             if (itemIdList.Count != validItems.Count)
@@ -218,7 +226,10 @@ public class OrderRepo : IOrderRepo
                 return null;
             }
 
-            var newQuantities = order.OrderItems.ToDictionary(oi => oi.ItemId, oi => oi.OrderItemQuantity);
+            var newQuantities = order.OrderItems.ToDictionary(
+                oi => oi.ItemId,
+                oi => oi.OrderItemQuantity
+            );
 
             // Merge instead of clear-and-add: re-adding an item with the same (OrderId, ItemId) key would conflict with the tracked one.
             dbOrder.OrderItems.RemoveAll(oi => !newQuantities.ContainsKey(oi.ItemId));
@@ -232,14 +243,16 @@ public class OrderRepo : IOrderRepo
                 }
                 else
                 {
-                    dbOrder.OrderItems.Add(new OrderItem
-                    {
-                        Order = dbOrder,
-                        OrderId = dbOrder.Id,
-                        Item = validItems.Single(i => i.ExternalBatchId == itemId),
-                        ItemId = itemId,
-                        OrderItemQuantity = quantity
-                    });
+                    dbOrder.OrderItems.Add(
+                        new OrderItem
+                        {
+                            Order = dbOrder,
+                            OrderId = dbOrder.Id,
+                            Item = validItems.Single(i => i.ExternalBatchId == itemId),
+                            ItemId = itemId,
+                            OrderItemQuantity = quantity,
+                        }
+                    );
                 }
             }
         }

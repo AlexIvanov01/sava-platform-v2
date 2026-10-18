@@ -18,11 +18,12 @@ public class EventProcessor : IEventProcessor
     {
         _scopeFactory = scopeFactory;
     }
+
     public async Task ProcessEvent(string message)
     {
         var eventType = DetermineEvent(message);
 
-        switch (eventType) 
+        switch (eventType)
         {
             case EventType.ItemPublished:
                 await AddItem(message);
@@ -63,12 +64,17 @@ public class EventProcessor : IEventProcessor
 
             var repo = scope.ServiceProvider.GetRequiredService<ICustomerRepo>();
 
-            var customerPublishedDto = JsonSerializer.Deserialize<CustomerPublishedDto>(customerDeleteMessage);
+            var customerPublishedDto = JsonSerializer.Deserialize<CustomerPublishedDto>(
+                customerDeleteMessage
+            );
 
             if (customerPublishedDto == null || customerPublishedDto.ExternalId == Guid.Empty)
             {
-                Log.Error("--> Could not delete customer because message was deserialized" +
-                    " to null or external id was empty: {Dto}", customerPublishedDto);
+                Log.Error(
+                    "--> Could not delete customer because message was deserialized"
+                        + " to null or external id was empty: {Dto}",
+                    customerPublishedDto
+                );
                 return;
             }
             await repo.DeleteCustomerAsync(customerPublishedDto.ExternalId);
@@ -90,12 +96,17 @@ public class EventProcessor : IEventProcessor
 
             var repo = scope.ServiceProvider.GetRequiredService<ICustomerRepo>();
 
-            var customerPublishedDto = JsonSerializer.Deserialize<CustomerPublishedDto>(customerUpdatedMessage);
+            var customerPublishedDto = JsonSerializer.Deserialize<CustomerPublishedDto>(
+                customerUpdatedMessage
+            );
 
             if (customerPublishedDto == null || customerPublishedDto.ExternalId == Guid.Empty)
             {
-                Log.Error("--> Could not update customer because message was deserialized" +
-                    " to null or external id was empty: {Dto}", customerPublishedDto);
+                Log.Error(
+                    "--> Could not update customer because message was deserialized"
+                        + " to null or external id was empty: {Dto}",
+                    customerPublishedDto
+                );
                 return;
             }
 
@@ -120,12 +131,17 @@ public class EventProcessor : IEventProcessor
 
             var repo = scope.ServiceProvider.GetRequiredService<ICustomerRepo>();
 
-            var customerPublishedDto = JsonSerializer.Deserialize<CustomerPublishedDto>(customerPublishedMessage);
+            var customerPublishedDto = JsonSerializer.Deserialize<CustomerPublishedDto>(
+                customerPublishedMessage
+            );
 
             if (customerPublishedDto == null || customerPublishedDto.ExternalId == Guid.Empty)
             {
-                Log.Error("--> Could not add customer because message was deserialized" +
-                    " to null or external id was empty: {Dto}", customerPublishedDto);
+                Log.Error(
+                    "--> Could not add customer because message was deserialized"
+                        + " to null or external id was empty: {Dto}",
+                    customerPublishedDto
+                );
                 return;
             }
 
@@ -154,24 +170,34 @@ public class EventProcessor : IEventProcessor
         Log.Information("--> Attemting to delete items...");
 
         try
-        { 
+        {
             using var scope = _scopeFactory.CreateScope();
 
             var repo = scope.ServiceProvider.GetRequiredService<IItemRepo>();
 
-            var itemPublishedDto = JsonSerializer.Deserialize<ItemPublishedDto>(productNameUpdateMessage);
+            var itemPublishedDto = JsonSerializer.Deserialize<ItemPublishedDto>(
+                productNameUpdateMessage
+            );
 
-            if (itemPublishedDto != null && itemPublishedDto.ExternalProductId != null 
-                && itemPublishedDto.ExternalProductId != Guid.Empty)
+            if (
+                itemPublishedDto != null
+                && itemPublishedDto.ExternalProductId != null
+                && itemPublishedDto.ExternalProductId != Guid.Empty
+            )
             {
                 await repo.DeleteItemsByProductIdAsync(itemPublishedDto.ExternalProductId);
-                Log.Information("--> Items deleted from database with product id {Id}",
-                    itemPublishedDto.ExternalProductId);
+                Log.Information(
+                    "--> Items deleted from database with product id {Id}",
+                    itemPublishedDto.ExternalProductId
+                );
             }
             else
             {
-                Log.Error("--> Could not delete items because either mesage was deserialized" +
-                    " to null or the external product id was not set: {Dto}", itemPublishedDto);
+                Log.Error(
+                    "--> Could not delete items because either mesage was deserialized"
+                        + " to null or the external product id was not set: {Dto}",
+                    itemPublishedDto
+                );
             }
         }
         catch (Exception ex)
@@ -190,24 +216,34 @@ public class EventProcessor : IEventProcessor
 
             var repo = scope.ServiceProvider.GetRequiredService<IItemRepo>();
 
-            var itemPublishedDto = JsonSerializer.Deserialize<ItemPublishedDto>(productNameUpdateMessage);
+            var itemPublishedDto = JsonSerializer.Deserialize<ItemPublishedDto>(
+                productNameUpdateMessage
+            );
 
-            if (itemPublishedDto != null &&
-                itemPublishedDto.ExternalProductId != null &&
-                itemPublishedDto.Name != null)
+            if (
+                itemPublishedDto != null
+                && itemPublishedDto.ExternalProductId != null
+                && itemPublishedDto.Name != null
+            )
             {
-
                 await repo.UpdateProductNameAsync(
-                    itemPublishedDto.ExternalProductId, itemPublishedDto.Name);
+                    itemPublishedDto.ExternalProductId,
+                    itemPublishedDto.Name
+                );
 
-                Log.Information("--> Updated all item names with external" +
-                    " product id {Ext} with {Name}", itemPublishedDto.ExternalProductId,
-                    itemPublishedDto.Name);
+                Log.Information(
+                    "--> Updated all item names with external" + " product id {Ext} with {Name}",
+                    itemPublishedDto.ExternalProductId,
+                    itemPublishedDto.Name
+                );
             }
             else
             {
-                Log.Error("--> Could not update product name because either mesage was deserialized" +
-                    " to null or the external product id was not set or name field was not set: {Dto}", itemPublishedDto);
+                Log.Error(
+                    "--> Could not update product name because either mesage was deserialized"
+                        + " to null or the external product id was not set or name field was not set: {Dto}",
+                    itemPublishedDto
+                );
             }
         }
         catch (Exception ex)
@@ -228,16 +264,25 @@ public class EventProcessor : IEventProcessor
 
             var itemPublishedDto = JsonSerializer.Deserialize<ItemPublishedDto>(itemDeletedMessage);
 
-            if (itemPublishedDto != null && itemPublishedDto.ExternalBatchId != null 
-                && itemPublishedDto.ExternalBatchId != Guid.Empty)
+            if (
+                itemPublishedDto != null
+                && itemPublishedDto.ExternalBatchId != null
+                && itemPublishedDto.ExternalBatchId != Guid.Empty
+            )
             {
                 await repo.DeleteItemAsync(itemPublishedDto.ExternalBatchId);
-                Log.Information("--> Item with id {Id} was deleted.", itemPublishedDto.ExternalBatchId);
+                Log.Information(
+                    "--> Item with id {Id} was deleted.",
+                    itemPublishedDto.ExternalBatchId
+                );
             }
             else
             {
-                Log.Error("--> Could not delete item because either mesage was deserialized" +
-                    " to null or the external batch id was not set: {Dto}", itemPublishedDto);
+                Log.Error(
+                    "--> Could not delete item because either mesage was deserialized"
+                        + " to null or the external batch id was not set: {Dto}",
+                    itemPublishedDto
+                );
             }
         }
         catch (Exception ex)
@@ -260,15 +305,18 @@ public class EventProcessor : IEventProcessor
 
             var item = itemPublishedDto?.ToEntity();
 
-            if (item != null  && item.ExternalBatchId != Guid.Empty)
+            if (item != null && item.ExternalBatchId != Guid.Empty)
             {
                 await repo.UpdateItemAsync(item);
                 Log.Information("--> Item with id {Id} updated!", item.ExternalBatchId);
             }
             else
             {
-                Log.Error("--> Could not update item because either mesage was deserialized" +
-                    " to null or the external batch id was not set: {Dto}", itemPublishedDto);
+                Log.Error(
+                    "--> Could not update item because either mesage was deserialized"
+                        + " to null or the external batch id was not set: {Dto}",
+                    itemPublishedDto
+                );
             }
         }
         catch (Exception ex)
@@ -287,16 +335,23 @@ public class EventProcessor : IEventProcessor
 
             var repo = scope.ServiceProvider.GetRequiredService<IItemRepo>();
 
-            var itemPublishedDto = JsonSerializer.Deserialize<ItemPublishedDto>(itemPublishedMessage);
+            var itemPublishedDto = JsonSerializer.Deserialize<ItemPublishedDto>(
+                itemPublishedMessage
+            );
 
-            if (itemPublishedDto == null ||
-                itemPublishedDto.ExternalBatchId == Guid.Empty ||
-                itemPublishedDto.ExternalProductId == Guid.Empty ||
-                itemPublishedDto.ExternalBatchId == null ||
-                itemPublishedDto.ExternalProductId == null)
+            if (
+                itemPublishedDto == null
+                || itemPublishedDto.ExternalBatchId == Guid.Empty
+                || itemPublishedDto.ExternalProductId == Guid.Empty
+                || itemPublishedDto.ExternalBatchId == null
+                || itemPublishedDto.ExternalProductId == null
+            )
             {
-                Log.Error("--> Could not add item because message was deserialized" +
-                    " to null or external id for batch or product was empty: {Dto}", itemPublishedDto);
+                Log.Error(
+                    "--> Could not add item because message was deserialized"
+                        + " to null or external id for batch or product was empty: {Dto}",
+                    itemPublishedDto
+                );
                 return;
             }
 
@@ -326,13 +381,13 @@ public class EventProcessor : IEventProcessor
 
         var eventType = JsonSerializer.Deserialize<GenericEventDto>(notificationMessage);
 
-        if(eventType == null)
+        if (eventType == null)
         {
             Log.Error("--> Notification message deserialized to null.");
             return EventType.Undetermined;
         }
 
-        switch(eventType.Event)
+        switch (eventType.Event)
         {
             case "Item_Published":
                 Log.Information("--> Item Published Event Detected");
@@ -363,8 +418,8 @@ public class EventProcessor : IEventProcessor
                 return EventType.Undetermined;
         }
     }
-
 }
+
 enum EventType
 {
     ItemPublished,
@@ -375,5 +430,5 @@ enum EventType
     CustomerPublished,
     CustomerDeleted,
     CustomerUpdated,
-    Undetermined
+    Undetermined,
 }

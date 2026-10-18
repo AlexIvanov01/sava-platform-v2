@@ -1,12 +1,12 @@
 ﻿using System;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using Serilog;
-using Microsoft.EntityFrameworkCore;
-using System.Threading.Tasks;
-using OrderService.SyncDataServices.Grpc;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using OrderService.Models;
+using OrderService.SyncDataServices.Grpc;
+using Serilog;
 
 namespace OrderService.DataAccess;
 
@@ -17,8 +17,10 @@ public static class PrepDB
         using var serviceScope = app.ApplicationServices.CreateScope();
         await RunMigrations(serviceScope.ServiceProvider.GetRequiredService<OrderContext>());
 
-        var grpcInventoryClient = serviceScope.ServiceProvider.GetRequiredService<IInventoryDataClient>();
-        var grpcCustomerClient = serviceScope.ServiceProvider.GetRequiredService<ICustomerDataClient>();
+        var grpcInventoryClient =
+            serviceScope.ServiceProvider.GetRequiredService<IInventoryDataClient>();
+        var grpcCustomerClient =
+            serviceScope.ServiceProvider.GetRequiredService<ICustomerDataClient>();
 
         Log.Information("--> Waiting 5 seconds for Inventoy and Customer Service initalization...");
         await Task.Delay(5000);
@@ -32,11 +34,17 @@ public static class PrepDB
         }
         if (customers != null)
         {
-            await SyncCustomers(serviceScope.ServiceProvider.GetRequiredService<ICustomerRepo>(), customers);
+            await SyncCustomers(
+                serviceScope.ServiceProvider.GetRequiredService<ICustomerRepo>(),
+                customers
+            );
         }
     }
 
-    public static async Task SyncCustomers(ICustomerRepo customerRepo, IEnumerable<Customer> customers)
+    public static async Task SyncCustomers(
+        ICustomerRepo customerRepo,
+        IEnumerable<Customer> customers
+    )
     {
         Log.Information("--> Syncing customers...");
         await customerRepo.SyncCustomersAsync(customers);
@@ -50,7 +58,6 @@ public static class PrepDB
             Log.Information("--> Syncing items...");
             await itemRepo.SyncItemsAsync(items);
             Log.Information("--> Items sync complete.");
-            
         }
         catch (Exception ex)
         {

@@ -20,15 +20,16 @@ public class GrpcSyncService : BackgroundService
         _serviceProvider = serviceProvider;
         _configuration = configuration;
     }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         TimeSpan syncInterval;
 
-
         while (!stoppingToken.IsCancellationRequested)
         {
-            syncInterval = TimeSpan.FromMinutes(double
-            .Parse(_configuration["GrpcSyncIntervalInMinutes"] ?? "5"));
+            syncInterval = TimeSpan.FromMinutes(
+                double.Parse(_configuration["GrpcSyncIntervalInMinutes"] ?? "5")
+            );
 
             Log.Information("Grpc Sync Interval In Minutes: {Minutes}", syncInterval);
 
@@ -36,19 +37,27 @@ public class GrpcSyncService : BackgroundService
             try
             {
                 using var serviceScope = _serviceProvider.CreateScope();
-                var grpcInventoryClient = serviceScope.ServiceProvider.GetRequiredService<IInventoryDataClient>();
-                var grpcCustomerClient = serviceScope.ServiceProvider.GetRequiredService<ICustomerDataClient>();
+                var grpcInventoryClient =
+                    serviceScope.ServiceProvider.GetRequiredService<IInventoryDataClient>();
+                var grpcCustomerClient =
+                    serviceScope.ServiceProvider.GetRequiredService<ICustomerDataClient>();
 
                 var items = grpcInventoryClient.ReturnAllItems();
                 var customers = grpcCustomerClient.ReturnAllCustomers();
 
                 if (items != null)
                 {
-                    await PrepDB.SyncItems(serviceScope.ServiceProvider.GetRequiredService<IItemRepo>(), items);
+                    await PrepDB.SyncItems(
+                        serviceScope.ServiceProvider.GetRequiredService<IItemRepo>(),
+                        items
+                    );
                 }
                 if (customers != null)
                 {
-                    await PrepDB.SyncCustomers(serviceScope.ServiceProvider.GetRequiredService<ICustomerRepo>(), customers);
+                    await PrepDB.SyncCustomers(
+                        serviceScope.ServiceProvider.GetRequiredService<ICustomerRepo>(),
+                        customers
+                    );
                 }
             }
             catch (Exception ex)

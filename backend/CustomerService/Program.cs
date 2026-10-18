@@ -22,15 +22,16 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<CustomerContext>(options =>
 {
-    options.UseMySQL(builder.Configuration.GetConnectionString("Default")
-        ?? throw new InvalidOperationException("Connection string 'Default' is not configured."));
+    options.UseMySQL(
+        builder.Configuration.GetConnectionString("Default")
+            ?? throw new InvalidOperationException("Connection string 'Default' is not configured.")
+    );
 });
 builder.Services.AddScoped<ICustomerRepo, CustomerRepo>();
 builder.Services.AddGrpc();
 builder.Services.AddSingleton<IMessageBusClient, MessageBusClient>();
 
-Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(builder.Configuration).CreateLogger();
+Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration).CreateLogger();
 
 builder.Host.UseSerilog();
 
@@ -46,10 +47,13 @@ app.UseSerilogRequestLogging();
 app.MapControllers();
 app.MapGrpcService<GrpcCustomerService>();
 
-app.MapGet("/protos/customer.proto", async context =>
-{
-    await context.Response.WriteAsync(await File.ReadAllTextAsync("Protos/customer.proto"));
-});
+app.MapGet(
+    "/protos/customer.proto",
+    async context =>
+    {
+        await context.Response.WriteAsync(await File.ReadAllTextAsync("Protos/customer.proto"));
+    }
+);
 
 if (!isOpenApiGeneration)
 {

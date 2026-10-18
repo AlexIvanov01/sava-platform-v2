@@ -1,5 +1,5 @@
-﻿using OrderService.Models;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using OrderService.Models;
 
 namespace OrderService.SyncDataServices.Grpc;
 

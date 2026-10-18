@@ -26,7 +26,7 @@ public sealed class MessageBusClient : IMessageBusClient, IAsyncDisposable
         _factory = new ConnectionFactory()
         {
             HostName = configuration["RabbitMQHost"]!,
-            Port = int.Parse(configuration["RabbitMQPort"]!)
+            Port = int.Parse(configuration["RabbitMQPort"]!),
         };
     }
 

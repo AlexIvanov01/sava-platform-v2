@@ -32,31 +32,45 @@ public class ProductsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ProductPageReadDto>> GetProducts(
         Guid? cursor,
-        [Range(1, 100)] int pageSize = 10)
+        [Range(1, 100)] int pageSize = 10
+    )
     {
         try
         {
-            Log.Information("--> Getting {PageSize} amount of products after cursor {Cursor}", pageSize, cursor);
+            Log.Information(
+                "--> Getting {PageSize} amount of products after cursor {Cursor}",
+                pageSize,
+                cursor
+            );
 
             var productItems = await _repository.GetAllProductsAsync(cursor, pageSize);
 
-            if(!productItems.Any())
+            if (!productItems.Any())
             {
-                Log.Warning("--> No products found in database after cursor {Cursor} or cursor not found.", cursor);
+                Log.Warning(
+                    "--> No products found in database after cursor {Cursor} or cursor not found.",
+                    cursor
+                );
                 return NotFound();
             }
 
-            Log.Information("--> Fetched {PageSize} amount of products from database after cursor {Cursor}.", pageSize, cursor);
+            Log.Information(
+                "--> Fetched {PageSize} amount of products from database after cursor {Cursor}.",
+                pageSize,
+                cursor
+            );
 
             var dtos = productItems.Select(p => p.ToReadDto()).ToList();
 
-            var pageCount = Math.Ceiling(await _repository.GetAllProductsCountAsync() / (float)pageSize);
+            var pageCount = Math.Ceiling(
+                await _repository.GetAllProductsCountAsync() / (float)pageSize
+            );
 
             ProductPageReadDto productPageReadDto = new()
             {
                 ProductReadDtos = dtos,
                 Cursor = dtos[^1].Id,
-                Pages = (int)pageCount
+                Pages = (int)pageCount,
             };
 
             return Ok(productPageReadDto);
@@ -110,7 +124,11 @@ public class ProductsController : ControllerBase
 
             var productReadDto = productModel.ToReadDto();
 
-            return CreatedAtRoute(nameof(GetProductById), new { Id = productReadDto.Id }, productReadDto);
+            return CreatedAtRoute(
+                nameof(GetProductById),
+                new { Id = productReadDto.Id },
+                productReadDto
+            );
         }
         catch (Exception ex)
         {
@@ -122,7 +140,10 @@ public class ProductsController : ControllerBase
     [HttpPut("{id}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ProductReadDto>> UpdateProduct(Guid id, ProductUpdateDto productUpdateDto)
+    public async Task<ActionResult<ProductReadDto>> UpdateProduct(
+        Guid id,
+        ProductUpdateDto productUpdateDto
+    )
     {
         Product productModel;
 
@@ -157,7 +178,7 @@ public class ProductsController : ControllerBase
                 {
                     ExternalProductId = id,
                     Name = productModel.Name,
-                    Event = "ProductName_Updated"
+                    Event = "ProductName_Updated",
                 };
                 await _messageBusClient.PublishNewItemAsync(itemPublishedDto);
             }
@@ -170,7 +191,6 @@ public class ProductsController : ControllerBase
         return Ok(productModel.ToReadDto());
     }
 
-
     [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -181,7 +201,6 @@ public class ProductsController : ControllerBase
             Log.Information("--> Deleting a product...........");
 
             var nullCheck = await _repository.DeleteProductAsync(id);
-
 
             if (nullCheck == null)
             {
@@ -203,7 +222,7 @@ public class ProductsController : ControllerBase
             ItemPublishedDto itemPublishedDto = new()
             {
                 ExternalProductId = id,
-                Event = "Product_Deleted"
+                Event = "Product_Deleted",
             };
 
             await _messageBusClient.PublishNewItemAsync(itemPublishedDto);

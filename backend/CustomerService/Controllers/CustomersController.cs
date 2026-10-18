@@ -37,7 +37,7 @@ namespace CustomerService.Controllers
 
                 var customers = await _repository.GetAllCustomersAsync();
 
-                if(!customers.Any())
+                if (!customers.Any())
                 {
                     Log.Warning("--> No customers found in database.");
                     return NotFound();
@@ -84,7 +84,9 @@ namespace CustomerService.Controllers
 
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
-        public async Task<ActionResult<CustomerReadDto>> CreateCustomer(CustomerCreateDto customerCreateDto)
+        public async Task<ActionResult<CustomerReadDto>> CreateCustomer(
+            CustomerCreateDto customerCreateDto
+        )
         {
             CustomerReadDto customerReadDto;
             Customer customerModel;
@@ -98,7 +100,6 @@ namespace CustomerService.Controllers
                 Log.Information("--> Customer created: {Id}", customerModel.Id);
 
                 customerReadDto = customerModel.ToReadDto();
-
             }
             catch (Exception ex)
             {
@@ -117,13 +118,20 @@ namespace CustomerService.Controllers
                 Log.Error(ex, "Error with publishing customer message: {Message}", ex.Message);
             }
 
-            return CreatedAtRoute(nameof(GetCustomerById), new { Id = customerReadDto.Id }, customerReadDto);
+            return CreatedAtRoute(
+                nameof(GetCustomerById),
+                new { Id = customerReadDto.Id },
+                customerReadDto
+            );
         }
 
         [HttpPut("{id}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<CustomerReadDto>> UpdateCustomer(Guid id, CustomerUpdateDto customerUpdateDto)
+        public async Task<ActionResult<CustomerReadDto>> UpdateCustomer(
+            Guid id,
+            CustomerUpdateDto customerUpdateDto
+        )
         {
             Customer customerModel;
 
@@ -142,7 +150,6 @@ namespace CustomerService.Controllers
                 }
 
                 Log.Information("--> Customer with id {Id} updated", id);
-
             }
             catch (Exception ex)
             {
@@ -175,7 +182,6 @@ namespace CustomerService.Controllers
 
                 var nullCheck = await _repository.DeleteCustomerAsync(id);
 
-
                 if (nullCheck == null)
                 {
                     Log.Warning("--> Customer with id {Id} not found for deleting.", id);
@@ -183,7 +189,6 @@ namespace CustomerService.Controllers
                 }
 
                 Log.Information("--> Customer with id {Id} deleted", id);
-
             }
             catch (Exception ex)
             {
@@ -197,7 +202,7 @@ namespace CustomerService.Controllers
                 CustomerPublishedDto customerPublishedDto = new()
                 {
                     ExternalId = id,
-                    Event = "Customer_Deleted"
+                    Event = "Customer_Deleted",
                 };
                 await _messageBusClient.PublishNewCustomerAsync(customerPublishedDto);
             }

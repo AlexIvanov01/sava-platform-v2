@@ -19,10 +19,13 @@ namespace AuthenticationService.Controllers
         [HttpPost]
         [ProducesResponseType<AuthenticationResponse>(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public ActionResult<AuthenticationResponse?> Authenticate([FromBody] AuthenticationRequest authenticationRequest)
+        public ActionResult<AuthenticationResponse?> Authenticate(
+            [FromBody] AuthenticationRequest authenticationRequest
+        )
         {
             var authenticationRespone = _jwtTokenHandler.GenerateJwtToken(authenticationRequest);
-            if(authenticationRespone == null) return Unauthorized();
+            if (authenticationRespone == null)
+                return Unauthorized();
             return authenticationRespone;
         }
     }

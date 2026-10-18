@@ -5,9 +5,8 @@ namespace CustomerService.DataAccess;
 
 public class CustomerContext : DbContext
 {
-    public CustomerContext(DbContextOptions options) : base(options)
-    {
+    public CustomerContext(DbContextOptions options)
+        : base(options) { }
 
-    }
     public DbSet<Customer> Customers { get; set; }
 }

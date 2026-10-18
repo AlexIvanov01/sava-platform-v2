@@ -23,7 +23,6 @@ public static class PrepDB
 
     private static async Task SeedData(CustomerContext context)
     {
-
         Log.Information("--> Attempting to apply migrations...");
         try
         {

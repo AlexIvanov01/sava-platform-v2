@@ -10,13 +10,13 @@ namespace InventoryService.EventProcessing;
 
 public class EventProcessor : IEventProcessor
 {
-
     private readonly IServiceScopeFactory _scopeFactory;
 
     public EventProcessor(IServiceScopeFactory scopeFactory)
     {
         _scopeFactory = scopeFactory;
     }
+
     public async Task ProcessEvent(string message)
     {
         var eventType = DetermineEvent(message);
@@ -49,7 +49,10 @@ public class EventProcessor : IEventProcessor
         }
         if (!orderPublishedDto.OrderItems.Any())
         {
-            Log.Error("--> Could not update batches because message deserialised with no items: {Dto}", orderPublishedDto);
+            Log.Error(
+                "--> Could not update batches because message deserialised with no items: {Dto}",
+                orderPublishedDto
+            );
             return;
         }
 
@@ -63,16 +66,21 @@ public class EventProcessor : IEventProcessor
 
         var repo = scope.ServiceProvider.GetRequiredService<IProductRepo>();
 
-        var orderPublishedDto = JsonSerializer.Deserialize<OrderPublishedDto>(orderPublishedMessage);
+        var orderPublishedDto = JsonSerializer.Deserialize<OrderPublishedDto>(
+            orderPublishedMessage
+        );
 
         if (orderPublishedDto == null)
         {
             Log.Error("--> Could not update batches because message was deserialized to null");
             return;
         }
-        if(!orderPublishedDto.OrderItems.Any())
+        if (!orderPublishedDto.OrderItems.Any())
         {
-            Log.Error("--> Could not update batches because message deserialised with no items: {Dto}", orderPublishedDto);
+            Log.Error(
+                "--> Could not update batches because message deserialised with no items: {Dto}",
+                orderPublishedDto
+            );
             return;
         }
 
@@ -104,7 +112,6 @@ public class EventProcessor : IEventProcessor
                 Log.Information("--> Could not determine event type");
                 return EventType.Undetermined;
         }
-
     }
 }
 
@@ -112,5 +119,5 @@ enum EventType
 {
     OrderPublished,
     OrderDeleted,
-    Undetermined
+    Undetermined,
 }

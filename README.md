@@ -54,6 +54,18 @@ A Debug build also regenerates the service's OpenAPI document in `backend/openap
 dotnet build --no-incremental 2>&1 | grep -E "warning [A-Z]+[0-9]+" | sort -u
 ```
 
+### Formatting
+
+C# code is formatted with [CSharpier](https://csharpier.com). It is pinned as a local .NET tool in `dotnet-tools.json` at the repository root. Restore it once after cloning, then format or check the backend:
+
+```bash
+dotnet tool restore
+dotnet csharpier format backend   # rewrites files in place
+dotnet csharpier check backend    # fails if any file isn't formatted
+```
+
+CSharpier also has editor extensions for VS Code, Rider, and Visual Studio that can format on save.
+
 ### Run services locally
 
 Running locally uses `appsettings.Development.json`, which points at MySQL and RabbitMQ on `localhost`.

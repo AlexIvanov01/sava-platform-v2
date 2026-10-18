@@ -13,27 +13,30 @@ public class OrderContext(DbContextOptions options) : DbContext(options)
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<OrderItem>()
-            .HasKey(oi => new { oi.OrderId, oi.ItemId});
+        modelBuilder.Entity<OrderItem>().HasKey(oi => new { oi.OrderId, oi.ItemId });
 
-        modelBuilder.Entity<OrderItem>()
+        modelBuilder
+            .Entity<OrderItem>()
             .HasOne(oi => oi.Order)
             .WithMany(o => o.OrderItems)
             .HasForeignKey(oi => oi.OrderId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<OrderItem>()
+        modelBuilder
+            .Entity<OrderItem>()
             .HasOne(oi => oi.Item)
             .WithMany(i => i.ItemOrders)
             .HasForeignKey(oi => oi.ItemId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<Order>()
+        modelBuilder
+            .Entity<Order>()
             .HasOne(o => o.Invoice)
             .WithOne(i => i.Order)
             .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<Customer>()
+        modelBuilder
+            .Entity<Customer>()
             .HasMany(c => c.Orders)
             .WithOne(o => o.Customer)
             .HasForeignKey(o => o.CustomerId)

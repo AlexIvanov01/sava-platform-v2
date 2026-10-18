@@ -14,7 +14,10 @@ public class GrpcCustomerService : GrpcCustomer.GrpcCustomerBase
         _repository = repository;
     }
 
-    public override async Task<CustomerResponse> GetAllCustomers(GetAllRequest request, ServerCallContext context)
+    public override async Task<CustomerResponse> GetAllCustomers(
+        GetAllRequest request,
+        ServerCallContext context
+    )
     {
         var response = new CustomerResponse();
 
