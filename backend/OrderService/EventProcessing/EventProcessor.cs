@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Text.Json;
 using System.Threading.Tasks;
-using AutoMapper;
 using Microsoft.Extensions.DependencyInjection;
 using OrderService.DataAccess;
 using OrderService.Dtos;
+using OrderService.Mappings;
 using OrderService.Models;
 using Serilog;
 
@@ -13,12 +13,10 @@ namespace OrderService.EventProcessing;
 public class EventProcessor : IEventProcessor
 {
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IMapper _mapper;
 
-    public EventProcessor(IServiceScopeFactory scopeFactory, IMapper mapper)
+    public EventProcessor(IServiceScopeFactory scopeFactory)
     {
         _scopeFactory = scopeFactory;
-        _mapper = mapper;
     }
     public async Task ProcessEvent(string message)
     {
@@ -101,7 +99,7 @@ public class EventProcessor : IEventProcessor
                 return;
             }
 
-            var customer = _mapper.Map<Customer>(customerPublishedDto);
+            var customer = customerPublishedDto.ToEntity();
 
             await repo.UpdateCustomerAsync(customer);
             Log.Information("Customer updated: {Id}", customer.ExternalId);
@@ -131,7 +129,7 @@ public class EventProcessor : IEventProcessor
                 return;
             }
 
-            var customer = _mapper.Map<Customer>(customerPublishedDto);
+            var customer = customerPublishedDto.ToEntity();
 
             var checkCustomer = await repo.ExternalCustomerExistsAsync(customer.ExternalId);
 
@@ -260,7 +258,7 @@ public class EventProcessor : IEventProcessor
 
             var itemPublishedDto = JsonSerializer.Deserialize<ItemPublishedDto>(itemUpdatedMessage);
 
-            var item = _mapper.Map<Item>(itemPublishedDto);
+            var item = itemPublishedDto?.ToEntity();
 
             if (item != null  && item.ExternalBatchId != Guid.Empty)
             {
@@ -302,7 +300,7 @@ public class EventProcessor : IEventProcessor
                 return;
             }
 
-            var item = _mapper.Map<Item>(itemPublishedDto);
+            var item = itemPublishedDto.ToEntity();
 
             var checkItem = await repo.ExternalItemExistsAsync(item.ExternalProductId);
 

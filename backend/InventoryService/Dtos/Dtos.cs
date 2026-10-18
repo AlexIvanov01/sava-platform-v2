@@ -4,10 +4,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace InventoryService.Dtos;
 
-public record BatchReadDto(Guid Id, string Lot, int Quantity, decimal PurchasePrice, decimal SellPrice, DateTime ExpirationDate);
+public record BatchReadDto(Guid Id, string? Lot, int Quantity, decimal PurchasePrice, decimal SellPrice, DateTime ExpirationDate);
 
-public record ProductReadDto(Guid Id, string Name, string Description, string Brand, string Supplier, 
-    string ImageURL, string Status, string Barcode, int ReorderLevel, float Weight, List<BatchReadDto> Batches);
+public record ProductReadDto(Guid Id, string? Name, string? Description, string? Brand, string? Supplier,
+    string? ImageURL, string? Status, string? Barcode, int ReorderLevel, float Weight, List<BatchReadDto> Batches);
 
 public record ProductCreateDto([Required] string Name, string? Description,[Required] string Brand, [Required] string Supplier,
     string? ImageURL, string? Status, string? Barcode, int? ReorderLevel, float? Weight);

@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
-using AutoMapper;
 using InventoryService.AsyncDataServices;
 using InventoryService.DataAccess;
 using InventoryService.Dtos;
+using InventoryService.Mappings;
 using InventoryService.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
 
@@ -18,18 +19,18 @@ namespace InventoryService.Controllers;
 public class ProductsController : ControllerBase
 {
     private readonly IProductRepo _repository;
-    private readonly IMapper _mapper;
     private readonly IMessageBusClient _messageBusClient;
 
-    public ProductsController(IProductRepo repository, IMapper mapper, IMessageBusClient messageBusClient)
+    public ProductsController(IProductRepo repository, IMessageBusClient messageBusClient)
     {
         _repository = repository;
-        _mapper = mapper;
         _messageBusClient = messageBusClient;
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ProductReadDto>>> GetProducts(
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ProductPageReadDto>> GetProducts(
         Guid? cursor,
         [Range(1, 100)] int pageSize = 10)
     {
@@ -47,7 +48,7 @@ public class ProductsController : ControllerBase
 
             Log.Information("--> Fetched {PageSize} amount of products from database after cursor {Cursor}.", pageSize, cursor);
 
-            var dtos = _mapper.Map<IEnumerable<ProductReadDto>>(productItems);
+            var dtos = productItems.Select(p => p.ToReadDto()).ToList();
 
             var pageCount = Math.Ceiling(await _repository.GetAllProductsCountAsync() / (float)pageSize);
 
@@ -68,6 +69,8 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("{id}", Name = "GetProductById")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ProductReadDto>> GetProductById(Guid id)
     {
         try
@@ -84,7 +87,7 @@ public class ProductsController : ControllerBase
 
             Log.Information("--> Fetched a product with id {Id}.", id);
 
-            return Ok(_mapper.Map<ProductReadDto>(productItem));
+            return Ok(productItem.ToReadDto());
         }
         catch (Exception ex)
         {
@@ -94,17 +97,18 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType(StatusCodes.Status201Created)]
     public async Task<ActionResult<ProductReadDto>> CreateProduct(ProductCreateDto productCreateDto)
     {
         try
         {
             Log.Information("--> Creating a product.............");
-            var productModel = _mapper.Map<Product>(productCreateDto);
+            var productModel = productCreateDto.ToEntity();
             await _repository.CreateProductAsync(productModel);
 
             Log.Information("Product created: {@ProductModel}", productModel);
 
-            var productReadDto = _mapper.Map<ProductReadDto>(productModel);
+            var productReadDto = productModel.ToReadDto();
 
             return CreatedAtRoute(nameof(GetProductById), new { Id = productReadDto.Id }, productReadDto);
         }
@@ -116,7 +120,9 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateProduct(Guid id, ProductUpdateDto productUpdateDto)
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ProductReadDto>> UpdateProduct(Guid id, ProductUpdateDto productUpdateDto)
     {
         Product productModel;
 
@@ -124,8 +130,7 @@ public class ProductsController : ControllerBase
         {
             Log.Information("--> Updating a product with id {Id}....................", id);
 
-            productModel = _mapper.Map<Product>(productUpdateDto);
-            productModel.Id = id;
+            productModel = productUpdateDto.ToEntity(id);
 
             var nullCHeck = await _repository.UpdateProductAsync(productModel);
 
@@ -162,11 +167,13 @@ public class ProductsController : ControllerBase
             }
         }
 
-        return Ok(_mapper.Map<ProductReadDto>(productModel));
+        return Ok(productModel.ToReadDto());
     }
 
 
     [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteProduct(Guid id)
     {
         try

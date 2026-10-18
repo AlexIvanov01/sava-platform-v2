@@ -1,19 +1,17 @@
 ﻿using System.Threading.Tasks;
-using AutoMapper;
 using Grpc.Core;
 using InventoryService.DataAccess;
+using InventoryService.Mappings;
 
 namespace InventoryService.SyncDataServices.Grpc;
 
 public class GrpcInventoryService : GrpcInventory.GrpcInventoryBase
 {
     private readonly IProductRepo _repository;
-    private readonly IMapper _mapper;
 
-    public GrpcInventoryService(IProductRepo repository, IMapper mapper)
+    public GrpcInventoryService(IProductRepo repository)
     {
         _repository = repository;
-        _mapper = mapper;
     }
 
     public override async Task<InventoryResponse> GetAllItems(GetAllRequest request, ServerCallContext context)
@@ -27,7 +25,7 @@ public class GrpcInventoryService : GrpcInventory.GrpcInventoryBase
             foreach(var batch in product.Batches)
             {
                 batch.Product = product;
-                var item = _mapper.Map<GrpcInventoryModel>(batch);
+                var item = batch.ToGrpcModel();
                 response.Item.Add(item);
             }
         }

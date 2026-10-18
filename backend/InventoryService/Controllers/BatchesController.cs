@@ -1,9 +1,10 @@
 ﻿using System.Threading.Tasks;
 using System;
-using AutoMapper;
 using InventoryService.DataAccess;
 using InventoryService.Dtos;
+using InventoryService.Mappings;
 using InventoryService.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
 using InventoryService.AsyncDataServices;
@@ -15,18 +16,18 @@ namespace InventoryService.Controllers
     public class BatchesController : ControllerBase
     {
         private readonly IProductRepo _repository;
-        private readonly IMapper _mapper;
         private readonly IMessageBusClient _messageBusClient;
 
-        public BatchesController(IProductRepo repository, IMapper mapper, IMessageBusClient messageBusClient)
+        public BatchesController(IProductRepo repository, IMessageBusClient messageBusClient)
         {
             _repository = repository;
-            _mapper = mapper;
             _messageBusClient = messageBusClient;
         }
         
         [HttpPost("{ProductId}")]
-        public async Task<ActionResult<BatchReadDto>> CreateBatch(BatchCreateDto batchCreateDto, Guid ProductId)
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<ProductReadDto>> CreateBatch(BatchCreateDto batchCreateDto, Guid ProductId)
         {
             Product? productItem;
             ProductBatch batchModel;
@@ -36,7 +37,7 @@ namespace InventoryService.Controllers
             {
                 Log.Information("--> Creating a batch............");
 
-                batchModel = _mapper.Map<ProductBatch>(batchCreateDto);
+                batchModel = batchCreateDto.ToEntity();
 
                 productItem = await _repository.AddBatchAsync(batchModel, ProductId);
 
@@ -48,7 +49,7 @@ namespace InventoryService.Controllers
 
                 Log.Information("--> Created batch for product: {Id}", productItem.Id);
 
-                productReadDto = _mapper.Map<ProductReadDto>(productItem);
+                productReadDto = productItem.ToReadDto();
 
             }
             catch (Exception ex)
@@ -82,15 +83,16 @@ namespace InventoryService.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateBatch(Guid id, BatchUpdateDto productBatchDto)
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<BatchReadDto>> UpdateBatch(Guid id, BatchUpdateDto productBatchDto)
         {
             ProductBatch batchModel;
             try
             {
                 Log.Information("--> Updating batch.............");
 
-                batchModel = _mapper.Map<ProductBatch>(productBatchDto);
-                batchModel.Id = id;
+                batchModel = productBatchDto.ToEntity(id);
 
                 var nullCheck = await _repository.UpdateBatchAsync(batchModel);
 
@@ -132,10 +134,12 @@ namespace InventoryService.Controllers
                 }
             }
 
-            return Ok(_mapper.Map<BatchReadDto>(batchModel));
+            return Ok(batchModel.ToReadDto());
         }
 
         [HttpDelete("{id}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult> DeleteBatch(Guid id)
         {
             try

@@ -1,7 +1,6 @@
 ﻿using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using AutoMapper;
 using InventoryService.DataAccess;
 using InventoryService.Dtos;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,12 +12,10 @@ public class EventProcessor : IEventProcessor
 {
 
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IMapper _mapper;
 
-    public EventProcessor(IServiceScopeFactory scopeFactory, IMapper mapper)
+    public EventProcessor(IServiceScopeFactory scopeFactory)
     {
         _scopeFactory = scopeFactory;
-        _mapper = mapper;
     }
     public async Task ProcessEvent(string message)
     {

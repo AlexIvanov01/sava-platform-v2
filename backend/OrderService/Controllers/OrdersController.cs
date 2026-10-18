@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
-using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using OrderService.AsyncDataServices;
 using OrderService.DataAccess;
 using OrderService.Dtos;
+using OrderService.Mappings;
 using OrderService.Models;
 using Serilog;
 
@@ -18,17 +19,17 @@ namespace OrderService.Controllers;
 public class OrdersController : ControllerBase
 {
     private readonly IOrderRepo _repository;
-    private readonly IMapper _mapper;
     private readonly IMessageBusClient _messageBusClient;
 
-    public OrdersController(IOrderRepo orderRepo, IMapper mapper, IMessageBusClient messageBusClient)
+    public OrdersController(IOrderRepo orderRepo, IMessageBusClient messageBusClient)
     {
         _repository = orderRepo;
-        _mapper = mapper;
         _messageBusClient = messageBusClient;
     }
 
     [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<OrderPageReadDto>> GetAllOrdersAsync(
         Guid? cursor,
         Guid? customerId,
@@ -63,39 +64,7 @@ public class OrdersController : ControllerBase
             var pageCount = Math.Ceiling(
                 await _repository.GetOrderCountAsync() / (float)pageSize);
 
-            List<OrderFullReadDto> dtos = [];
-
-            foreach (var item in orderPageItems)
-            {
-                OrderFullReadDto dto = new()
-                {
-                    Id = item.Id,
-                    OrderDate = item.OrderDate,
-                    ShippedDate = item.ShippedDate,
-                    ShippingAddress = item.ShippingAddress,
-                    OrderStatus = item.OrderStatus,
-                    Customer = _mapper.Map<CustomerReadDto>(item.Customer),
-                    Invoice = _mapper.Map<InvoiceReadDto>(item.Invoice)
-                };
-
-                foreach (var orderItem in item.OrderItems)
-                {
-                    ItemReadDto itemReadDto = new()
-                    {
-                        ExternalBatchId = orderItem.ItemId,
-                        ExternalProductId = orderItem.Item.ExternalProductId,
-                        Name = orderItem.Item.Name,
-                        Price = orderItem.Item.Price,
-                        Lot = orderItem.Item.Lot,
-                        ExpirationDate = orderItem.Item.ExpirationDate,
-                        Quantity = orderItem.OrderItemQuantity
-                    };
-
-                    dto.Items.Add(itemReadDto);
-                }
-
-                dtos.Add(dto);
-            }
+            List<OrderFullReadDto> dtos = orderPageItems.Select(o => o.ToFullReadDto()).ToList();
 
             var pageDto = new OrderPageReadDto
             {
@@ -114,6 +83,8 @@ public class OrdersController : ControllerBase
     }
 
     [HttpGet("{id}", Name = "GetOrderById")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<OrderFullReadDto>> GetOrderById(Guid id)
     {
         try
@@ -130,32 +101,7 @@ public class OrdersController : ControllerBase
 
             Log.Information("--> Fetched an order with id {Id}.", id);
 
-            OrderFullReadDto orderFullReadDto = new()
-            {
-                Id = orderModel.Id,
-                OrderDate = orderModel.OrderDate,
-                ShippedDate = orderModel.ShippedDate,
-                ShippingAddress = orderModel.ShippingAddress,
-                OrderStatus = orderModel.OrderStatus,
-                Customer = _mapper.Map<CustomerReadDto>(orderModel.Customer),
-                Invoice = _mapper.Map<InvoiceReadDto>(orderModel.Invoice)
-            };
-
-            foreach (var orderItem in orderModel.OrderItems)
-            {
-                ItemReadDto itemReadDto = new()
-                {
-                    ExternalBatchId = orderItem.ItemId,
-                    ExternalProductId = orderItem.Item.ExternalProductId,
-                    Name = orderItem.Item.Name,
-                    Price = orderItem.Item.Price,
-                    Lot = orderItem.Item.Lot,
-                    ExpirationDate = orderItem.Item.ExpirationDate,
-                    Quantity = orderItem.OrderItemQuantity
-                };
-
-                orderFullReadDto.Items.Add(itemReadDto);
-            }
+            var orderFullReadDto = orderModel.ToFullReadDto();
 
             return Ok(orderFullReadDto);
         }
@@ -167,6 +113,8 @@ public class OrdersController : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<OrderFullReadDto>> CreateOrder(OrderCreateDto orderCreateDto)
     {
         Order orderModel;
@@ -174,7 +122,7 @@ public class OrdersController : ControllerBase
         try
         {
             Log.Information("--> Creating an order.............");
-            orderModel = _mapper.Map<Order>(orderCreateDto);
+            orderModel = orderCreateDto.ToEntity();
             var validOrder = await _repository.CreateOrderAsync(orderModel);
 
             if (validOrder == null)
@@ -195,7 +143,7 @@ public class OrdersController : ControllerBase
         {
             OrderPublishedEvent orderPublishedEvent = new()
             {
-                OrderItems = _mapper.Map<IEnumerable<OrderItemPublishedDto>>(orderModel.OrderItems),
+                OrderItems = orderModel.OrderItems.ToPublishedDtos(),
                 Event = "Order_Published"
             };
 
@@ -206,38 +154,15 @@ public class OrdersController : ControllerBase
             Log.Error(ex, "Error with publishing order message: {Message}", ex.Message);
         }
 
-        OrderFullReadDto orderFullReadDto = new()
-        {
-            Id = orderModel.Id,
-            OrderDate = orderModel.OrderDate,
-            ShippedDate = orderModel.ShippedDate,
-            ShippingAddress = orderModel.ShippingAddress,
-            OrderStatus = orderModel.OrderStatus,
-            Customer = _mapper.Map<CustomerReadDto>(orderModel.Customer),
-            Invoice = _mapper.Map<InvoiceReadDto>(orderModel.Invoice)
-        };
-
-        foreach (var orderItem in orderModel.OrderItems)
-        {
-            ItemReadDto itemReadDto = new()
-            {
-                ExternalBatchId = orderItem.ItemId,
-                ExternalProductId = orderItem.Item.ExternalProductId,
-                Name = orderItem.Item.Name,
-                Price = orderItem.Item.Price,
-                Lot = orderItem.Item.Lot,
-                ExpirationDate = orderItem.Item.ExpirationDate,
-                Quantity = orderItem.OrderItemQuantity
-            };
-
-            orderFullReadDto.Items.Add(itemReadDto);
-        }
+        var orderFullReadDto = orderModel.ToFullReadDto();
 
         return CreatedAtRoute(nameof(GetOrderById), new { orderFullReadDto.Id }, orderFullReadDto);
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateOrder(Guid id, OrderUpdateDto orderUpdateDto)
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<OrderReadDto>> UpdateOrder(Guid id, OrderUpdateDto orderUpdateDto)
     {
         Order orderModel;
         Order preUpdateOrderModel;
@@ -245,8 +170,7 @@ public class OrdersController : ControllerBase
         {
             Log.Information("--> Updating a product with id {Id}....................", id);
 
-            orderModel = _mapper.Map<Order>(orderUpdateDto);
-            orderModel.Id = id;
+            orderModel = orderUpdateDto.ToEntity(id);
 
             var nullCHeck = await _repository.UpdateOrderAsync(orderModel);
 
@@ -271,7 +195,7 @@ public class OrdersController : ControllerBase
             {
                 OrderPublishedEvent orderDeletedEvent = new()
                 {
-                    OrderItems = _mapper.Map<IEnumerable<OrderItemPublishedDto>>(preUpdateOrderModel.OrderItems),
+                    OrderItems = preUpdateOrderModel.OrderItems.ToPublishedDtos(),
                     Event = "Order_Deleted"
                 };
 
@@ -279,7 +203,7 @@ public class OrdersController : ControllerBase
 
                 OrderPublishedEvent orderPublishedEvent = new()
                 {
-                    OrderItems = _mapper.Map<IEnumerable<OrderItemPublishedDto>>(orderUpdateDto.OrderItems),
+                    OrderItems = orderUpdateDto.OrderItems.ToPublishedDtos(),
                     Event = "Order_Published"
                 };
 
@@ -291,10 +215,12 @@ public class OrdersController : ControllerBase
             Log.Error(ex, "Error with publishing order message: {Message}", ex.Message);
         }
 
-        return Ok(_mapper.Map<OrderReadDto>(orderModel));
+        return Ok(orderModel.ToReadDto());
     }
 
     [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteOrder(Guid id)
     {
         Order preDeleteOrderModel;
@@ -326,7 +252,7 @@ public class OrdersController : ControllerBase
         {
             OrderPublishedEvent orderDeletedEvent = new()
             {
-                OrderItems = _mapper.Map<IEnumerable<OrderItemPublishedDto>>(preDeleteOrderModel.OrderItems),
+                OrderItems = preDeleteOrderModel.OrderItems.ToPublishedDtos(),
                 Event = "Order_Deleted"
             };
 

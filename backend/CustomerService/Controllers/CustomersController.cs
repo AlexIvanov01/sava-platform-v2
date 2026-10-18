@@ -2,11 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using AutoMapper;
 using CustomerService.AsyncDataServices;
 using CustomerService.DataAccess;
 using CustomerService.Dtos;
+using CustomerService.Mappings;
 using CustomerService.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
 
@@ -17,17 +18,17 @@ namespace CustomerService.Controllers
     public class CustomersController : ControllerBase
     {
         private readonly ICustomerRepo _repository;
-        private readonly IMapper _mapper;
         private readonly IMessageBusClient _messageBusClient;
 
-        public CustomersController(ICustomerRepo repository, IMapper mapper, IMessageBusClient messageBusClient)
+        public CustomersController(ICustomerRepo repository, IMessageBusClient messageBusClient)
         {
             _repository = repository;
-            _mapper = mapper;
             _messageBusClient = messageBusClient;
         }
 
         [HttpGet]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<IEnumerable<CustomerReadDto>>> GetCustomers()
         {
             try
@@ -44,7 +45,7 @@ namespace CustomerService.Controllers
 
                 Log.Information("--> Fetched all customers from database.");
 
-                return Ok(_mapper.Map<IEnumerable<CustomerReadDto>>(customers));
+                return Ok(customers.Select(c => c.ToReadDto()));
             }
             catch (Exception ex)
             {
@@ -54,6 +55,8 @@ namespace CustomerService.Controllers
         }
 
         [HttpGet("{id}", Name = "GetCustomerById")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<CustomerReadDto>> GetCustomerById(Guid id)
         {
             try
@@ -70,7 +73,7 @@ namespace CustomerService.Controllers
 
                 Log.Information("--> Fetched a customer with id {Id}.", id);
 
-                return Ok(_mapper.Map<CustomerReadDto>(customer));
+                return Ok(customer.ToReadDto());
             }
             catch (Exception ex)
             {
@@ -80,6 +83,7 @@ namespace CustomerService.Controllers
         }
 
         [HttpPost]
+        [ProducesResponseType(StatusCodes.Status201Created)]
         public async Task<ActionResult<CustomerReadDto>> CreateCustomer(CustomerCreateDto customerCreateDto)
         {
             CustomerReadDto customerReadDto;
@@ -88,12 +92,12 @@ namespace CustomerService.Controllers
             try
             {
                 Log.Information("--> Creating a product.............");
-                customerModel = _mapper.Map<Customer>(customerCreateDto);
+                customerModel = customerCreateDto.ToEntity();
                 await _repository.CreateCustomerAsync(customerModel);
 
                 Log.Information("--> Customer created: {Id}", customerModel.Id);
 
-                customerReadDto = _mapper.Map<CustomerReadDto>(customerModel);
+                customerReadDto = customerModel.ToReadDto();
 
             }
             catch (Exception ex)
@@ -105,8 +109,7 @@ namespace CustomerService.Controllers
             //Send Async Message
             try
             {
-                var customerPublishedDto = _mapper.Map<CustomerPublishedDto>(customerModel);
-                customerPublishedDto.Event = "Customer_Published";
+                var customerPublishedDto = customerModel.ToPublishedDto("Customer_Published");
                 _messageBusClient.PublishNewCustomer(customerPublishedDto);
             }
             catch (Exception ex)
@@ -118,7 +121,9 @@ namespace CustomerService.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateCustomer(Guid id, CustomerUpdateDto customerUpdateDto)
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<CustomerReadDto>> UpdateCustomer(Guid id, CustomerUpdateDto customerUpdateDto)
         {
             Customer customerModel;
 
@@ -126,8 +131,7 @@ namespace CustomerService.Controllers
             {
                 Log.Information("--> Updating a customer with id {Id}....................", id);
 
-                customerModel = _mapper.Map<Customer>(customerUpdateDto);
-                customerModel.Id = id;
+                customerModel = customerUpdateDto.ToEntity(id);
 
                 var nullCHeck = await _repository.UpdateCustomerAsync(customerModel);
 
@@ -149,8 +153,7 @@ namespace CustomerService.Controllers
             //Send Async Message
             try
             {
-                var customerPublishedDto = _mapper.Map<CustomerPublishedDto>(customerModel);
-                customerPublishedDto.Event = "Customer_Updated";
+                var customerPublishedDto = customerModel.ToPublishedDto("Customer_Updated");
                 _messageBusClient.PublishNewCustomer(customerPublishedDto);
             }
             catch (Exception ex)
@@ -158,10 +161,12 @@ namespace CustomerService.Controllers
                 Log.Error(ex, "Error with publishing customer message: {Message}", ex.Message);
             }
 
-            return Ok(_mapper.Map<CustomerReadDto>(customerModel));
+            return Ok(customerModel.ToReadDto());
         }
 
         [HttpDelete("{id}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteCustomer(Guid id)
         {
             try

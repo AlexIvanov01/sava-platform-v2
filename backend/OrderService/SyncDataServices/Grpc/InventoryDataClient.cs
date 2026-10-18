@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using AutoMapper;
+using System.Linq;
 using Grpc.Net.Client;
 using InventoryService;
 using Microsoft.Extensions.Configuration;
+using OrderService.Mappings;
 using OrderService.Models;
 using Serilog;
 
@@ -12,12 +13,10 @@ namespace OrderService.SyncDataServices.Grpc;
 public class InventoryDataClient : IInventoryDataClient
 {
     private readonly IConfiguration _configuration;
-    private readonly IMapper _mapper;
 
-    public InventoryDataClient(IConfiguration configuration, IMapper mapper)
+    public InventoryDataClient(IConfiguration configuration)
     {
         _configuration = configuration;
-        _mapper = mapper;
     }
 
     public IEnumerable<Item>? ReturnAllItems()
@@ -31,7 +30,7 @@ public class InventoryDataClient : IInventoryDataClient
         try
         {
             var reply = client.GetAllItems(request);
-            return _mapper.Map<IEnumerable<Item>>(reply.Item);
+            return reply.Item.Select(m => m.ToEntity()).ToList();
         }
         catch (Exception ex)
         {

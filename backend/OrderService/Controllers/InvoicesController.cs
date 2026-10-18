@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
-using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using OrderService.DataAccess;
 using OrderService.Dtos;
+using OrderService.Mappings;
 using OrderService.Models;
 using Serilog;
 
@@ -17,15 +18,15 @@ namespace OrderService.Controllers
     public class InvoicesController : ControllerBase
     {
         private readonly IInvoiceRepo _repository;
-        private readonly IMapper _mapper;
 
-        public InvoicesController(IInvoiceRepo repository, IMapper mapper)
+        public InvoicesController(IInvoiceRepo repository)
         {
             _repository = repository;
-            _mapper = mapper;
         }
 
         [HttpGet]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<InvoicePageReadDto>> GetInvoices(
         int? cursor,
         [Range(1, 100)] int pageSize = 10)
@@ -47,38 +48,7 @@ namespace OrderService.Controllers
 
                 var pageCount = Math.Ceiling(await _repository.GetInvoiceCountAsync() / (float)pageSize);
 
-                List<OrderFullReadDto> dtos = [];
-
-                foreach (var invoice in invoiceItems)
-                {
-                    OrderFullReadDto dto = new()
-                    {
-                        Id = invoice.Order.Id,
-                        OrderDate = invoice.Order.OrderDate,
-                        ShippedDate = invoice.Order.ShippedDate,
-                        ShippingAddress = invoice.Order.ShippingAddress,
-                        Customer = _mapper.Map<CustomerReadDto>(invoice.Order.Customer),
-                        Invoice = _mapper.Map<InvoiceReadDto>(invoice)
-                    };
-
-                    foreach (var orderItem in invoice.Order.OrderItems)
-                    {
-                        ItemReadDto itemReadDto = new()
-                        {
-                            ExternalBatchId = orderItem.ItemId,
-                            ExternalProductId = orderItem.Item.ExternalProductId,
-                            Name = orderItem.Item.Name,
-                            Price = orderItem.Item.Price,
-                            Lot = orderItem.Item.Lot,
-                            ExpirationDate = orderItem.Item.ExpirationDate,
-                            Quantity = orderItem.OrderItemQuantity
-                        };
-
-                        dto.Items.Add(itemReadDto);
-                    }
-
-                    dtos.Add(dto);
-                }
+                List<OrderFullReadDto> dtos = invoiceItems.Select(i => i.ToFullReadDto()).ToList();
 
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
                 InvoicePageReadDto invoicePageReadDto = new()
@@ -99,6 +69,8 @@ namespace OrderService.Controllers
         }
 
         [HttpGet("{id}", Name = "GetInvoiceById")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<OrderFullReadDto>> GetInvoiceById(int id)
         {
             try
@@ -115,31 +87,7 @@ namespace OrderService.Controllers
 
                 Log.Information("--> Fetched an invoice with id {Id}.", id);
 
-                OrderFullReadDto dto = new()
-                {
-                    Id = invoice.Order.Id,
-                    OrderDate = invoice.Order.OrderDate,
-                    ShippedDate = invoice.Order.ShippedDate,
-                    ShippingAddress = invoice.Order.ShippingAddress,
-                    Customer = _mapper.Map<CustomerReadDto>(invoice.Order.Customer),
-                    Invoice = _mapper.Map<InvoiceReadDto>(invoice)
-                };
-
-                foreach (var orderItem in invoice.Order.OrderItems)
-                {
-                    ItemReadDto itemReadDto = new()
-                    {
-                        ExternalBatchId = orderItem.ItemId,
-                        ExternalProductId = orderItem.Item.ExternalProductId,
-                        Name = orderItem.Item.Name,
-                        Price = orderItem.Item.Price,
-                        Lot = orderItem.Item.Lot,
-                        ExpirationDate = orderItem.Item.ExpirationDate,
-                        Quantity = orderItem.OrderItemQuantity
-                    };
-
-                    dto.Items.Add(itemReadDto);
-                }
+                var dto = invoice.ToFullReadDto();
                     return Ok(dto);
             }
             catch (Exception ex)
@@ -150,13 +98,15 @@ namespace OrderService.Controllers
         }
 
         [HttpPost("{orderId}")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<InvoiceReadDto>> CreateInvoice(InvoiceCreateDto invoiceCreateDto, Guid orderId)
         {
             try
             {
                 Log.Information("--> Creating an invoice............");
 
-                var invoiceModel = _mapper.Map<Invoice>(invoiceCreateDto);
+                var invoiceModel = invoiceCreateDto.ToEntity();
 
                 var nullCheck = await _repository.CreateInvocieAsync(invoiceModel, orderId);
 
@@ -167,7 +117,7 @@ namespace OrderService.Controllers
 
                 Log.Information("--> Created invoice for order: {Id}", orderId);
 
-                var invoiceReadDto = _mapper.Map<InvoiceReadDto>(invoiceModel);
+                var invoiceReadDto = invoiceModel.ToReadDto();
 
                 return CreatedAtRoute(nameof(GetInvoiceById), new { Id = invoiceReadDto.Id }, invoiceReadDto);
             }
@@ -179,14 +129,15 @@ namespace OrderService.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateInvoice(int id, InvoiceUpdateDto invoiceUpdateDto)
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<InvoiceReadDto>> UpdateInvoice(int id, InvoiceUpdateDto invoiceUpdateDto)
         {
             try
             {
                 Log.Information("--> Updating invoice.............");
 
-                var invoiceModel = _mapper.Map<Invoice>(invoiceUpdateDto);
-                invoiceModel.Id = id;
+                var invoiceModel = invoiceUpdateDto.ToEntity(id);
 
                 var nullCheck = await _repository.UpdateInvoiceAsync(invoiceModel);
 
@@ -198,7 +149,7 @@ namespace OrderService.Controllers
 
                 Log.Information("--> Invoice uptated: {Id}", id);
 
-                return Ok(_mapper.Map<InvoiceReadDto>(invoiceModel));
+                return Ok(invoiceModel.ToReadDto());
             }
             catch (Exception ex)
             {
@@ -208,6 +159,8 @@ namespace OrderService.Controllers
         }
 
         [HttpDelete("{id}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult> DeleteInvoice(int id)
         {
             try

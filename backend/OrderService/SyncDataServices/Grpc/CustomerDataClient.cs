@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using AutoMapper;
+using System.Linq;
 using Grpc.Net.Client;
 using CustomerService;
 using Microsoft.Extensions.Configuration;
+using OrderService.Mappings;
 using OrderService.Models;
 using Serilog;
 
@@ -12,11 +13,9 @@ namespace OrderService.SyncDataServices.Grpc;
 public class CustomerDataClient : ICustomerDataClient
 {
     private readonly IConfiguration _configuration;
-    private readonly IMapper _mapper;
-    public CustomerDataClient(IConfiguration configuration, IMapper mapper)
+    public CustomerDataClient(IConfiguration configuration)
     {
         _configuration = configuration;
-        _mapper = mapper;
     }
 
     public IEnumerable<Customer>? ReturnAllCustomers()
@@ -30,7 +29,7 @@ public class CustomerDataClient : ICustomerDataClient
         try
         {
             var reply = client.GetAllCustomers(request);
-            return _mapper.Map<IEnumerable<Customer>>(reply.Customers);
+            return reply.Customers.Select(m => m.ToEntity()).ToList();
         }
         catch (Exception ex)
         {

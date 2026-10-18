@@ -28,6 +28,80 @@ A scalable and modern platform designed for distribution companies, built using 
 The platform follows a microservices architecture, with each service having its own database and clear responsibilities. Communication between services is achieved through gRPC for synchronous operations and RabbitMQ for asynchronous messaging.
 
 
+## Getting Started
+
+### Prerequisites
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- Docker (Docker Desktop with Kubernetes enabled for the full stack)
+
+### Build
+
+There is no root solution. Each service in `backend/` is a standalone project, so run commands from the service directory:
+
+```bash
+cd backend/InventoryService   # or CustomerService, OrderService, AuthenticationService, OcelotApiGateway
+dotnet build
+```
+
+A Debug build also regenerates the service's OpenAPI document in `backend/openapi/<Service>.json`. Commit those files together with API changes.
+
+### Run services locally
+
+Running locally uses `appsettings.Development.json`, which points at MySQL and RabbitMQ on `localhost`.
+
+1. Start the infrastructure. Use the MySQL password from the services' `appsettings.Development.json`:
+
+   ```bash
+   docker run -d --name sava-mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=<password> mysql:8.4
+   docker run -d --name sava-rabbit -p 5672:5672 -p 15672:15672 rabbitmq:4-management
+   ```
+
+   One MySQL instance is enough because each service uses its own database (`savadb_inv`, `savadb_cust`, `savadb_order`). Migrations and seed data (`dummy_data.json`) are applied automatically on startup.
+
+2. Run each service in its own terminal with `dotnet run`. Start Inventory and Customer before Order, because Order syncs items and customers from them over gRPC.
+
+   | Service | REST and Swagger UI | gRPC |
+   |---|---|---|
+   | InventoryService | `http://localhost:80/swagger` | `666` |
+   | CustomerService | `http://localhost:83/swagger` | `668` |
+   | OrderService | `http://localhost:82/swagger` | `667` |
+   | AuthenticationService | `http://localhost:80/swagger` | — |
+
+   Ports come from the `Kestrel` section in appsettings, not from `launchSettings.json`. If port 80 is taken (for example by Docker Desktop, or by another service that also uses it), override it:
+
+   ```bash
+   Kestrel__Endpoints__Http__Url=http://localhost:5000 dotnet run   # AuthenticationService
+   ```
+
+   The API gateway routes to Kubernetes service names (see `ocelot.json`), so it only works in the cluster. When running locally, call the services directly. They don't check authorization themselves; the gateway does.
+
+### Run on Kubernetes
+
+1. Build the images. The deployments in `backend/K8S` use `alexivanov01/<service>:latest`:
+
+   ```bash
+   for s in AuthenticationService CustomerService InventoryService OrderService OcelotApiGateway; do
+     docker build -t alexivanov01/$(echo $s | tr '[:upper:]' '[:lower:]') backend/$s
+   done
+   ```
+
+2. Create the MySQL secret that the MySQL deployments read:
+
+   ```bash
+   kubectl create secret generic mysql --from-literal=SA_PASSWORD=<password>
+   ```
+
+   The password must match the connection strings in the services' `appsettings.json`.
+
+3. Apply the manifests:
+
+   ```bash
+   kubectl apply -f backend/K8S/
+   ```
+
+   The API gateway is exposed at `http://localhost:80` and the RabbitMQ management UI at `http://localhost:15672`. The MySQL databases are on ports `33061` (inventory), `33062` (customer) and `33063` (order).
+
 ## Usage
 
 1. Register and authenticate users via the Authentication Service.
