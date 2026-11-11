@@ -3,6 +3,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace CustomerService.Dtos;
 
+public record AuditReadDto(
+    DateTime? CreatedAt,
+    DateTime? UpdatedAt,
+    string? CreatedBy,
+    string? UpdatedBy
+);
+
 public record CustomerReadDto(
     Guid Id,
     string? Name,
@@ -16,7 +23,8 @@ public record CustomerReadDto(
     string? IBAN,
     string? BIC,
     string? VATNumber,
-    string? UIC
+    string? UIC,
+    AuditReadDto Audit
 );
 
 public record CustomerCreateDto(

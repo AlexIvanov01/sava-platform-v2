@@ -1,15 +1,32 @@
-﻿using Microsoft.EntityFrameworkCore;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using OrderService.Auditing;
 using OrderService.Models;
 
 namespace OrderService.DataAccess;
 
-public class OrderContext(DbContextOptions options) : DbContext(options)
+// currentUser is optional so tests and tooling can construct the context from options alone.
+public class OrderContext(DbContextOptions options, ICurrentUser? currentUser = null)
+    : DbContext(options)
 {
     public DbSet<Order> Orders { get; set; }
     public DbSet<Invoice> Invoices { get; set; }
     public DbSet<Customer> Customers { get; set; }
     public DbSet<Item> Items { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        AuditStamper.Stamp(ChangeTracker, currentUser);
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override int SaveChanges()
+    {
+        AuditStamper.Stamp(ChangeTracker, currentUser);
+        return base.SaveChanges();
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

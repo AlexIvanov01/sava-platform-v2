@@ -219,6 +219,9 @@ public class OrderRepo : IOrderRepo
         // A non-empty item list replaces the order's items; an empty one leaves them unchanged.
         if (order.OrderItems.Count != 0)
         {
+            // Items belong to the order, so replacing them counts as modifying the order
+            // (AuditStamper only stamps entities the change tracker sees as Modified).
+            dbOrder.UpdatedAt = DateTime.UtcNow;
             var itemIdList = order.OrderItems.Select(oi => oi.ItemId).ToList();
 
             var validItems = await _context

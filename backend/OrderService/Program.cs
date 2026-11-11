@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OrderService.AsyncDataServices;
+using OrderService.Auditing;
 using OrderService.DataAccess;
 using OrderService.EventProcessing;
 using OrderService.SyncDataServices.Grpc;
@@ -30,6 +31,8 @@ builder.Services.AddDbContext<OrderContext>(options =>
     );
 });
 builder.Services.AddScoped<IOrderRepo, OrderRepo>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 builder.Services.AddScoped<IInvoiceRepo, InvoiceRepo>();
 builder.Services.AddScoped<ICustomerRepo, CustomerRepo>();
 builder.Services.AddScoped<IItemRepo, ItemRepo>();

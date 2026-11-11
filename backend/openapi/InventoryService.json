@@ -510,6 +510,43 @@
   },
   "components": {
     "schemas": {
+      "AuditReadDto": {
+        "required": [
+          "createdAt",
+          "updatedAt",
+          "createdBy",
+          "updatedBy"
+        ],
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "updatedBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "BatchCreateDto": {
         "required": [
           "lot",
@@ -566,7 +603,8 @@
           "quantity",
           "purchasePrice",
           "sellPrice",
-          "expirationDate"
+          "expirationDate",
+          "audit"
         ],
         "type": "object",
         "properties": {
@@ -607,6 +645,9 @@
           "expirationDate": {
             "type": "string",
             "format": "date-time"
+          },
+          "audit": {
+            "$ref": "#/components/schemas/AuditReadDto"
           }
         }
       },
@@ -805,7 +846,8 @@
           "barcode",
           "reorderLevel",
           "weight",
-          "batches"
+          "batches",
+          "audit"
         ],
         "type": "object",
         "properties": {
@@ -876,6 +918,9 @@
             "items": {
               "$ref": "#/components/schemas/BatchReadDto"
             }
+          },
+          "audit": {
+            "$ref": "#/components/schemas/AuditReadDto"
           }
         }
       },

@@ -1,6 +1,8 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using OrderService.Dtos;
+using Sava.Tests.Shared;
 
 namespace OrderService.Tests;
 
@@ -140,9 +142,19 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
     [Fact]
     public async Task OrderAndInvoiceLifecycle()
     {
+        var creator = TestData.Faker.Internet.UserName();
+        var editor = TestData.Faker.Internet.UserName();
+        _client.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(
+            TestTokens.Bearer(creator)
+        );
         var order = await CreateOrderAsync();
+        order.Audit.ShouldNotBeNull().CreatedBy.ShouldBe(creator);
+        order.Audit.UpdatedBy.ShouldBeNull();
         var itemB = factory.Items[1].ExternalBatchId;
 
+        _client.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(
+            TestTokens.Bearer(editor)
+        );
         var update = await _client.PutAsJsonAsync(
             $"/api/orders/{order.Id}",
             OrderBuilder.UpdateDto("Confirmed", null, (itemB, 5)),
@@ -154,6 +166,9 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
         ).ShouldNotBeNull();
         updated.OrderStatus.ShouldBe("Confirmed");
         updated.Items.ShouldHaveSingleItem().ExternalBatchId.ShouldBe(itemB);
+        updated.Audit.ShouldNotBeNull().CreatedBy.ShouldBe(creator);
+        updated.Audit.UpdatedBy.ShouldBe(editor);
+        updated.Audit.UpdatedAt.ShouldNotBeNull();
 
         var invoiceDto = new InvoiceCreateDto(
             null,
@@ -171,6 +186,7 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
             await createInvoice.Content.ReadFromJsonAsync<InvoiceReadDto>(Ct)
         ).ShouldNotBeNull();
         invoice.OrderId.ShouldBe(order.Id);
+        invoice.Audit.CreatedBy.ShouldBe(editor);
         (
             await _client.PostAsJsonAsync($"/api/invoices/{order.Id}", invoiceDto, Ct)
         ).StatusCode.ShouldBe(HttpStatusCode.NotFound);
@@ -187,6 +203,8 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
         paidInvoice.InvoiceStatus.ShouldBe("Paid");
         paidInvoice.TotalAmount.ShouldBe(15m);
         paidInvoice.OrderId.ShouldBe(order.Id);
+        paidInvoice.Audit.UpdatedBy.ShouldBe(editor);
+        _client.DefaultRequestHeaders.Authorization = null;
         var invoiced = (
             await _client.GetFromJsonAsync<OrderFullReadDto>($"/api/invoices/{invoice.Id}", Ct)
         ).ShouldNotBeNull();

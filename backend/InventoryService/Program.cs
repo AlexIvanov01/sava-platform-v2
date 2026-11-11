@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using InventoryService.AsyncDataServices;
+using InventoryService.Auditing;
 using InventoryService.DataAccess;
 using InventoryService.EventProcessing;
 using InventoryService.SyncDataServices.Grpc;
@@ -37,6 +38,8 @@ builder.Services.AddDbContext<ProductContext>(options =>
     );
 });
 builder.Services.AddScoped<IProductRepo, ProductRepo>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 builder.Services.AddSingleton<IMessageBusClient, MessageBusClient>();
 builder.Services.AddGrpc();
 builder.Services.AddSingleton<IEventProcessor, EventProcessor>();

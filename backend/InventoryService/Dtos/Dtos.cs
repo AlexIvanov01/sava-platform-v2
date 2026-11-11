@@ -4,13 +4,21 @@ using System.ComponentModel.DataAnnotations;
 
 namespace InventoryService.Dtos;
 
+public record AuditReadDto(
+    DateTime? CreatedAt,
+    DateTime? UpdatedAt,
+    string? CreatedBy,
+    string? UpdatedBy
+);
+
 public record BatchReadDto(
     Guid Id,
     string? Lot,
     int Quantity,
     decimal PurchasePrice,
     decimal SellPrice,
-    DateTime ExpirationDate
+    DateTime ExpirationDate,
+    AuditReadDto Audit
 );
 
 public record ProductReadDto(
@@ -24,7 +32,8 @@ public record ProductReadDto(
     string? Barcode,
     int ReorderLevel,
     float Weight,
-    List<BatchReadDto> Batches
+    List<BatchReadDto> Batches,
+    AuditReadDto Audit
 );
 
 public record ProductCreateDto(

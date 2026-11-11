@@ -16,4 +16,5 @@ public class OrderFullReadDto
     public CustomerReadDto? Customer { get; set; }
     public InvoiceReadDto? Invoice { get; set; }
     public List<ItemReadDto> Items { get; set; } = [];
+    public AuditReadDto? Audit { get; set; }
 }

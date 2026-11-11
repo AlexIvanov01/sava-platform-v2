@@ -1,6 +1,8 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using InventoryService.Dtos;
+using Sava.Tests.Shared;
 
 namespace InventoryService.Tests;
 
@@ -36,6 +38,12 @@ public class InventoryApiTests(InventoryApiFactory factory) : IClassFixture<Inve
     [Fact]
     public async Task ProductAndBatchLifecycle()
     {
+        var creator = TestData.Faker.Internet.UserName();
+        var editor = TestData.Faker.Internet.UserName();
+        _client.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(
+            TestTokens.Bearer(creator)
+        );
+
         var create = await _client.PostAsJsonAsync(
             "/api/products",
             InventoryBuilder.ProductCreateDto("Lifecycle"),
@@ -45,6 +53,9 @@ public class InventoryApiTests(InventoryApiFactory factory) : IClassFixture<Inve
         var product = (
             await create.Content.ReadFromJsonAsync<ProductReadDto>(Ct)
         ).ShouldNotBeNull();
+        product.Audit.CreatedBy.ShouldBe(creator);
+        product.Audit.CreatedAt.ShouldNotBeNull();
+        product.Audit.UpdatedBy.ShouldBeNull();
 
         var addBatch = await _client.PostAsJsonAsync(
             $"/api/batches/{product.Id}",
@@ -55,7 +66,11 @@ public class InventoryApiTests(InventoryApiFactory factory) : IClassFixture<Inve
         var batch = (await addBatch.Content.ReadFromJsonAsync<ProductReadDto>(Ct))
             .ShouldNotBeNull()
             .Batches.ShouldHaveSingleItem();
+        batch.Audit.CreatedBy.ShouldBe(creator);
 
+        _client.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(
+            TestTokens.Bearer(editor)
+        );
         var batchUpdate = await _client.PutAsJsonAsync(
             $"/api/batches/{batch.Id}",
             InventoryBuilder.BatchUpdateDto(quantity: 9),
@@ -68,6 +83,9 @@ public class InventoryApiTests(InventoryApiFactory factory) : IClassFixture<Inve
         updatedBatch.Quantity.ShouldBe(9);
         updatedBatch.Lot.ShouldBe("L1");
         updatedBatch.SellPrice.ShouldBe(batch.SellPrice);
+        updatedBatch.Audit.CreatedBy.ShouldBe(creator);
+        updatedBatch.Audit.UpdatedBy.ShouldBe(editor);
+        updatedBatch.Audit.UpdatedAt.ShouldNotBeNull();
 
         var productUpdate = await _client.PutAsJsonAsync(
             $"/api/products/{product.Id}",
@@ -80,7 +98,9 @@ public class InventoryApiTests(InventoryApiFactory factory) : IClassFixture<Inve
         ).ShouldNotBeNull();
         updatedProduct.Name.ShouldBe("Renamed");
         updatedProduct.Brand.ShouldBe(product.Brand);
+        updatedProduct.Audit.UpdatedBy.ShouldBe(editor);
 
+        _client.DefaultRequestHeaders.Authorization = null;
         var fetched = await _client.GetFromJsonAsync<ProductReadDto>(
             $"/api/products/{product.Id}",
             Ct
@@ -89,6 +109,8 @@ public class InventoryApiTests(InventoryApiFactory factory) : IClassFixture<Inve
         fetched.Name.ShouldBe("Renamed");
         fetched.Brand.ShouldBe(product.Brand);
         fetched.Batches.ShouldHaveSingleItem().Quantity.ShouldBe(9);
+        fetched.Audit.CreatedBy.ShouldBe(creator);
+        fetched.Audit.UpdatedBy.ShouldBe(editor);
 
         (await _client.DeleteAsync($"/api/batches/{batch.Id}", Ct)).StatusCode.ShouldBe(
             HttpStatusCode.NoContent

@@ -47,6 +47,8 @@ public sealed class TestDatabase<TContext>(
 )
     where TContext : DbContext
 {
+    public DbContextOptions Options => options;
+
     // Use a fresh context for arrange, act and assert so results come from the database, not the change tracker.
     public TContext CreateContext() => createContext(options);
 }

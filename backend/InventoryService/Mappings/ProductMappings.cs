@@ -20,7 +20,8 @@ public static class ProductMappings
             product.Barcode,
             product.ReorderLevel.GetValueOrDefault(),
             product.Weight.GetValueOrDefault(),
-            product.Batches.Select(b => b.ToReadDto()).ToList()
+            product.Batches.Select(b => b.ToReadDto()).ToList(),
+            product.ToAuditDto()
         );
 
     public static BatchReadDto ToReadDto(this ProductBatch batch) =>
@@ -30,8 +31,12 @@ public static class ProductMappings
             batch.Quantity.GetValueOrDefault(),
             batch.PurchasePrice.GetValueOrDefault(),
             batch.SellPrice.GetValueOrDefault(),
-            batch.ExpirationDate.GetValueOrDefault()
+            batch.ExpirationDate.GetValueOrDefault(),
+            batch.ToAuditDto()
         );
+
+    public static AuditReadDto ToAuditDto(this AuditableEntity entity) =>
+        new(entity.CreatedAt, entity.UpdatedAt, entity.CreatedBy, entity.UpdatedBy);
 
     public static Product ToEntity(this ProductCreateDto dto) =>
         new()

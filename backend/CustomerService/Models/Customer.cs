@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace CustomerService.Models;
 
-public class Customer
+public class Customer : AuditableEntity
 {
     [Key]
     [Required]

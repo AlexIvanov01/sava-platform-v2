@@ -5,6 +5,13 @@ using System.Linq;
 
 namespace OrderService.Dtos;
 
+public record AuditReadDto(
+    DateTime? CreatedAt,
+    DateTime? UpdatedAt,
+    string? CreatedBy,
+    string? UpdatedBy
+);
+
 public record OrderReadDto(
     Guid Id,
     DateTime OrderDate,
@@ -13,7 +20,8 @@ public record OrderReadDto(
     string? OrderStatus,
     Guid CustomerId,
     InvoiceReadDto? Invoice,
-    List<OrderItemReadDto>? OrderItems
+    List<OrderItemReadDto>? OrderItems,
+    AuditReadDto Audit
 );
 
 public record CustomerReadDto(
@@ -37,7 +45,8 @@ public record InvoiceReadDto(
     DateTime InvoiceDate,
     Guid OrderId,
     string? InvoiceStatus,
-    decimal TotalAmount
+    decimal TotalAmount,
+    AuditReadDto Audit
 );
 
 public record OrderItemReadDto(Guid ItemId, int OrderItemQuantity);

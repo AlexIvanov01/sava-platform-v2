@@ -19,7 +19,6 @@ public class ProductRepo : IProductRepo
 
     public async Task CreateProductAsync(Product product)
     {
-        product.ProductDateAdded = DateTime.Now;
         await _context.Products.AddAsync(product);
         await _context.SaveChangesAsync();
     }
@@ -111,7 +110,6 @@ public class ProductRepo : IProductRepo
         DbProduct.Barcode = product.Barcode ?? DbProduct.Barcode;
         DbProduct.ReorderLevel = product.ReorderLevel ?? DbProduct.ReorderLevel;
         DbProduct.Weight = product.Weight ?? DbProduct.Weight;
-        DbProduct.ProductDateUpdated = DateTime.Now;
 
         await _context.SaveChangesAsync();
 
@@ -133,7 +131,6 @@ public class ProductRepo : IProductRepo
         DbBatch.PurchasePrice = batch.PurchasePrice ?? DbBatch.PurchasePrice;
         DbBatch.SellPrice = batch.SellPrice ?? DbBatch.SellPrice;
         DbBatch.ExpirationDate = batch.ExpirationDate ?? DbBatch.ExpirationDate;
-        DbBatch.BatchDateUpdated = DateTime.Now;
 
         await _context.SaveChangesAsync();
         return DbBatch;
@@ -149,8 +146,6 @@ public class ProductRepo : IProductRepo
         {
             return null;
         }
-
-        batch.BatchDateAdded = DateTime.Now;
 
         product.Batches.Add(batch);
 

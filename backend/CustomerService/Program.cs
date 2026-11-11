@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using CustomerService.AsyncDataServices;
+using CustomerService.Auditing;
 using CustomerService.DataAccess;
 using CustomerService.SyncDataServices.Grpc;
 using Microsoft.AspNetCore.Builder;
@@ -30,6 +31,8 @@ builder.Services.AddDbContext<CustomerContext>(options =>
     );
 });
 builder.Services.AddScoped<ICustomerRepo, CustomerRepo>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 builder.Services.AddGrpc();
 builder.Services.AddSingleton<IMessageBusClient, MessageBusClient>();
 

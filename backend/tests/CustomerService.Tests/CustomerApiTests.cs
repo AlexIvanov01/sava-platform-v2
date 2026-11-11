@@ -1,6 +1,8 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using CustomerService.Dtos;
+using Sava.Tests.Shared;
 
 namespace CustomerService.Tests;
 
@@ -21,6 +23,12 @@ public class CustomerApiTests(CustomerApiFactory factory) : IClassFixture<Custom
     [Fact]
     public async Task CustomerLifecycle_CreateGetUpdateDelete()
     {
+        var creator = TestData.Faker.Internet.UserName();
+        var editor = TestData.Faker.Internet.UserName();
+        _client.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(
+            TestTokens.Bearer(creator)
+        );
+
         var create = await _client.PostAsJsonAsync(
             "/api/customers",
             CustomerBuilder.CreateDto("Lifecycle"),
@@ -34,7 +42,13 @@ public class CustomerApiTests(CustomerApiFactory factory) : IClassFixture<Custom
             .Headers.Location.ShouldNotBeNull()
             .ToString()
             .ShouldEndWith($"/api/customers/{created.Id}", Case.Insensitive);
+        created.Audit.CreatedBy.ShouldBe(creator);
+        created.Audit.CreatedAt.ShouldNotBeNull();
+        created.Audit.UpdatedBy.ShouldBeNull();
 
+        _client.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(
+            TestTokens.Bearer(editor)
+        );
         var update = await _client.PutAsJsonAsync(
             $"/api/customers/{created.Id}",
             CustomerBuilder.UpdateDto(city: "Varna"),
@@ -47,7 +61,11 @@ public class CustomerApiTests(CustomerApiFactory factory) : IClassFixture<Custom
         updated.City.ShouldBe("Varna");
         updated.Name.ShouldBe("Lifecycle");
         updated.Email.ShouldBe(created.Email);
+        updated.Audit.CreatedBy.ShouldBe(creator);
+        updated.Audit.UpdatedBy.ShouldBe(editor);
+        updated.Audit.UpdatedAt.ShouldNotBeNull();
 
+        _client.DefaultRequestHeaders.Authorization = null;
         var fetched = await _client.GetFromJsonAsync<CustomerReadDto>(
             $"/api/customers/{created.Id}",
             Ct
@@ -55,6 +73,7 @@ public class CustomerApiTests(CustomerApiFactory factory) : IClassFixture<Custom
         fetched.ShouldNotBeNull();
         fetched.City.ShouldBe("Varna");
         fetched.Name.ShouldBe("Lifecycle");
+        fetched.Audit.UpdatedBy.ShouldBe(editor);
 
         (await _client.DeleteAsync($"/api/customers/{created.Id}", Ct)).StatusCode.ShouldBe(
             HttpStatusCode.NoContent

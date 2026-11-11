@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace InventoryService.Models;
 
-public class Product
+public class Product : AuditableEntity
 {
     [Key]
     public Guid Id { get; set; }
@@ -33,7 +33,5 @@ public class Product
     public string? Barcode { get; set; }
     public int? ReorderLevel { get; set; }
     public float? Weight { get; set; }
-    public DateTime? ProductDateAdded { get; set; }
-    public DateTime? ProductDateUpdated { get; set; }
     public List<ProductBatch> Batches { get; set; } = [];
 }

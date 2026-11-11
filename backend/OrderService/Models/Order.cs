@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace OrderService.Models;
 
-public class Order
+public class Order : AuditableEntity
 {
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.None)]

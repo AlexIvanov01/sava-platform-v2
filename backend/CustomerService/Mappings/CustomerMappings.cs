@@ -20,8 +20,12 @@ public static class CustomerMappings
             customer.IBAN,
             customer.BIC,
             customer.VATNumber,
-            customer.UIC
+            customer.UIC,
+            customer.ToAuditDto()
         );
+
+    public static AuditReadDto ToAuditDto(this AuditableEntity entity) =>
+        new(entity.CreatedAt, entity.UpdatedAt, entity.CreatedBy, entity.UpdatedBy);
 
     public static Customer ToEntity(this CustomerCreateDto dto) =>
         new()

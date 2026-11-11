@@ -17,8 +17,12 @@ public static class OrderMappings
             order.OrderStatus,
             order.CustomerId.GetValueOrDefault(),
             order.Invoice?.ToReadDto(),
-            order.OrderItems.Select(oi => oi.ToReadDto()).ToList()
+            order.OrderItems.Select(oi => oi.ToReadDto()).ToList(),
+            order.ToAuditDto()
         );
+
+    public static AuditReadDto ToAuditDto(this AuditableEntity entity) =>
+        new(entity.CreatedAt, entity.UpdatedAt, entity.CreatedBy, entity.UpdatedBy);
 
     public static OrderItemReadDto ToReadDto(this OrderItem orderItem) =>
         new(orderItem.ItemId, orderItem.OrderItemQuantity);
@@ -29,7 +33,8 @@ public static class OrderMappings
             invoice.InvoiceDate.GetValueOrDefault(),
             invoice.OrderId,
             invoice.InvoiceStatus,
-            invoice.TotalAmount.GetValueOrDefault()
+            invoice.TotalAmount.GetValueOrDefault(),
+            invoice.ToAuditDto()
         );
 
     public static OrderFullReadDto ToFullReadDto(this Order order) =>
@@ -48,6 +53,7 @@ public static class OrderMappings
             OrderStatus = order.OrderStatus,
             Customer = order.Customer?.ToReadDto(),
             Invoice = invoice?.ToReadDto(),
+            Audit = order.ToAuditDto(),
             Items = order
                 .OrderItems.Select(oi => new ItemReadDto
                 {

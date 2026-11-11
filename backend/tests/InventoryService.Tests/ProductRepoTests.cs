@@ -1,3 +1,4 @@
+using InventoryService.Auditing;
 using InventoryService.DataAccess;
 using InventoryService.Dtos;
 using InventoryService.Mappings;
@@ -40,7 +41,61 @@ public class ProductRepoTests(MySqlFixture mySql) : IAsyncLifetime
         var saved = await new ProductRepo(assertContext).GetProductAsync(product.Id);
         saved.ShouldNotBeNull();
         saved.Name.ShouldBe("Created");
-        saved.ProductDateAdded.ShouldNotBeNull();
+        saved.CreatedAt.ShouldNotBeNull();
+        saved.CreatedBy.ShouldBe(HttpContextCurrentUser.SystemName);
+        saved.UpdatedAt.ShouldBeNull();
+        saved.UpdatedBy.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task SaveChanges_StampsCurrentUserOnCreateAndUpdate()
+    {
+        var creator = TestData.Faker.Internet.UserName();
+        var editor = TestData.Faker.Internet.UserName();
+        var product = InventoryBuilder.Product("Audited", InventoryBuilder.Batch("L1"));
+
+        await using (var context = CreateContextAs(creator))
+        {
+            await new ProductRepo(context).CreateProductAsync(product);
+        }
+
+        await using (var context = CreateContextAs(editor))
+        {
+            await new ProductRepo(context).UpdateBatchAsync(
+                InventoryBuilder.BatchUpdateDto(quantity: 1).ToEntity(product.Batches[0].Id)
+            );
+        }
+
+        await using var assertContext = _db.CreateContext();
+        var saved = await new ProductRepo(assertContext).GetProductAsync(product.Id);
+        saved.ShouldNotBeNull();
+        saved.CreatedBy.ShouldBe(creator);
+        saved.UpdatedBy.ShouldBeNull();
+        var batch = saved.Batches.ShouldHaveSingleItem();
+        batch.CreatedBy.ShouldBe(creator);
+        batch.UpdatedBy.ShouldBe(editor);
+        batch.UpdatedAt.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task SaveChanges_KeepsCreatedAtSuppliedBySeedData()
+    {
+        var seededDate = TestData.Date(2020, 2024);
+        var product = InventoryBuilder.Product("Seeded");
+        product.CreatedAt = seededDate;
+        await SeedAsync(product);
+
+        await using var context = _db.CreateContext();
+        var saved = await context.Products.SingleAsync(Ct);
+
+        saved.CreatedAt.ShouldBe(seededDate);
+    }
+
+    private ProductContext CreateContextAs(string userName)
+    {
+        var user = Substitute.For<ICurrentUser>();
+        user.Name.Returns(userName);
+        return new ProductContext(_db.Options, user);
     }
 
     [Fact]
@@ -106,7 +161,7 @@ public class ProductRepoTests(MySqlFixture mySql) : IAsyncLifetime
             result.ShouldNotBeNull();
             result.Name.ShouldBe("New");
             result.Brand.ShouldBe(product.Brand);
-            result.ProductDateUpdated.ShouldNotBeNull();
+            result.UpdatedAt.ShouldNotBeNull();
         }
 
         await using var assertContext = _db.CreateContext();
@@ -114,7 +169,7 @@ public class ProductRepoTests(MySqlFixture mySql) : IAsyncLifetime
         saved.Name.ShouldBe("New");
         saved.Brand.ShouldBe(product.Brand);
         saved.Barcode.ShouldBe(product.Barcode);
-        saved.ProductDateUpdated.ShouldNotBeNull();
+        saved.UpdatedAt.ShouldNotBeNull();
     }
 
     [Fact]
@@ -160,7 +215,7 @@ public class ProductRepoTests(MySqlFixture mySql) : IAsyncLifetime
         (await assertContext.Products.CountAsync(Ct)).ShouldBe(1);
         var saved = await assertContext.ProductBatches.SingleAsync(Ct);
         saved.ProductId.ShouldBe(product.Id);
-        saved.BatchDateAdded.ShouldNotBeNull();
+        saved.CreatedAt.ShouldNotBeNull();
     }
 
     [Fact]
@@ -198,7 +253,7 @@ public class ProductRepoTests(MySqlFixture mySql) : IAsyncLifetime
         saved.Quantity.ShouldBe(10);
         saved.SellPrice.ShouldBe(batch.SellPrice);
         saved.ProductId.ShouldBe(product.Id);
-        saved.BatchDateUpdated.ShouldNotBeNull();
+        saved.UpdatedAt.ShouldNotBeNull();
     }
 
     [Fact]

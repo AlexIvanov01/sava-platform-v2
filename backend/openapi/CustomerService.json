@@ -293,6 +293,43 @@
   },
   "components": {
     "schemas": {
+      "AuditReadDto": {
+        "required": [
+          "createdAt",
+          "updatedAt",
+          "createdBy",
+          "updatedBy"
+        ],
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "updatedBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CustomerCreateDto": {
         "required": [
           "name",
@@ -362,7 +399,8 @@
           "iban",
           "bic",
           "vatNumber",
-          "uic"
+          "uic",
+          "audit"
         ],
         "type": "object",
         "properties": {
@@ -441,6 +479,9 @@
               "null",
               "string"
             ]
+          },
+          "audit": {
+            "$ref": "#/components/schemas/AuditReadDto"
           }
         }
       },

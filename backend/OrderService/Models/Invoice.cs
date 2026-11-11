@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace OrderService.Models;
 
-public class Invoice
+public class Invoice : AuditableEntity
 {
     [Key]
     public int Id { get; set; }

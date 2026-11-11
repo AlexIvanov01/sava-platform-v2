@@ -707,6 +707,43 @@
   },
   "components": {
     "schemas": {
+      "AuditReadDto": {
+        "required": [
+          "createdAt",
+          "updatedAt",
+          "createdBy",
+          "updatedBy"
+        ],
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "updatedBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CustomerReadDto": {
         "required": [
           "externalId",
@@ -878,7 +915,8 @@
           "invoiceDate",
           "orderId",
           "invoiceStatus",
-          "totalAmount"
+          "totalAmount",
+          "audit"
         ],
         "type": "object",
         "properties": {
@@ -911,6 +949,9 @@
               "string"
             ],
             "format": "double"
+          },
+          "audit": {
+            "$ref": "#/components/schemas/AuditReadDto"
           }
         }
       },
@@ -1102,6 +1143,16 @@
             "items": {
               "$ref": "#/components/schemas/ItemReadDto"
             }
+          },
+          "audit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AuditReadDto"
+              }
+            ]
           }
         }
       },
@@ -1200,7 +1251,8 @@
           "orderStatus",
           "customerId",
           "invoice",
-          "orderItems"
+          "orderItems",
+          "audit"
         ],
         "type": "object",
         "properties": {
@@ -1253,6 +1305,9 @@
             "items": {
               "$ref": "#/components/schemas/OrderItemReadDto"
             }
+          },
+          "audit": {
+            "$ref": "#/components/schemas/AuditReadDto"
           }
         }
       },
