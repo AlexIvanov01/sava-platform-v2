@@ -1,7 +1,7 @@
 {
   "platformOptions": {
     "Coverlet": {
-      "include": "[AuthenticationService]*,[CustomerService]*,[InventoryService]*,[OrderService]*",
+      "include": "[AuthenticationService]*,[CustomerService]*,[InventoryService]*,[OcelotApiGateway]*,[OrderService]*",
       "excludeByAttribute": "GeneratedCode,GeneratedCodeAttribute,CompilerGenerated,CompilerGeneratedAttribute,ExcludeFromCodeCoverage,ExcludeFromCodeCoverageAttribute",
       "excludeByFile": "**/Migrations/*.cs,**/Program.cs,**/obj/**/*.cs",
       "format": "cobertura",

@@ -144,7 +144,7 @@ Running locally uses `appsettings.Development.json`, which points at MySQL and R
    Kestrel__Endpoints__Http__Url=http://localhost:5000 dotnet run   # AuthenticationService
    ```
 
-   The API gateway routes to Kubernetes service names (see `ocelot.json`), so it only works in the cluster. When running locally, call the services directly. They don't check authorization themselves; the gateway does.
+   The API gateway routes to Kubernetes service names (see `ocelot.json`), so it only works in the cluster. When running locally, call the services directly. They don't check authorization themselves; the gateway does: any valid token can read (`GET`), only `Administrator` can create, update or delete, and `User` is read-only.
 
    AuthenticationService signs tokens with `Jwt:Key`. For `dotnet run` it comes from `appsettings.Development.json`; in the cluster it comes from the Secret. The service fails at startup if the key is missing or shorter than 32 characters. Access tokens live 15 minutes (`Jwt:AccessTokenMinutes`); `POST /api/Account/refresh` rotates the 7-day refresh token (`Jwt:RefreshTokenDays`) and `POST /api/Account/logout` revokes it. Administrators manage accounts at `/api/Users`; any user changes their own password with `PUT /api/Account/password`. Logs go to the console, plus `logs/` files when running locally.
 

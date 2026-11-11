@@ -1,4 +1,8 @@
 {
+    // Authorization lives here, not in the services. Ocelot's RouteClaimsRequirement matches a single
+    // exact value, so "Administrator or User" is expressed as "any valid token" (AuthenticationOptions
+    // without a claims requirement). Reads need a valid token; anything that changes data needs
+    // Role=Administrator, so routes that mix read and write methods are split in two.
     "Routes": [
         // Authentication Service
         {
@@ -51,11 +55,6 @@
             "AuthenticationOptions": {
                 "AuthenticationProviderKeys": [ "Bearer" ],
                 "AllowedScopes": []
-            },
-            "RouteClaimsRequirement": {
-                "Role": [
-                    "Administrator", "User"
-                ]
             }
         },
         {
@@ -74,9 +73,7 @@
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
-                "Role": [
-                    "Administrator"
-                ]
+                "Role": "Administrator"
             }
         },
         {
@@ -95,15 +92,29 @@
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
-                "Role": [
-                    "Administrator"
-                ]
+                "Role": "Administrator"
             }
         },
         // Inventory Service
         {
             "UpstreamPathTemplate": "/api/Products",
-            "UpstreamHttpMethod": [ "Get", "Post" ],
+            "UpstreamHttpMethod": [ "Get" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "inventory-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Products",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            }
+        },
+        {
+            "UpstreamPathTemplate": "/api/Products",
+            "UpstreamHttpMethod": [ "Post" ],
             "DownstreamScheme": "http",
             "DownstreamHostAndPorts": [
                 {
@@ -117,15 +128,28 @@
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
-                "Role": [
-                    "Administrator",
-                    "User"
-                ]
+                "Role": "Administrator"
             }
         },
         {
             "UpstreamPathTemplate": "/api/Products/{id}",
-            "UpstreamHttpMethod": [ "Get", "Put", "Delete" ],
+            "UpstreamHttpMethod": [ "Get" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "inventory-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Products/{id}",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            }
+        },
+        {
+            "UpstreamPathTemplate": "/api/Products/{id}",
+            "UpstreamHttpMethod": [ "Put", "Delete" ],
             "DownstreamScheme": "http",
             "DownstreamHostAndPorts": [
                 {
@@ -158,10 +182,7 @@
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
-                "Role": [
-                    "Administrator",
-                    "User"
-                ]
+                "Role": "Administrator"
             }
         },
         {
@@ -186,7 +207,23 @@
         // Customer Service
         {
             "UpstreamPathTemplate": "/api/Customers",
-            "UpstreamHttpMethod": [ "Get", "Post" ],
+            "UpstreamHttpMethod": [ "Get" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "customer-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Customers",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            }
+        },
+        {
+            "UpstreamPathTemplate": "/api/Customers",
+            "UpstreamHttpMethod": [ "Post" ],
             "DownstreamScheme": "http",
             "DownstreamHostAndPorts": [
                 {
@@ -200,15 +237,28 @@
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
-                "Role": [
-                    "Administrator",
-                    "User"
-                ]
+                "Role": "Administrator"
             }
         },
         {
             "UpstreamPathTemplate": "/api/Customers/{id}",
-            "UpstreamHttpMethod": [ "Get", "Put", "Delete" ],
+            "UpstreamHttpMethod": [ "Get" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "customer-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Customers/{id}",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            }
+        },
+        {
+            "UpstreamPathTemplate": "/api/Customers/{id}",
+            "UpstreamHttpMethod": [ "Put", "Delete" ],
             "DownstreamScheme": "http",
             "DownstreamHostAndPorts": [
                 {
@@ -228,7 +278,23 @@
         // Order Service
         {
             "UpstreamPathTemplate": "/api/Orders",
-            "UpstreamHttpMethod": [ "Get", "Post" ],
+            "UpstreamHttpMethod": [ "Get" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "order-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Orders",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            }
+        },
+        {
+            "UpstreamPathTemplate": "/api/Orders",
+            "UpstreamHttpMethod": [ "Post" ],
             "DownstreamScheme": "http",
             "DownstreamHostAndPorts": [
                 {
@@ -242,15 +308,28 @@
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
-                "Role": [
-                    "Administrator",
-                    "User"
-                ]
+                "Role": "Administrator"
             }
         },
         {
             "UpstreamPathTemplate": "/api/Orders/{id}",
-            "UpstreamHttpMethod": [ "Get", "Put", "Delete" ],
+            "UpstreamHttpMethod": [ "Get" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "order-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Orders/{id}",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            }
+        },
+        {
+            "UpstreamPathTemplate": "/api/Orders/{id}",
+            "UpstreamHttpMethod": [ "Put", "Delete" ],
             "DownstreamScheme": "http",
             "DownstreamHostAndPorts": [
                 {
@@ -281,17 +360,27 @@
             "AuthenticationOptions": {
                 "AuthenticationProviderKeys": [ "Bearer" ],
                 "AllowedScopes": []
-            },
-            "RouteClaimsRequirement": {
-                "Role": [
-                    "Administrator",
-                    "User"
-                ]
             }
         },
         {
             "UpstreamPathTemplate": "/api/Invoices/{id}",
-            "UpstreamHttpMethod": [ "Get", "Put", "Delete" ],
+            "UpstreamHttpMethod": [ "Get" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "order-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Invoices/{id}",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            }
+        },
+        {
+            "UpstreamPathTemplate": "/api/Invoices/{id}",
+            "UpstreamHttpMethod": [ "Put", "Delete" ],
             "DownstreamScheme": "http",
             "DownstreamHostAndPorts": [
                 {
@@ -324,10 +413,7 @@
                 "AllowedScopes": []
             },
             "RouteClaimsRequirement": {
-                "Role": [
-                    "Administrator",
-                    "User"
-                ]
+                "Role": "Administrator"
             }
         }
     ],

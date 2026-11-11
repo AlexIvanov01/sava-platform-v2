@@ -28,12 +28,12 @@ Tests live in `backend/tests/<Service>.Tests` (xUnit v3 on Microsoft.Testing.Pla
 | Service | Role | Exposes |
 |---|---|---|
 | `AuthenticationService` | Users (hashed passwords, `Administrator` / `User` role) and rotating refresh tokens in its own MySQL DB. Issues 15-min JWTs (`Security/JwtTokenHandler`) with `name` and `Role` claims. Unlike the other services it validates bearer tokens itself for `/api/Users` (admin) and password changes | `POST /api/Account`, `/api/Account/refresh`, `/api/Account/logout`, `PUT /api/Account/password`, `/api/Users` |
-| `OcelotApiGateway` | Single entry point. Routes in `ocelot.json`; enforces auth and roles per route via `RouteClaimsRequirement` | — |
+| `OcelotApiGateway` | Single entry point. Routes in `ocelot.json`; enforces auth and roles per route via `RouteClaimsRequirement`. `backend/tests/OcelotApiGateway.Tests` checks the route policy | — |
 | `InventoryService` | Products and product batches | REST `:80`, gRPC `:666` (`GrpcInventory.GetAllItems`) |
 | `CustomerService` | Customers | REST `:80`, gRPC (`customer.proto`) |
 | `OrderService` | Orders, order items, invoices. Holds local copies of items and customers | REST `:80` |
 
-The services don't enforce authorization themselves; the gateway does. If you add or rename an endpoint, update `ocelot.json` too. Read routes usually allow `Administrator` and `User`, while mutating `{id}` routes require `Administrator`.
+The services don't enforce authorization themselves; the gateway does (AuthenticationService is the exception: it also validates tokens for `/api/Users` and password changes). If you add or rename an endpoint, update `ocelot.json` too. The policy is: `GET` routes need any valid token (`AuthenticationOptions` without a claims requirement; `User` is read-only), every other method needs `"RouteClaimsRequirement": { "Role": "Administrator" }`, and only login/refresh/logout are anonymous. Ocelot matches a single exact claim value, so never write `"Role": [ ... ]` (an array binds to nothing and drops the check) and split routes that mix `GET` with write methods. `RoutePolicyTests` fails if a route breaks these rules.
 
 ### Inter-service data flow
 
