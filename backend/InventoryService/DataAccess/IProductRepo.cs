@@ -22,7 +22,5 @@ public interface IProductRepo
     Task<Product?> AddBatchAsync(ProductBatch batch, Guid ProductId);
     Task<ProductBatch?> UpdateBatchAsync(ProductBatch batch);
     Task<ProductBatch?> DeleteBatchAsync(Guid id);
-    Task DecrementBatchesAsync(IEnumerable<OrderItemPublishedDto> OrderItems);
-    Task IncrementBatchesAsync(IEnumerable<OrderItemPublishedDto> OrderItems);
     Task<IEnumerable<Product>> GetAllProductBatchesAsync();
 }

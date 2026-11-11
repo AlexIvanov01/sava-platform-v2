@@ -105,7 +105,15 @@ public class OrdersControllerTests
     public async Task CreateOrder_Valid_ReturnsCreatedAndPublishesOrderPublished()
     {
         var itemId = Guid.NewGuid();
-        _repo.CreateOrderAsync(Arg.Any<Order>()).Returns(ci => ci.Arg<Order>());
+        var orderId = Guid.NewGuid();
+        _repo
+            .CreateOrderAsync(Arg.Any<Order>())
+            .Returns(ci =>
+            {
+                var created = ci.Arg<Order>();
+                created.Id = orderId;
+                return created;
+            });
 
         var result = await _controller.CreateOrder(
             OrderBuilder.CreateDto(Guid.NewGuid(), (itemId, 3))
@@ -116,6 +124,7 @@ public class OrdersControllerTests
             .RouteName.ShouldBe(nameof(OrdersController.GetOrderById));
         var published = _published.ShouldHaveSingleItem();
         published.Event.ShouldBe("Order_Published");
+        published.OrderId.ShouldBe(orderId);
         published.OrderItems.ShouldBe([new OrderItemPublishedDto(itemId, 3)]);
     }
 
@@ -141,7 +150,7 @@ public class OrdersControllerTests
     }
 
     [Fact]
-    public async Task UpdateOrder_WithItems_PublishesDeletedPreviousThenPublishedNew()
+    public async Task UpdateOrder_WithItems_PublishesTheNewItemListOnly()
     {
         var oldItem = Guid.NewGuid();
         var newItem = Guid.NewGuid();
@@ -158,9 +167,11 @@ public class OrdersControllerTests
             .Result.ShouldBeOfType<OkObjectResult>()
             .Value.ShouldBeOfType<OrderReadDto>()
             .Id.ShouldBe(order.Id);
-        _published.Select(p => p.Event).ShouldBe(["Order_Deleted", "Order_Published"]);
-        _published[0].OrderItems.ShouldBe([new OrderItemPublishedDto(oldItem, 2)]);
-        _published[1].OrderItems.ShouldBe([new OrderItemPublishedDto(newItem, 5)]);
+        // Inventory reconciles the order's stock to this list, so the old items need no event.
+        var published = _published.ShouldHaveSingleItem();
+        published.Event.ShouldBe("Order_Published");
+        published.OrderId.ShouldBe(order.Id);
+        published.OrderItems.ShouldBe([new OrderItemPublishedDto(newItem, 5)]);
     }
 
     [Fact]
@@ -202,6 +213,7 @@ public class OrdersControllerTests
         (await _controller.DeleteOrder(order.Id)).ShouldBeOfType<NoContentResult>();
         var published = _published.ShouldHaveSingleItem();
         published.Event.ShouldBe("Order_Deleted");
+        published.OrderId.ShouldBe(order.Id);
         published.OrderItems.ShouldBe([new OrderItemPublishedDto(item.ExternalBatchId, 4)]);
     }
 

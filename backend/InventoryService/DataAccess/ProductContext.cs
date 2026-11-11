@@ -20,6 +20,7 @@ public class ProductContext : DbContext
     public DbSet<Product> Products { get; set; }
     public DbSet<ProductBatch> ProductBatches { get; set; }
     public DbSet<Category> Categories { get; set; }
+    public DbSet<StockMovement> StockMovements { get; set; }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -59,5 +60,20 @@ public class ProductContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Category>().HasIndex(c => c.Name).IsUnique();
+
+        modelBuilder
+            .Entity<ProductBatch>()
+            .HasMany(b => b.Movements)
+            .WithOne(m => m.Batch)
+            .HasForeignKey(m => m.BatchId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<StockMovement>(movement =>
+        {
+            movement.Property(m => m.Type).HasConversion<string>().HasMaxLength(20);
+            movement.Property(m => m.Reason).HasConversion<string>().HasMaxLength(20);
+            // Order events reconcile per (order, batch).
+            movement.HasIndex(m => new { m.OrderId, m.BatchId });
+        });
     }
 }

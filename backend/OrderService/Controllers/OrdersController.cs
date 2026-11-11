@@ -152,6 +152,7 @@ public class OrdersController : ControllerBase
         {
             OrderPublishedEvent orderPublishedEvent = new()
             {
+                OrderId = orderModel.Id,
                 OrderItems = orderModel.OrderItems.ToPublishedDtos(),
                 Event = "Order_Published",
             };
@@ -177,7 +178,6 @@ public class OrdersController : ControllerBase
     )
     {
         Order updatedOrder;
-        List<OrderItem> previousItems;
         try
         {
             Log.Information("--> Updating a product with id {Id}....................", id);
@@ -188,7 +188,7 @@ public class OrdersController : ControllerBase
             {
                 return NotFound();
             }
-            (updatedOrder, previousItems) = result.Value;
+            updatedOrder = result.Value.Order;
 
             Log.Information("--> Order with id {Id} updated", id);
         }
@@ -201,18 +201,12 @@ public class OrdersController : ControllerBase
         //Send Async Message
         try
         {
+            // The new item list replaces the old one; Inventory moves only the difference.
             if (orderUpdateDto.OrderItems != null && orderUpdateDto.OrderItems.Count != 0)
             {
-                OrderPublishedEvent orderDeletedEvent = new()
-                {
-                    OrderItems = previousItems.ToPublishedDtos(),
-                    Event = "Order_Deleted",
-                };
-
-                await _messageBusClient.PublishNewOrderAsync(orderDeletedEvent);
-
                 OrderPublishedEvent orderPublishedEvent = new()
                 {
+                    OrderId = id,
                     OrderItems = orderUpdateDto.OrderItems.ToPublishedDtos(),
                     Event = "Order_Published",
                 };
@@ -272,6 +266,7 @@ public class OrdersController : ControllerBase
         {
             OrderPublishedEvent orderDeletedEvent = new()
             {
+                OrderId = id,
                 OrderItems = preDeleteOrderModel.OrderItems.ToPublishedDtos(),
                 Event = "Order_Deleted",
             };

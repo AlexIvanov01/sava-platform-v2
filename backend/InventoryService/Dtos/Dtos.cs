@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using InventoryService.Models;
 
 namespace InventoryService.Dtos;
@@ -134,6 +135,55 @@ public record CategoryUpdateDto(
     [MaxLength(500)] string? Description
 );
 
-public record OrderPublishedDto(IEnumerable<OrderItemPublishedDto> OrderItems, string Event);
+// OrderId is null in messages from before the stock ledger; those are skipped.
+public record OrderPublishedDto(
+    Guid? OrderId,
+    IEnumerable<OrderItemPublishedDto> OrderItems,
+    string Event
+);
+
+public record StockMovementReadDto(
+    Guid Id,
+    Guid BatchId,
+    string? Lot,
+    StockMovementType Type,
+    AdjustmentReason? Reason,
+    int Quantity,
+    int BalanceAfter,
+    Guid? OrderId,
+    string? Note,
+    DateTime? CreatedAt,
+    string? CreatedBy
+);
+
+// A manual stock change. Quantity is signed; losses (damage, shrinkage, expiry) must be negative.
+public record StockAdjustmentCreateDto(
+    [Required] int? Quantity,
+    [Required] AdjustmentReason? Reason,
+    [MaxLength(500)] string? Note
+) : IValidatableObject
+{
+    private static readonly AdjustmentReason[] Losses =
+    [
+        AdjustmentReason.Damage,
+        AdjustmentReason.Shrinkage,
+        AdjustmentReason.Expiry,
+    ];
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (Quantity == 0)
+        {
+            yield return new ValidationResult("Quantity must not be zero.", [nameof(Quantity)]);
+        }
+        else if (Quantity > 0 && Reason is { } reason && Losses.Contains(reason))
+        {
+            yield return new ValidationResult(
+                $"A {reason} adjustment removes stock, so Quantity must be negative.",
+                [nameof(Quantity)]
+            );
+        }
+    }
+}
 
 public record OrderItemPublishedDto(Guid ItemId, int OrderItemQuantity);

@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using InventoryService.DataAccess;
@@ -24,68 +25,79 @@ public class EventProcessor : IEventProcessor
         switch (eventType)
         {
             case EventType.OrderPublished:
-                await RemoveItems(message);
+                await SetOrderStock(message, deleted: false);
                 break;
             case EventType.OrderDeleted:
-                await AddItems(message);
+                await SetOrderStock(message, deleted: true);
                 break;
             default:
                 break;
         }
     }
 
-    private async Task AddItems(string orderDeletedMessage)
+    // Order_Published carries the order's full item list, so it becomes the target of what is sold
+    // to the order; Order_Deleted sets that target to nothing. The ledger posts only the difference,
+    // which makes redelivered or repeated messages harmless.
+    private async Task SetOrderStock(string message, bool deleted)
     {
-        using var scope = _scopeFactory.CreateScope();
+        var dto = JsonSerializer.Deserialize<OrderPublishedDto>(message);
 
-        var repo = scope.ServiceProvider.GetRequiredService<IProductRepo>();
-
-        var orderPublishedDto = JsonSerializer.Deserialize<OrderPublishedDto>(orderDeletedMessage);
-
-        if (orderPublishedDto == null)
+        if (dto == null)
         {
-            Log.Error("--> Could not update batches because message was deserialized to null");
+            Log.Error("--> Could not update stock because message was deserialized to null");
             return;
         }
-        if (!orderPublishedDto.OrderItems.Any())
+        if (dto.OrderId is not { } orderId || orderId == Guid.Empty)
+        {
+            Log.Error("--> Could not update stock because the message has no OrderId: {Dto}", dto);
+            return;
+        }
+        // An order always has items, so an empty list is a broken message, not "sell nothing".
+        if (!deleted && !dto.OrderItems.Any())
         {
             Log.Error(
-                "--> Could not update batches because message deserialized with no items: {Dto}",
-                orderPublishedDto
+                "--> Could not update stock because Order_Published has no items: {Dto}",
+                dto
             );
             return;
         }
 
-        await repo.IncrementBatchesAsync(orderPublishedDto.OrderItems);
-        Log.Information("--> Items incremented successfully.");
-    }
-
-    private async Task RemoveItems(string orderPublishedMessage)
-    {
         using var scope = _scopeFactory.CreateScope();
+        var stock = scope.ServiceProvider.GetRequiredService<IStockRepo>();
 
-        var repo = scope.ServiceProvider.GetRequiredService<IProductRepo>();
+        if (deleted && !await stock.OrderHasMovementsAsync(orderId))
+        {
+            // E.g. orders from the development seed, which never published their stock.
+            Log.Warning(
+                "--> Order {OrderId} has no stock movements; there is nothing to return to stock.",
+                orderId
+            );
+            return;
+        }
 
-        var orderPublishedDto = JsonSerializer.Deserialize<OrderPublishedDto>(
-            orderPublishedMessage
+        var target = deleted
+            ? []
+            : dto
+                .OrderItems.GroupBy(i => i.ItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(i => i.OrderItemQuantity));
+
+        var unknown = await stock.SetOrderStockAsync(orderId, target);
+
+        if (unknown.Count > 0)
+        {
+            Log.Warning(
+                "--> Order {OrderId} references unknown batches {BatchIds}; they were skipped.",
+                orderId,
+                unknown
+            );
+        }
+        Log.Information(
+            "--> Stock for order {OrderId} set to {Target}.",
+            orderId,
+            deleted
+                ? "nothing (order deleted)"
+                : string.Join(", ", target.Select(t => $"{t.Key}: {t.Value}"))
         );
-
-        if (orderPublishedDto == null)
-        {
-            Log.Error("--> Could not update batches because message was deserialized to null");
-            return;
-        }
-        if (!orderPublishedDto.OrderItems.Any())
-        {
-            Log.Error(
-                "--> Could not update batches because message deserialized with no items: {Dto}",
-                orderPublishedDto
-            );
-            return;
-        }
-
-        await repo.DecrementBatchesAsync(orderPublishedDto.OrderItems);
-        Log.Information("--> Items decremented successfully.");
     }
 
     private static EventType DetermineEvent(string notificationMessage)

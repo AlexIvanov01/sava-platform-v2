@@ -171,7 +171,17 @@ public class ProductRepo : IProductRepo
 
         // Null fields in the update are left unchanged; the batch stays on its product.
         DbBatch.Lot = batch.Lot ?? DbBatch.Lot;
-        DbBatch.Quantity = batch.Quantity ?? DbBatch.Quantity;
+        // Editing the quantity directly is recorded as a count correction in the ledger.
+        var difference = (batch.Quantity ?? DbBatch.Quantity ?? 0) - (DbBatch.Quantity ?? 0);
+        if (difference != 0)
+        {
+            DbBatch.Move(
+                StockMovementType.Adjustment,
+                difference,
+                AdjustmentReason.CountCorrection,
+                note: "Quantity edited on the batch"
+            );
+        }
         DbBatch.PurchasePrice = batch.PurchasePrice ?? DbBatch.PurchasePrice;
         DbBatch.SellPrice = batch.SellPrice ?? DbBatch.SellPrice;
         DbBatch.ExpirationDate = batch.ExpirationDate ?? DbBatch.ExpirationDate;
@@ -193,7 +203,14 @@ public class ProductRepo : IProductRepo
             return null;
         }
 
+        // The initial quantity enters the ledger as a receipt.
+        var received = batch.Quantity ?? 0;
+        batch.Quantity = 0;
         product.Batches.Add(batch);
+        if (received != 0)
+        {
+            batch.Move(StockMovementType.Receipt, received);
+        }
 
         await _context.SaveChangesAsync();
 
@@ -203,37 +220,6 @@ public class ProductRepo : IProductRepo
     public async Task<int> GetAllProductsCountAsync(ProductFilter filter)
     {
         return await Filter(_context.Products, filter).CountAsync();
-    }
-
-    public Task DecrementBatchesAsync(IEnumerable<OrderItemPublishedDto> OrderItems)
-    {
-        return AdjustBatchQuantitiesAsync(OrderItems, -1);
-    }
-
-    public Task IncrementBatchesAsync(IEnumerable<OrderItemPublishedDto> OrderItems)
-    {
-        return AdjustBatchQuantitiesAsync(OrderItems, 1);
-    }
-
-    private async Task AdjustBatchQuantitiesAsync(
-        IEnumerable<OrderItemPublishedDto> orderItems,
-        int direction
-    )
-    {
-        var quantities = orderItems
-            .GroupBy(oi => oi.ItemId)
-            .ToDictionary(g => g.Key, g => g.Sum(oi => oi.OrderItemQuantity));
-        var ids = quantities.Keys.ToList();
-
-        // Load tracked entities (not a projection) so EF Core detects and saves the quantity changes.
-        var batches = await _context.ProductBatches.Where(b => ids.Contains(b.Id)).ToListAsync();
-
-        foreach (var b in batches)
-        {
-            b.Quantity += direction * quantities[b.Id];
-        }
-
-        await _context.SaveChangesAsync();
     }
 
     public async Task<IEnumerable<Product>> GetAllProductBatchesAsync()

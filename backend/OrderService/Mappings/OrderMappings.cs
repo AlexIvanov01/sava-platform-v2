@@ -21,9 +21,6 @@ public static class OrderMappings
             order.ToAuditDto()
         );
 
-    public static AuditReadDto ToAuditDto(this AuditableEntity entity) =>
-        new(entity.CreatedAt, entity.UpdatedAt, entity.CreatedBy, entity.UpdatedBy);
-
     public static OrderItemReadDto ToReadDto(this OrderItem orderItem) =>
         new(orderItem.ItemId, orderItem.OrderItemQuantity);
 
@@ -36,6 +33,9 @@ public static class OrderMappings
             invoice.TotalAmount.GetValueOrDefault(),
             invoice.ToAuditDto()
         );
+
+    public static AuditReadDto ToAuditDto(this AuditableEntity entity) =>
+        new(entity.CreatedAt, entity.UpdatedAt, entity.CreatedBy, entity.UpdatedBy);
 
     public static OrderFullReadDto ToFullReadDto(this Order order) =>
         order.ToFullReadDto(order.Invoice);

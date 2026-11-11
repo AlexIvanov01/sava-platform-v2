@@ -282,36 +282,53 @@ public class ProductRepoTests(MySqlFixture mySql) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task DecrementAndIncrementBatchesAsync_AdjustQuantitiesAndSumDuplicates()
+    public async Task AddBatchAsync_RecordsTheInitialQuantityAsAReceipt()
     {
-        var a = InventoryBuilder.Batch("A", quantity: 10);
-        var b = InventoryBuilder.Batch("B", quantity: 20);
-        await SeedAsync(InventoryBuilder.Product("P", a, b));
-        OrderItemPublishedDto[] items =
-        [
-            new(a.Id, 2),
-            new(a.Id, 3),
-            new(b.Id, 5),
-            new(Guid.NewGuid(), 99),
-        ];
+        var product = InventoryBuilder.Product("P");
+        await SeedAsync(product);
+        var batch = InventoryBuilder.BatchCreateDto("NEW", quantity: 25).ToEntity();
 
         await using (var context = _db.CreateContext())
         {
-            await new ProductRepo(context).DecrementBatchesAsync(items);
+            await new ProductRepo(context).AddBatchAsync(batch, product.Id);
         }
 
-        var afterDecrement = await QuantitiesAsync();
-        afterDecrement["A"].ShouldBe(5);
-        afterDecrement["B"].ShouldBe(15);
+        await using var assertContext = _db.CreateContext();
+        var saved = await assertContext.ProductBatches.SingleAsync(Ct);
+        saved.Quantity.ShouldBe(25);
+        var receipt = await assertContext.StockMovements.SingleAsync(Ct);
+        receipt.BatchId.ShouldBe(saved.Id);
+        receipt.Type.ShouldBe(StockMovementType.Receipt);
+        receipt.Quantity.ShouldBe(25);
+        receipt.BalanceAfter.ShouldBe(25);
+        receipt.Reason.ShouldBeNull();
+        receipt.OrderId.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task UpdateBatchAsync_QuantityEdit_IsRecordedAsCountCorrection()
+    {
+        var batch = InventoryBuilder.Batch("B", quantity: 10);
+        await SeedAsync(InventoryBuilder.Product("P", batch));
 
         await using (var context = _db.CreateContext())
         {
-            await new ProductRepo(context).IncrementBatchesAsync(items);
+            await new ProductRepo(context).UpdateBatchAsync(
+                InventoryBuilder.BatchUpdateDto(quantity: 7).ToEntity(batch.Id)
+            );
+            // Same quantity again, and a field-only edit: no movement.
+            await new ProductRepo(context).UpdateBatchAsync(
+                InventoryBuilder.BatchUpdateDto(quantity: 7, lot: "B2").ToEntity(batch.Id)
+            );
         }
 
-        var afterIncrement = await QuantitiesAsync();
-        afterIncrement["A"].ShouldBe(10);
-        afterIncrement["B"].ShouldBe(20);
+        await using var assertContext = _db.CreateContext();
+        (await assertContext.ProductBatches.SingleAsync(Ct)).Quantity.ShouldBe(7);
+        var correction = await assertContext.StockMovements.SingleAsync(Ct);
+        correction.Type.ShouldBe(StockMovementType.Adjustment);
+        correction.Reason.ShouldBe(AdjustmentReason.CountCorrection);
+        correction.Quantity.ShouldBe(-3);
+        correction.BalanceAfter.ShouldBe(7);
     }
 
     [Fact]
@@ -327,12 +344,6 @@ public class ProductRepoTests(MySqlFixture mySql) : IAsyncLifetime
 
         products.Select(p => p.Name).ShouldBe(["P", "Q"], ignoreOrder: true);
         products.Single(p => p.Name == "P").Batches.ShouldHaveSingleItem().Lot.ShouldBe("L1");
-    }
-
-    private async Task<Dictionary<string, int?>> QuantitiesAsync()
-    {
-        await using var context = _db.CreateContext();
-        return await context.ProductBatches.ToDictionaryAsync(b => b.Lot!, b => b.Quantity, Ct);
     }
 
     [Fact]

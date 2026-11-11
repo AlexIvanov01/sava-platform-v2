@@ -93,6 +93,31 @@ public class GatewayAuthorizationTests(GatewayFactory factory) : IClassFixture<G
                 "User",
                 HttpStatusCode.Forbidden
             },
+            // Stock ledger: anyone can read history, only Administrator adjusts.
+            {
+                "GET",
+                "/api/Batches/00000000-0000-0000-0000-000000000001/movements",
+                "User",
+                HttpStatusCode.BadGateway
+            },
+            {
+                "GET",
+                "/api/Products/00000000-0000-0000-0000-000000000001/movements",
+                "User",
+                HttpStatusCode.BadGateway
+            },
+            {
+                "POST",
+                "/api/Batches/00000000-0000-0000-0000-000000000001/adjustments",
+                "User",
+                HttpStatusCode.Forbidden
+            },
+            {
+                "POST",
+                "/api/Batches/00000000-0000-0000-0000-000000000001/adjustments",
+                "Administrator",
+                HttpStatusCode.BadGateway
+            },
             // Account management.
             { "PUT", "/api/Account/password", "User", HttpStatusCode.BadGateway },
             { "PUT", "/api/Account/password", null, HttpStatusCode.Unauthorized },

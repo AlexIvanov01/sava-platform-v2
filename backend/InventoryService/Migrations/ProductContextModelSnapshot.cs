@@ -191,6 +191,60 @@ namespace InventoryService.Migrations
                     b.ToTable("ProductBatches");
                 });
 
+            modelBuilder.Entity("InventoryService.Models.StockMovement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("BalanceAfter")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<Guid?>("OrderId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("OrderId", "BatchId");
+
+                    b.ToTable("StockMovements");
+                });
+
             modelBuilder.Entity("InventoryService.Models.Product", b =>
                 {
                     b.HasOne("InventoryService.Models.Category", "Category")
@@ -211,6 +265,17 @@ namespace InventoryService.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("InventoryService.Models.StockMovement", b =>
+                {
+                    b.HasOne("InventoryService.Models.ProductBatch", "Batch")
+                        .WithMany("Movements")
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+                });
+
             modelBuilder.Entity("InventoryService.Models.Category", b =>
                 {
                     b.Navigation("Products");
@@ -219,6 +284,11 @@ namespace InventoryService.Migrations
             modelBuilder.Entity("InventoryService.Models.Product", b =>
                 {
                     b.Navigation("Batches");
+                });
+
+            modelBuilder.Entity("InventoryService.Models.ProductBatch", b =>
+                {
+                    b.Navigation("Movements");
                 });
 #pragma warning restore 612, 618
         }

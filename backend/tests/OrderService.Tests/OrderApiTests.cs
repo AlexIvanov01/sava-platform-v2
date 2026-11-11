@@ -37,6 +37,7 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
             .PublishNewOrderAsync(
                 Arg.Is<OrderPublishedEvent>(e =>
                     e.Event == "Order_Published"
+                    && e.OrderId == order.Id
                     && e.OrderItems.Single().ItemId == factory.Items[0].ExternalBatchId
                 )
             );
@@ -245,7 +246,20 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
             .MessageBus.Received()
             .PublishNewOrderAsync(
                 Arg.Is<OrderPublishedEvent>(e =>
-                    e.Event == "Order_Deleted" && e.OrderItems.Single().ItemId == itemB
+                    e.Event == "Order_Deleted"
+                    && e.OrderId == order.Id
+                    && e.OrderItems.Single().ItemId == itemB
+                )
+            );
+        // The update published only the new item list for the same order.
+        await factory
+            .MessageBus.Received(1)
+            .PublishNewOrderAsync(
+                Arg.Is<OrderPublishedEvent>(e =>
+                    e.Event == "Order_Published"
+                    && e.OrderId == order.Id
+                    && e.OrderItems.Single().ItemId == itemB
+                    && e.OrderItems.Single().OrderItemQuantity == 5
                 )
             );
     }

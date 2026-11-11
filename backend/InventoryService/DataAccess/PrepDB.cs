@@ -84,6 +84,15 @@ public static class PrepDB
             {
                 batch.Product = product;
                 batch.ProductId = product.Id;
+
+                // Seeded stock enters the ledger as a receipt on the day the batch was added.
+                var received = batch.Quantity ?? 0;
+                batch.Quantity = 0;
+                if (received != 0)
+                {
+                    batch.Move(StockMovementType.Receipt, received, note: "Seed data").CreatedAt =
+                        batch.CreatedAt;
+                }
             }
         }
         context.Products.AddRange(products);
