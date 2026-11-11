@@ -14,7 +14,8 @@ public class BatchesControllerTests
     private readonly IMessageBusClient _bus = Substitute.For<IMessageBusClient>();
     private readonly BatchesController _controller;
 
-    public BatchesControllerTests() => _controller = new BatchesController(_repo, _bus);
+    public BatchesControllerTests() =>
+        _controller = new BatchesController(_repo, _bus, TimeProvider.System);
 
     [Fact]
     public async Task CreateBatch_UnknownProduct_ReturnsNotFound()

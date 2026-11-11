@@ -17,7 +17,7 @@ public class ProductsControllerTests
     private readonly ProductsController _controller;
 
     public ProductsControllerTests() =>
-        _controller = new ProductsController(_repo, _categories, _bus);
+        _controller = new ProductsController(_repo, _categories, _bus, TimeProvider.System);
 
     [Fact]
     public async Task GetProducts_Empty_ReturnsNotFound()

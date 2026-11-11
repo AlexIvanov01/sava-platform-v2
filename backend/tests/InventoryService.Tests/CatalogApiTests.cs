@@ -156,6 +156,53 @@ public class CatalogApiTests(InventoryApiFactory factory) : IClassFixture<Invent
     }
 
     [Fact]
+    public async Task Product_ExposesCostStockAndEbitDerivedFromBatches()
+    {
+        var create = InventoryBuilder.ProductCreateDto() with { ListPrice = 10.00m };
+        var created = await _client.PostAsJsonAsync("/api/products", create, Ct);
+        var product = (
+            await created.Content.ReadFromJsonAsync<ProductReadDto>(Ct)
+        ).ShouldNotBeNull();
+        product.Cost.ShouldBeNull();
+        product.AvailableQuantity.ShouldBe(0);
+        product.Ebit.ShouldBeNull();
+
+        foreach (var (quantity, purchasePrice) in new[] { (12, 6.00m), (-2, 9.00m), (5, 7.50m) })
+        {
+            var batch = InventoryBuilder.BatchCreateDto(quantity: quantity) with
+            {
+                PurchasePrice = purchasePrice,
+                ExpirationDate = TestData.Date(2090, 2099),
+            };
+            (
+                await _client.PostAsJsonAsync($"/api/batches/{product.Id}", batch, Ct)
+            ).StatusCode.ShouldBe(HttpStatusCode.Created);
+        }
+
+        var fetched = (
+            await _client.GetFromJsonAsync<ProductReadDto>($"/api/products/{product.Id}", Ct)
+        ).ShouldNotBeNull();
+        fetched.Cost.ShouldBe(7.50m);
+        fetched.AvailableQuantity.ShouldBe(15);
+        fetched.Ebit.ShouldBe(2.50m);
+        fetched.EbitPercent.ShouldBe(25.00m);
+
+        // PUT returns the saved product with its batches, so the figures are recomputed there too.
+        var update = await _client.PutAsJsonAsync(
+            $"/api/products/{product.Id}",
+            InventoryBuilder.ProductUpdateDto(listPrice: 15.00m),
+            Ct
+        );
+        var updated = (
+            await update.Content.ReadFromJsonAsync<ProductReadDto>(Ct)
+        ).ShouldNotBeNull();
+        updated.Batches.Count.ShouldBe(3);
+        updated.Cost.ShouldBe(7.50m);
+        updated.Ebit.ShouldBe(7.50m);
+        updated.EbitPercent.ShouldBe(50.00m);
+    }
+
+    [Fact]
     public async Task CreateProduct_DuplicateSku_Returns409()
     {
         var first = InventoryBuilder.ProductCreateDto();

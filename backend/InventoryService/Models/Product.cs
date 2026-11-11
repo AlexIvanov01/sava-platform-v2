@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
 using Microsoft.EntityFrameworkCore;
 
 namespace InventoryService.Models;
@@ -56,4 +57,14 @@ public class Product : AuditableEntity
     public Guid? CategoryId { get; set; }
     public Category? Category { get; set; }
     public List<ProductBatch> Batches { get; set; } = [];
+
+    // Highest purchase price among active batches; null when there are none (sold out or expired).
+    // Expects Batches to be loaded.
+    public decimal? Cost(DateOnly today) =>
+        Batches.Where(b => b.IsActive(today)).Max(b => b.PurchasePrice);
+
+    // Stock that can still be sold: every non-expired batch, so oversold (negative) batches
+    // reduce it. Expects Batches to be loaded.
+    public int AvailableQuantity(DateOnly today) =>
+        Batches.Where(b => !b.IsExpired(today)).Sum(b => b.Quantity ?? 0);
 }

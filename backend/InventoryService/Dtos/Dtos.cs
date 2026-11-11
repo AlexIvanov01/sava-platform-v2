@@ -41,6 +41,11 @@ public record ProductReadDto(
     bool IsPublished,
     Guid? CategoryId,
     string? CategoryName,
+    // Derived from the batches on read: see Product.Cost/AvailableQuantity and Models.Margin.
+    decimal? Cost,
+    int AvailableQuantity,
+    decimal? Ebit,
+    decimal? EbitPercent,
     List<BatchReadDto> Batches,
     AuditReadDto Audit
 );

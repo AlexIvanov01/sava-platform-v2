@@ -21,17 +21,22 @@ public class ProductsController : ControllerBase
     private readonly IProductRepo _repository;
     private readonly ICategoryRepo _categories;
     private readonly IMessageBusClient _messageBusClient;
+    private readonly TimeProvider _timeProvider;
 
     public ProductsController(
         IProductRepo repository,
         ICategoryRepo categories,
-        IMessageBusClient messageBusClient
+        IMessageBusClient messageBusClient,
+        TimeProvider timeProvider
     )
     {
         _repository = repository;
         _categories = categories;
         _messageBusClient = messageBusClient;
+        _timeProvider = timeProvider;
     }
+
+    private DateOnly Today => DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime);
 
     // Filters combine with AND; Name and SKU match substrings, Barcode matches exactly.
     [HttpGet]
@@ -74,7 +79,7 @@ public class ProductsController : ControllerBase
                 cursor
             );
 
-            var dtos = productItems.Select(p => p.ToReadDto()).ToList();
+            var dtos = productItems.Select(p => p.ToReadDto(Today)).ToList();
 
             var pageCount = Math.Ceiling(
                 await _repository.GetAllProductsCountAsync(filter) / (float)pageSize
@@ -115,7 +120,7 @@ public class ProductsController : ControllerBase
 
             Log.Information("--> Fetched a product with id {Id}.", id);
 
-            return Ok(productItem.ToReadDto());
+            return Ok(productItem.ToReadDto(Today));
         }
         catch (Exception ex)
         {
@@ -149,7 +154,7 @@ public class ProductsController : ControllerBase
 
             Log.Information("Product created: {@ProductModel}", productModel);
 
-            var productReadDto = productModel.ToReadDto();
+            var productReadDto = productModel.ToReadDto(Today);
 
             return CreatedAtRoute(
                 nameof(GetProductById),
@@ -227,7 +232,7 @@ public class ProductsController : ControllerBase
             }
         }
 
-        return Ok(savedProduct.ToReadDto());
+        return Ok(savedProduct.ToReadDto(Today));
     }
 
     [HttpDelete("{id}")]

@@ -17,11 +17,17 @@ namespace InventoryService.Controllers
     {
         private readonly IProductRepo _repository;
         private readonly IMessageBusClient _messageBusClient;
+        private readonly TimeProvider _timeProvider;
 
-        public BatchesController(IProductRepo repository, IMessageBusClient messageBusClient)
+        public BatchesController(
+            IProductRepo repository,
+            IMessageBusClient messageBusClient,
+            TimeProvider timeProvider
+        )
         {
             _repository = repository;
             _messageBusClient = messageBusClient;
+            _timeProvider = timeProvider;
         }
 
         [HttpPost("{ProductId}")]
@@ -52,7 +58,9 @@ namespace InventoryService.Controllers
 
                 Log.Information("--> Created batch for product: {Id}", productItem.Id);
 
-                productReadDto = productItem.ToReadDto();
+                productReadDto = productItem.ToReadDto(
+                    DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime)
+                );
             }
             catch (Exception ex)
             {

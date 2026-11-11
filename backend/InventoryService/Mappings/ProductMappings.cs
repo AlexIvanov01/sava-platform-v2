@@ -11,8 +11,11 @@ public static class ProductMappings
     // Bulgarian standard VAT rate, in percent.
     public const decimal DefaultVatRate = 20m;
 
-    public static ProductReadDto ToReadDto(this Product product) =>
-        new(
+    // today decides which batches count as expired for the derived cost and stock figures.
+    public static ProductReadDto ToReadDto(this Product product, DateOnly today)
+    {
+        var cost = product.Cost(today);
+        return new(
             product.Id,
             product.Name,
             product.Description,
@@ -30,9 +33,14 @@ public static class ProductMappings
             product.IsPublished ?? false,
             product.CategoryId,
             product.Category?.Name,
+            cost,
+            product.AvailableQuantity(today),
+            Margin.Ebit(product.ListPrice, cost),
+            Margin.EbitPercent(product.ListPrice, cost),
             product.Batches.Select(b => b.ToReadDto()).ToList(),
             product.ToAuditDto()
         );
+    }
 
     public static BatchReadDto ToReadDto(this ProductBatch batch) =>
         new(

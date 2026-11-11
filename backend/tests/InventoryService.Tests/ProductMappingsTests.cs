@@ -12,7 +12,7 @@ public class ProductMappingsTests
         var batch = InventoryBuilder.Batch();
         var product = InventoryBuilder.Product("Widget", batch);
 
-        var dto = product.ToReadDto();
+        var dto = product.ToReadDto(DateOnly.FromDateTime(DateTime.UtcNow));
 
         dto.Id.ShouldBe(product.Id);
         dto.Name.ShouldBe("Widget");
@@ -32,7 +32,9 @@ public class ProductMappingsTests
     [Fact]
     public void ToReadDto_NullNumbers_DefaultToZero()
     {
-        var dto = new Product { Id = Guid.NewGuid(), Batches = [new ProductBatch()] }.ToReadDto();
+        var dto = new Product { Id = Guid.NewGuid(), Batches = [new ProductBatch()] }.ToReadDto(
+            DateOnly.FromDateTime(DateTime.UtcNow)
+        );
 
         dto.ReorderLevel.ShouldBe(0);
         dto.Weight.ShouldBe(0f);

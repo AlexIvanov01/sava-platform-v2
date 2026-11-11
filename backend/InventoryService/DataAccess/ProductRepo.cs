@@ -154,6 +154,8 @@ public class ProductRepo : IProductRepo
 
         await _context.SaveChangesAsync();
         await _context.Entry(DbProduct).Reference(p => p.Category).LoadAsync();
+        // The response includes the batches and the cost/stock figures derived from them.
+        await _context.Entry(DbProduct).Collection(p => p.Batches).LoadAsync();
 
         return DbProduct;
     }
