@@ -1,51 +1,58 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
-using JwtAuthenticationManager;
-using JwtAuthenticationManager.Models;
+using AuthenticationService.Security;
 using Microsoft.IdentityModel.Tokens;
+using Sava.Tests.Shared;
 
 namespace AuthenticationService.Tests;
 
 public class JwtTokenHandlerTests
 {
-    private readonly JwtTokenHandler _handler = new(TestJwt.Configuration());
+    private static readonly DateTime Now = DateTime.SpecifyKind(
+        TestData.Date(2026, 2026),
+        DateTimeKind.Utc
+    );
 
-    [Theory]
-    [InlineData("admin", "admin123", "Administrator")]
-    [InlineData("user", "user123", "User")]
-    public void GenerateJwtToken_ValidCredentials_ReturnsTokenWithUserClaims(
-        string userName,
-        string password,
-        string role
-    )
+    [Fact]
+    public void CreateAccessToken_ContainsUserClaimsAndExpiresAfterConfiguredMinutes()
     {
-        var response = _handler.GenerateJwtToken(
-            new AuthenticationRequest { UserName = userName, Password = password }
-        );
+        var handler = new JwtTokenHandler(TestJwt.Configuration(accessTokenMinutes: 20));
+        var user = UserBuilder.User();
 
-        response.ShouldNotBeNull();
-        response.UserName.ShouldBe(userName);
-        response.ExpiresIn.ShouldBeInRange(
-            JwtTokenHandler.JWT_TOKEN_VALIDITY_MINS * 60 - 5,
-            JwtTokenHandler.JWT_TOKEN_VALIDITY_MINS * 60
-        );
+        var (token, expiresIn) = handler.CreateAccessToken(user, Now);
 
-        var token = new JwtSecurityTokenHandler().ReadJwtToken(response.JwtToken);
-        token.Claims.ShouldContain(c =>
-            c.Type == JwtRegisteredClaimNames.Name && c.Value == userName
+        expiresIn.ShouldBe(20 * 60);
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+        jwt.Claims.ShouldContain(c =>
+            c.Type == JwtRegisteredClaimNames.Name && c.Value == user.UserName
         );
-        token.Claims.ShouldContain(c => c.Type == "Role" && c.Value == role);
+        jwt.Claims.ShouldContain(c =>
+            c.Type == JwtRegisteredClaimNames.Sub && c.Value == user.Id.ToString()
+        );
+        jwt.Claims.ShouldContain(c =>
+            c.Type == JwtTokenHandler.RoleClaimType && c.Value == user.Role
+        );
+        jwt.ValidTo.ShouldBe(Now.AddMinutes(20), TimeSpan.FromSeconds(1));
     }
 
     [Fact]
-    public async Task GenerateJwtToken_ValidCredentials_TokenIsSignedWithConfiguredKey()
+    public void AccessTokenMinutes_DefaultsTo15()
     {
-        var response = _handler.GenerateJwtToken(
-            new AuthenticationRequest { UserName = "admin", Password = "admin123" }
+        new JwtTokenHandler(TestJwt.Configuration()).AccessTokenMinutes.ShouldBe(
+            JwtTokenHandler.DefaultAccessTokenMinutes
         );
+        JwtTokenHandler.DefaultAccessTokenMinutes.ShouldBe(15);
+    }
+
+    [Fact]
+    public async Task CreateAccessToken_IsSignedWithConfiguredKey()
+    {
+        var handler = new JwtTokenHandler(TestJwt.Configuration());
+
+        var (token, _) = handler.CreateAccessToken(UserBuilder.User(), DateTime.UtcNow);
 
         var result = await new JwtSecurityTokenHandler().ValidateTokenAsync(
-            response!.JwtToken,
+            token,
             new TokenValidationParameters
             {
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestJwt.Key)),
@@ -53,26 +60,7 @@ public class JwtTokenHandlerTests
                 ValidateAudience = false,
             }
         );
-
         result.IsValid.ShouldBeTrue(result.Exception?.Message);
-    }
-
-    [Theory]
-    [InlineData("admin", "wrong")]
-    [InlineData("unknown", "admin123")]
-    [InlineData("ADMIN", "admin123")]
-    [InlineData("", "admin123")]
-    [InlineData("admin", "")]
-    [InlineData("   ", "   ")]
-    [InlineData(null, "admin123")]
-    [InlineData("admin", null)]
-    public void GenerateJwtToken_InvalidCredentials_ReturnsNull(string? userName, string? password)
-    {
-        var response = _handler.GenerateJwtToken(
-            new AuthenticationRequest { UserName = userName, Password = password }
-        );
-
-        response.ShouldBeNull();
     }
 
     [Theory]

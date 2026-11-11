@@ -120,8 +120,9 @@ Running locally uses `appsettings.Development.json`, which points at MySQL and R
    docker run -d --name sava-rabbit -p 5672:5672 -p 15672:15672 rabbitmq:4.3-management
    ```
 
-   One MySQL instance is enough because each service uses its own database (`savadb_inv`, `savadb_cust`, `savadb_order`). Migrations are applied automatically on startup. In the Development environment, empty databases are also filled with sample data from each service's `dummy_data.json`:
+   One MySQL instance is enough because each service uses its own database (`savadb_auth`, `savadb_inv`, `savadb_cust`, `savadb_order`). Migrations are applied automatically on startup. In the Development environment, empty databases are also filled with sample data from each service's `dummy_data.json`:
 
+   - **Authentication:** the first administrator is created from `Seed:AdminUserName`/`Seed:AdminPassword` (`admin`/`admin123` in `appsettings.Development.json`) in every environment when the Users table is empty; Development also adds `user`/`user123` from `dummy_data.json`.
    - **Customers:** 10 Bulgarian companies.
    - **Inventory:** 15 products with 21 batches, including expired, near-expiry, low-stock and inactive cases.
    - **Orders:** 10 orders in several statuses; 5 have invoices.
@@ -145,7 +146,7 @@ Running locally uses `appsettings.Development.json`, which points at MySQL and R
 
    The API gateway routes to Kubernetes service names (see `ocelot.json`), so it only works in the cluster. When running locally, call the services directly. They don't check authorization themselves; the gateway does.
 
-   AuthenticationService signs tokens with `Jwt:Key`. For `dotnet run` it comes from `appsettings.Development.json`; in the cluster it comes from the Secret. The service fails at startup if the key is missing or shorter than 32 characters. Logs go to the console, plus `logs/` files when running locally.
+   AuthenticationService signs tokens with `Jwt:Key`. For `dotnet run` it comes from `appsettings.Development.json`; in the cluster it comes from the Secret. The service fails at startup if the key is missing or shorter than 32 characters. Access tokens live 15 minutes (`Jwt:AccessTokenMinutes`); `POST /api/Account/refresh` rotates the 7-day refresh token (`Jwt:RefreshTokenDays`) and `POST /api/Account/logout` revokes it. Administrators manage accounts at `/api/Users`; any user changes their own password with `PUT /api/Account/password`. Logs go to the console, plus `logs/` files when running locally.
 
 ### Deploy with Helm
 
@@ -217,14 +218,16 @@ The cluster needs an ingress controller (the chart defaults to the `nginx` class
 
    Build for the cluster's architecture (for example `docker buildx build --platform linux/amd64 --push`) if it differs from your machine.
 
-2. Create the Secret once. Use a random JWT key of at least 32 characters, and connection strings for your MySQL server:
+2. Create the Secret once. Use a random JWT key of at least 32 characters, a password for the first administrator (`admin`; only used while the Users table is empty), and connection strings for your MySQL server:
 
    ```bash
    kubectl create namespace sava
    kubectl create secret generic sava-secrets -n sava \
      --from-literal=jwt-key="$(openssl rand -base64 48)" \
+     --from-literal=admin-password="$(openssl rand -base64 24)" \
      --from-literal=rabbitmq-user=sava \
      --from-literal=rabbitmq-password="$(openssl rand -base64 24)" \
+     --from-literal=auth-db="server=<host>;port=3306;database=savadb_auth;user=<user>;password=<password>" \
      --from-literal=customer-db="server=<host>;port=3306;database=savadb_cust;user=<user>;password=<password>" \
      --from-literal=inventory-db="server=<host>;port=3306;database=savadb_inv;user=<user>;password=<password>" \
      --from-literal=order-db="server=<host>;port=3306;database=savadb_order;user=<user>;password=<password>"

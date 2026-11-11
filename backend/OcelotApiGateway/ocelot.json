@@ -13,6 +13,93 @@
             ],
             "DownstreamPathTemplate": "/api/Account"
         },
+        {
+            "UpstreamPathTemplate": "/api/Account/refresh",
+            "UpstreamHttpMethod": [ "Post" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "authentication-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Account/refresh"
+        },
+        {
+            "UpstreamPathTemplate": "/api/Account/logout",
+            "UpstreamHttpMethod": [ "Post" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "authentication-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Account/logout"
+        },
+        {
+            "UpstreamPathTemplate": "/api/Account/password",
+            "UpstreamHttpMethod": [ "Put" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "authentication-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Account/password",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            },
+            "RouteClaimsRequirement": {
+                "Role": [
+                    "Administrator", "User"
+                ]
+            }
+        },
+        {
+            "UpstreamPathTemplate": "/api/Users",
+            "UpstreamHttpMethod": [ "Get", "Post" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "authentication-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Users",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            },
+            "RouteClaimsRequirement": {
+                "Role": [
+                    "Administrator"
+                ]
+            }
+        },
+        {
+            "UpstreamPathTemplate": "/api/Users/{id}",
+            "UpstreamHttpMethod": [ "Get", "Put", "Delete" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "authentication-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Users/{id}",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            },
+            "RouteClaimsRequirement": {
+                "Role": [
+                    "Administrator"
+                ]
+            }
+        },
         // Inventory Service
         {
             "UpstreamPathTemplate": "/api/Products",

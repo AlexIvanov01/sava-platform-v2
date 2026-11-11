@@ -12,6 +12,7 @@ secrets:
   values:
     # Development-only values. Never reuse them in prod.
     jwtKey: sava-local-development-signing-key-do-not-use-in-production
+    adminPassword: admin123
     rabbitmqUser: guest
     rabbitmqPassword: guest
     mysqlRootPassword: sava-dev-password

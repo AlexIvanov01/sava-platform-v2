@@ -8,6 +8,7 @@ metadata:
     {{- include "sava.labels" . | nindent 4 }}
 data:
   databases.sql: |
+    CREATE DATABASE IF NOT EXISTS savadb_auth;
     CREATE DATABASE IF NOT EXISTS savadb_cust;
     CREATE DATABASE IF NOT EXISTS savadb_inv;
     CREATE DATABASE IF NOT EXISTS savadb_order;

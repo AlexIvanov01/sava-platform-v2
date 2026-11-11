@@ -1,2 +1,2 @@
-{{- $env := include "sava.secretEnv" (dict "root" . "name" "Jwt__Key" "key" "jwt-key") }}
-{{- include "sava.app" (dict "root" . "name" "authenticationservice" "image" "authenticationservice" "service" "authentication-clusterip-srv" "resourcesKey" "authentication" "env" $env) }}
+{{- $env := printf "%s\n%s\n%s" (include "sava.secretEnv" (dict "root" . "name" "Jwt__Key" "key" "jwt-key")) (include "sava.secretEnv" (dict "root" . "name" "ConnectionStrings__Default" "key" "auth-db")) (include "sava.secretEnv" (dict "root" . "name" "Seed__AdminPassword" "key" "admin-password")) }}
+{{- include "sava.app" (dict "root" . "name" "authenticationservice" "image" "authenticationservice" "service" "authentication-clusterip-srv" "resourcesKey" "authentication" "env" $env "initContainers" (include "sava.waitForMysql" .)) }}

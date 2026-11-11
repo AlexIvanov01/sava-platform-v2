@@ -15,7 +15,8 @@ image:
   pullSecrets: []
 
 # One Secret holds every credential. Keys:
-#   jwt-key, rabbitmq-user, rabbitmq-password, customer-db, inventory-db, order-db,
+#   jwt-key, admin-password (first administrator, used only when the Users table is empty),
+#   rabbitmq-user, rabbitmq-password, auth-db, customer-db, inventory-db, order-db,
 #   and mysql-root-password when mysql.enabled is true.
 secrets:
   # true: the chart creates the Secret from `values` (development only).
@@ -24,15 +25,17 @@ secrets:
   name: sava-secrets
   values:
     jwtKey: ""
+    adminPassword: ""
     rabbitmqUser: ""
     rabbitmqPassword: ""
     mysqlRootPassword: ""
     # Connection strings. Leave empty to use the in-cluster MySQL (mysql.enabled).
+    authDb: ""
     customerDb: ""
     inventoryDb: ""
     orderDb: ""
 
-# In-cluster MySQL (one instance with all three databases). Disable to use an external server.
+# In-cluster MySQL (one instance with all four databases). Disable to use an external server.
 mysql:
   enabled: false
   image: mysql:9.7
