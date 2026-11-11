@@ -222,6 +222,23 @@ public class ProductRepo : IProductRepo
         return await Filter(_context.Products, filter).CountAsync();
     }
 
+    public async Task<List<Product>> GetProductsWithBatchesAsync(Guid? categoryId = null)
+    {
+        var query = _context.Products.AsNoTracking();
+        if (categoryId != null)
+        {
+            query = query.Where(p => p.CategoryId == categoryId);
+        }
+        return await query.Include(p => p.Category).Include(p => p.Batches).ToListAsync();
+    }
+
+    public async Task<List<ProductBatch>> GetBatchesInStockExpiringByAsync(DateTime until) =>
+        await _context
+            .ProductBatches.AsNoTracking()
+            .Where(b => b.Quantity > 0 && b.ExpirationDate < until.Date.AddDays(1))
+            .Include(b => b.Product)
+            .ToListAsync();
+
     public async Task<IEnumerable<Product>> GetAllProductBatchesAsync()
     {
         return await _context

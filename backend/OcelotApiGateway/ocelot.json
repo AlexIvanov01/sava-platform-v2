@@ -325,6 +325,54 @@
                 "Role": "Administrator"
             }
         },
+        {
+            "UpstreamPathTemplate": "/api/Reports/low-stock",
+            "UpstreamHttpMethod": [ "Get" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "inventory-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Reports/low-stock",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            }
+        },
+        {
+            "UpstreamPathTemplate": "/api/Reports/expiring",
+            "UpstreamHttpMethod": [ "Get" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "inventory-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Reports/expiring",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            }
+        },
+        {
+            "UpstreamPathTemplate": "/api/Reports/stock-valuation",
+            "UpstreamHttpMethod": [ "Get" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "inventory-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Reports/stock-valuation",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            }
+        },
         // Customer Service
         {
             "UpstreamPathTemplate": "/api/Customers",

@@ -118,6 +118,9 @@ public class GatewayAuthorizationTests(GatewayFactory factory) : IClassFixture<G
                 "Administrator",
                 HttpStatusCode.BadGateway
             },
+            // Reports are reads.
+            { "GET", "/api/Reports/low-stock", "User", HttpStatusCode.BadGateway },
+            { "GET", "/api/Reports/stock-valuation", null, HttpStatusCode.Unauthorized },
             // Account management.
             { "PUT", "/api/Account/password", "User", HttpStatusCode.BadGateway },
             { "PUT", "/api/Account/password", null, HttpStatusCode.Unauthorized },

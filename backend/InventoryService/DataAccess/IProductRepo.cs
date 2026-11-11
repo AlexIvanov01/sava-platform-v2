@@ -23,4 +23,10 @@ public interface IProductRepo
     Task<ProductBatch?> UpdateBatchAsync(ProductBatch batch);
     Task<ProductBatch?> DeleteBatchAsync(Guid id);
     Task<IEnumerable<Product>> GetAllProductBatchesAsync();
+
+    // For reports: every product (optionally of one category) with its category and batches.
+    Task<List<Product>> GetProductsWithBatchesAsync(Guid? categoryId = null);
+
+    // For reports: batches with stock expiring on or before `until`, with their products.
+    Task<List<ProductBatch>> GetBatchesInStockExpiringByAsync(DateTime until);
 }
