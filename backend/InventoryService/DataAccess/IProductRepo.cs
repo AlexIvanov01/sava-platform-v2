@@ -8,8 +8,13 @@ namespace InventoryService.DataAccess;
 
 public interface IProductRepo
 {
-    Task<int> GetAllProductsCountAsync();
-    Task<IEnumerable<Product>> GetAllProductsAsync(Guid? cursor, int pageSize);
+    Task<int> GetAllProductsCountAsync(ProductFilter filter);
+    Task<IEnumerable<Product>> GetAllProductsAsync(
+        ProductFilter filter,
+        Guid? cursor,
+        int pageSize
+    );
+    Task<bool> SkuExistsAsync(string sku, Guid? exceptProductId = null);
     Task<Product?> GetProductAsync(Guid id);
     Task CreateProductAsync(Product product);
     Task<Product?> DeleteProductAsync(Guid id);

@@ -19,6 +19,7 @@ public class ProductContext : DbContext
 
     public DbSet<Product> Products { get; set; }
     public DbSet<ProductBatch> ProductBatches { get; set; }
+    public DbSet<Category> Categories { get; set; }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -40,5 +41,23 @@ public class ProductContext : DbContext
             .WithOne(b => b.Product)
             .HasForeignKey(b => b.ProductId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Product>().HasIndex(p => p.SKU).IsUnique();
+
+        modelBuilder
+            .Entity<Product>()
+            .Property(p => p.UnitOfMeasure)
+            .HasConversion<string>()
+            .HasMaxLength(20);
+
+        // A category with products can't be deleted; CategoryRepo reports that as a conflict.
+        modelBuilder
+            .Entity<Category>()
+            .HasMany(c => c.Products)
+            .WithOne(p => p.Category)
+            .HasForeignKey(p => p.CategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Category>().HasIndex(c => c.Name).IsUnique();
     }
 }

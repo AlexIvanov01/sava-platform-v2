@@ -19,31 +19,45 @@ namespace InventoryService.Controllers;
 public class ProductsController : ControllerBase
 {
     private readonly IProductRepo _repository;
+    private readonly ICategoryRepo _categories;
     private readonly IMessageBusClient _messageBusClient;
 
-    public ProductsController(IProductRepo repository, IMessageBusClient messageBusClient)
+    public ProductsController(
+        IProductRepo repository,
+        ICategoryRepo categories,
+        IMessageBusClient messageBusClient
+    )
     {
         _repository = repository;
+        _categories = categories;
         _messageBusClient = messageBusClient;
     }
 
+    // Filters combine with AND; Name and SKU match substrings, Barcode matches exactly.
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ProductPageReadDto>> GetProducts(
         Guid? cursor,
-        [Range(1, 100)] int pageSize = 10
+        [Range(1, 100)] int pageSize = 10,
+        string? name = null,
+        string? sku = null,
+        string? barcode = null,
+        Guid? categoryId = null,
+        bool? isPublished = null
     )
     {
         try
         {
+            var filter = new ProductFilter(name, sku, barcode, categoryId, isPublished);
             Log.Information(
-                "--> Getting {PageSize} amount of products after cursor {Cursor}",
+                "--> Getting {PageSize} amount of products after cursor {Cursor} with {@Filter}",
                 pageSize,
-                cursor
+                cursor,
+                filter
             );
 
-            var productItems = await _repository.GetAllProductsAsync(cursor, pageSize);
+            var productItems = await _repository.GetAllProductsAsync(filter, cursor, pageSize);
 
             if (!productItems.Any())
             {
@@ -63,7 +77,7 @@ public class ProductsController : ControllerBase
             var dtos = productItems.Select(p => p.ToReadDto()).ToList();
 
             var pageCount = Math.Ceiling(
-                await _repository.GetAllProductsCountAsync() / (float)pageSize
+                await _repository.GetAllProductsCountAsync(filter) / (float)pageSize
             );
 
             ProductPageReadDto productPageReadDto = new()
@@ -112,11 +126,24 @@ public class ProductsController : ControllerBase
 
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ProductReadDto>> CreateProduct(ProductCreateDto productCreateDto)
     {
         try
         {
             Log.Information("--> Creating a product.............");
+
+            var invalid = await ValidateReferencesAsync(
+                productCreateDto.SKU,
+                productCreateDto.CategoryId,
+                null
+            );
+            if (invalid != null)
+            {
+                return invalid;
+            }
+
             var productModel = productCreateDto.ToEntity();
             await _repository.CreateProductAsync(productModel);
 
@@ -139,7 +166,9 @@ public class ProductsController : ControllerBase
 
     [HttpPut("{id}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ProductReadDto>> UpdateProduct(
         Guid id,
         ProductUpdateDto productUpdateDto
@@ -150,6 +179,16 @@ public class ProductsController : ControllerBase
         try
         {
             Log.Information("--> Updating a product with id {Id}....................", id);
+
+            var invalid = await ValidateReferencesAsync(
+                productUpdateDto.SKU,
+                productUpdateDto.CategoryId,
+                id
+            );
+            if (invalid != null)
+            {
+                return invalid;
+            }
 
             var updated = await _repository.UpdateProductAsync(productUpdateDto.ToEntity(id));
 
@@ -233,5 +272,35 @@ public class ProductsController : ControllerBase
         }
 
         return NoContent();
+    }
+
+    // SKUs are unique, and a referenced category must exist.
+    private async Task<ActionResult?> ValidateReferencesAsync(
+        string? sku,
+        Guid? categoryId,
+        Guid? productId
+    )
+    {
+        if (sku != null && await _repository.SkuExistsAsync(sku, productId))
+        {
+            Log.Warning("--> SKU {SKU} is already used by another product.", sku);
+            return Problem(
+                title: "SKU already exists",
+                detail: $"Another product already uses SKU '{sku}'.",
+                statusCode: StatusCodes.Status409Conflict
+            );
+        }
+
+        if (categoryId != null && !await _categories.CategoryExistsAsync(categoryId.Value))
+        {
+            Log.Warning("--> Category {CategoryId} not found.", categoryId);
+            return Problem(
+                title: "Unknown category",
+                detail: $"Category {categoryId} does not exist.",
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+
+        return null;
     }
 }

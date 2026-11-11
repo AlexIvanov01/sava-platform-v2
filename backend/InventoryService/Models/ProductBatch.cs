@@ -14,6 +14,10 @@ public class ProductBatch : AuditableEntity
     public decimal? PurchasePrice { get; set; }
     public decimal? SellPrice { get; set; }
     public DateTime? ExpirationDate { get; set; }
+
+    // Free-text place in the warehouse, e.g. "Aisle 3, shelf B".
+    [MaxLength(100)]
+    public string? Location { get; set; }
     public Guid? ProductId { get; set; }
     public Product Product { get; set; } = new();
 }

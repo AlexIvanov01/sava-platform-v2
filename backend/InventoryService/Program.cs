@@ -38,6 +38,7 @@ builder.Services.AddDbContext<ProductContext>(options =>
     );
 });
 builder.Services.AddScoped<IProductRepo, ProductRepo>();
+builder.Services.AddScoped<ICategoryRepo, CategoryRepo>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 builder.Services.AddSingleton<IMessageBusClient, MessageBusClient>();

@@ -124,7 +124,7 @@ Running locally uses `appsettings.Development.json`, which points at MySQL and R
 
    - **Authentication:** the first administrator is created from `Seed:AdminUserName`/`Seed:AdminPassword` (`admin`/`admin123` in `appsettings.Development.json`) in every environment when the Users table is empty; Development also adds `user`/`user123` from `dummy_data.json`.
    - **Customers:** 10 Bulgarian companies.
-   - **Inventory:** 15 products with 21 batches, including expired, near-expiry, low-stock and inactive cases.
+   - **Inventory:** 8 categories and 15 products with 21 batches, including expired, near-expiry, low-stock, inactive and unpublished cases.
    - **Orders:** 10 orders in several statuses; 5 have invoices.
 
    Other environments only migrate and never seed. Orders reference the seeded customers and batches, so Order seeds them only after it has synced from Customer and Inventory. If either was down, start it and restart Order.

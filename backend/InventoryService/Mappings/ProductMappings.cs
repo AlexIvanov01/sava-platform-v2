@@ -8,6 +8,9 @@ namespace InventoryService.Mappings;
 
 public static class ProductMappings
 {
+    // Bulgarian standard VAT rate, in percent.
+    public const decimal DefaultVatRate = 20m;
+
     public static ProductReadDto ToReadDto(this Product product) =>
         new(
             product.Id,
@@ -20,6 +23,13 @@ public static class ProductMappings
             product.Barcode,
             product.ReorderLevel.GetValueOrDefault(),
             product.Weight.GetValueOrDefault(),
+            product.SKU,
+            product.ListPrice,
+            product.VatRate ?? DefaultVatRate,
+            product.UnitOfMeasure ?? UnitOfMeasure.Piece,
+            product.IsPublished ?? false,
+            product.CategoryId,
+            product.Category?.Name,
             product.Batches.Select(b => b.ToReadDto()).ToList(),
             product.ToAuditDto()
         );
@@ -32,6 +42,7 @@ public static class ProductMappings
             batch.PurchasePrice.GetValueOrDefault(),
             batch.SellPrice.GetValueOrDefault(),
             batch.ExpirationDate.GetValueOrDefault(),
+            batch.Location,
             batch.ToAuditDto()
         );
 
@@ -50,6 +61,12 @@ public static class ProductMappings
             Barcode = dto.Barcode,
             ReorderLevel = dto.ReorderLevel,
             Weight = dto.Weight,
+            SKU = dto.SKU,
+            ListPrice = dto.ListPrice,
+            VatRate = dto.VatRate ?? DefaultVatRate,
+            UnitOfMeasure = dto.UnitOfMeasure ?? UnitOfMeasure.Piece,
+            IsPublished = dto.IsPublished ?? false,
+            CategoryId = dto.CategoryId,
         };
 
     public static Product ToEntity(this ProductUpdateDto dto, Guid id) =>
@@ -65,6 +82,12 @@ public static class ProductMappings
             Barcode = dto.Barcode,
             ReorderLevel = dto.ReorderLevel,
             Weight = dto.Weight,
+            SKU = dto.SKU,
+            ListPrice = dto.ListPrice,
+            VatRate = dto.VatRate,
+            UnitOfMeasure = dto.UnitOfMeasure,
+            IsPublished = dto.IsPublished,
+            CategoryId = dto.CategoryId,
         };
 
     public static ProductBatch ToEntity(this BatchCreateDto dto) =>
@@ -75,6 +98,7 @@ public static class ProductMappings
             PurchasePrice = dto.PurchasePrice,
             SellPrice = dto.SellPrice,
             ExpirationDate = dto.ExpirationDate,
+            Location = dto.Location,
         };
 
     public static ProductBatch ToEntity(this BatchUpdateDto dto, Guid id) =>
@@ -86,6 +110,7 @@ public static class ProductMappings
             PurchasePrice = dto.PurchasePrice,
             SellPrice = dto.SellPrice,
             ExpirationDate = dto.ExpirationDate,
+            Location = dto.Location,
         };
 
     // Expects batch.Product to be populated. Protobuf string fields reject null,

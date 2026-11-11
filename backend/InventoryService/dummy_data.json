@@ -8,6 +8,12 @@
     "ImageURL": null,
     "Status": "Active",
     "Barcode": "3801001000375",
+    "SKU": "DAI-001",
+    "UnitOfMeasure": "Piece",
+    "IsPublished": true,
+    "ListPrice": 4.89,
+    "VatRate": 20.0,
+    "CategoryId": "83907f7c-7ba8-5b11-b8c0-07e820a1df3e",
     "ReorderLevel": 40,
     "Weight": 0.4,
     "CreatedAt": "2026-08-02T08:00:00",
@@ -21,7 +27,8 @@
         "SellPrice": 4.79,
         "CreatedAt": "2026-08-02T08:00:00",
         "UpdatedAt": "2026-08-02T08:00:00",
-        "ExpirationDate": "2026-11-05T00:00:00"
+        "ExpirationDate": "2026-11-05T00:00:00",
+        "Location": "Cold room 1"
       },
       {
         "Id": "c552ff6f-8bd4-5a75-9de8-b85925c3b46f",
@@ -31,7 +38,8 @@
         "SellPrice": 4.89,
         "CreatedAt": "2026-09-15T08:00:00",
         "UpdatedAt": "2026-09-15T08:00:00",
-        "ExpirationDate": "2027-01-20T00:00:00"
+        "ExpirationDate": "2027-01-20T00:00:00",
+        "Location": "Cold room 1"
       }
     ]
   },
@@ -44,6 +52,12 @@
     "ImageURL": null,
     "Status": "Active",
     "Barcode": "3801002000749",
+    "SKU": "DAI-002",
+    "UnitOfMeasure": "Piece",
+    "IsPublished": true,
+    "ListPrice": 0.99,
+    "VatRate": 20.0,
+    "CategoryId": "83907f7c-7ba8-5b11-b8c0-07e820a1df3e",
     "ReorderLevel": 100,
     "Weight": 0.4,
     "CreatedAt": "2026-10-10T08:00:00",
@@ -57,7 +71,8 @@
         "SellPrice": 0.99,
         "CreatedAt": "2026-10-10T08:00:00",
         "UpdatedAt": "2026-10-10T08:00:00",
-        "ExpirationDate": "2026-10-30T00:00:00"
+        "ExpirationDate": "2026-10-30T00:00:00",
+        "Location": "Cold room 1"
       },
       {
         "Id": "d733476f-8f08-5d33-8a54-4ecb9359e2df",
@@ -67,7 +82,8 @@
         "SellPrice": 0.99,
         "CreatedAt": "2026-10-16T08:00:00",
         "UpdatedAt": "2026-10-16T08:00:00",
-        "ExpirationDate": "2026-11-12T00:00:00"
+        "ExpirationDate": "2026-11-12T00:00:00",
+        "Location": "Cold room 1"
       }
     ]
   },
@@ -80,6 +96,12 @@
     "ImageURL": null,
     "Status": "Active",
     "Barcode": "3801003001110",
+    "SKU": "DAI-003",
+    "UnitOfMeasure": "Piece",
+    "IsPublished": true,
+    "ListPrice": 5.29,
+    "VatRate": 20.0,
+    "CategoryId": "83907f7c-7ba8-5b11-b8c0-07e820a1df3e",
     "ReorderLevel": 30,
     "Weight": 0.3,
     "CreatedAt": "2026-07-20T08:00:00",
@@ -93,7 +115,8 @@
         "SellPrice": 5.29,
         "CreatedAt": "2026-07-20T08:00:00",
         "UpdatedAt": "2026-07-20T08:00:00",
-        "ExpirationDate": "2027-02-15T00:00:00"
+        "ExpirationDate": "2027-02-15T00:00:00",
+        "Location": "Cold room 1"
       }
     ]
   },
@@ -106,6 +129,12 @@
     "ImageURL": null,
     "Status": "Active",
     "Barcode": "3801004001485",
+    "SKU": "PAN-001",
+    "UnitOfMeasure": "Piece",
+    "IsPublished": true,
+    "ListPrice": 2.29,
+    "VatRate": 20.0,
+    "CategoryId": "17b0aae4-f86c-5624-9c7c-7f63ed25d329",
     "ReorderLevel": 50,
     "Weight": 0.38,
     "CreatedAt": "2026-03-11T08:00:00",
@@ -119,7 +148,8 @@
         "SellPrice": 2.19,
         "CreatedAt": "2026-03-11T08:00:00",
         "UpdatedAt": "2026-03-11T08:00:00",
-        "ExpirationDate": "2026-09-30T00:00:00"
+        "ExpirationDate": "2026-09-30T00:00:00",
+        "Location": "Cold room 2"
       },
       {
         "Id": "cc17bc7e-8f17-5f1d-b652-dc45283a78e3",
@@ -129,7 +159,8 @@
         "SellPrice": 2.29,
         "CreatedAt": "2026-08-25T08:00:00",
         "UpdatedAt": "2026-08-25T08:00:00",
-        "ExpirationDate": "2028-02-28T00:00:00"
+        "ExpirationDate": "2028-02-28T00:00:00",
+        "Location": "Aisle 3, pallet 4"
       }
     ]
   },
@@ -142,6 +173,12 @@
     "ImageURL": null,
     "Status": "Active",
     "Barcode": "3801005001859",
+    "SKU": "PAN-002",
+    "UnitOfMeasure": "Piece",
+    "IsPublished": true,
+    "ListPrice": 7.49,
+    "VatRate": 20.0,
+    "CategoryId": "17b0aae4-f86c-5624-9c7c-7f63ed25d329",
     "ReorderLevel": 20,
     "Weight": 0.62,
     "CreatedAt": "2026-06-14T08:00:00",
@@ -155,7 +192,8 @@
         "SellPrice": 7.49,
         "CreatedAt": "2026-06-14T08:00:00",
         "UpdatedAt": "2026-06-14T08:00:00",
-        "ExpirationDate": "2028-06-30T00:00:00"
+        "ExpirationDate": "2028-06-30T00:00:00",
+        "Location": "Aisle 1, shelf A"
       }
     ]
   },
@@ -168,6 +206,12 @@
     "ImageURL": null,
     "Status": "Active",
     "Barcode": "3801006002220",
+    "SKU": "COS-001",
+    "UnitOfMeasure": "Piece",
+    "IsPublished": true,
+    "ListPrice": 3.99,
+    "VatRate": 20.0,
+    "CategoryId": "c4bed0d0-4abd-58fe-9014-63550bed953e",
     "ReorderLevel": 25,
     "Weight": 0.36,
     "CreatedAt": "2026-05-20T08:00:00",
@@ -181,7 +225,8 @@
         "SellPrice": 3.99,
         "CreatedAt": "2026-05-20T08:00:00",
         "UpdatedAt": "2026-05-20T08:00:00",
-        "ExpirationDate": "2028-05-31T00:00:00"
+        "ExpirationDate": "2028-05-31T00:00:00",
+        "Location": "Aisle 1, shelf B"
       }
     ]
   },
@@ -194,6 +239,12 @@
     "ImageURL": null,
     "Status": "Active",
     "Barcode": "3801007002595",
+    "SKU": "COS-002",
+    "UnitOfMeasure": "Piece",
+    "IsPublished": true,
+    "ListPrice": 5.19,
+    "VatRate": 20.0,
+    "CategoryId": "c4bed0d0-4abd-58fe-9014-63550bed953e",
     "ReorderLevel": 20,
     "Weight": 0.09,
     "CreatedAt": "2026-04-08T08:00:00",
@@ -207,7 +258,8 @@
         "SellPrice": 4.99,
         "CreatedAt": "2026-04-08T08:00:00",
         "UpdatedAt": "2026-04-08T08:00:00",
-        "ExpirationDate": "2028-04-30T00:00:00"
+        "ExpirationDate": "2028-04-30T00:00:00",
+        "Location": "Aisle 2, shelf A"
       },
       {
         "Id": "841c785a-543b-5fe9-a1bb-fb560e94044d",
@@ -217,7 +269,8 @@
         "SellPrice": 5.19,
         "CreatedAt": "2026-09-02T08:00:00",
         "UpdatedAt": "2026-09-02T08:00:00",
-        "ExpirationDate": "2029-09-30T00:00:00"
+        "ExpirationDate": "2029-09-30T00:00:00",
+        "Location": "Aisle 2, shelf C"
       }
     ]
   },
@@ -230,6 +283,12 @@
     "ImageURL": null,
     "Status": "Active",
     "Barcode": "3801008002969",
+    "SKU": "BEV-001",
+    "UnitOfMeasure": "Pack",
+    "IsPublished": true,
+    "ListPrice": 2.99,
+    "VatRate": 20.0,
+    "CategoryId": "c3308547-db80-5024-8120-fa5ad0676a57",
     "ReorderLevel": 80,
     "Weight": 9.2,
     "CreatedAt": "2026-09-05T08:00:00",
@@ -243,7 +302,8 @@
         "SellPrice": 2.99,
         "CreatedAt": "2026-09-05T08:00:00",
         "UpdatedAt": "2026-09-05T08:00:00",
-        "ExpirationDate": "2027-09-30T00:00:00"
+        "ExpirationDate": "2027-09-30T00:00:00",
+        "Location": "Cold room 1"
       }
     ]
   },
@@ -256,6 +316,12 @@
     "ImageURL": null,
     "Status": "Active",
     "Barcode": "3801009003330",
+    "SKU": "ALC-001",
+    "UnitOfMeasure": "Piece",
+    "IsPublished": true,
+    "ListPrice": 13.99,
+    "VatRate": 20.0,
+    "CategoryId": "8d4e242e-893b-5c55-80dc-e7404c9513a6",
     "ReorderLevel": 15,
     "Weight": 1.2,
     "CreatedAt": "2026-01-22T08:00:00",
@@ -269,7 +335,8 @@
         "SellPrice": 13.99,
         "CreatedAt": "2026-01-22T08:00:00",
         "UpdatedAt": "2026-01-22T08:00:00",
-        "ExpirationDate": "2036-01-31T00:00:00"
+        "ExpirationDate": "2036-01-31T00:00:00",
+        "Location": "Cold room 2"
       }
     ]
   },
@@ -282,6 +349,12 @@
     "ImageURL": null,
     "Status": "Active",
     "Barcode": "3801010003701",
+    "SKU": "ALC-002",
+    "UnitOfMeasure": "Piece",
+    "IsPublished": true,
+    "ListPrice": 10.99,
+    "VatRate": 20.0,
+    "CategoryId": "8d4e242e-893b-5c55-80dc-e7404c9513a6",
     "ReorderLevel": 24,
     "Weight": 1.3,
     "CreatedAt": "2026-02-17T08:00:00",
@@ -295,7 +368,8 @@
         "SellPrice": 10.49,
         "CreatedAt": "2026-02-17T08:00:00",
         "UpdatedAt": "2026-02-17T08:00:00",
-        "ExpirationDate": "2031-02-28T00:00:00"
+        "ExpirationDate": "2031-02-28T00:00:00",
+        "Location": "Aisle 3, pallet 4"
       },
       {
         "Id": "25995618-296a-5b42-8295-9027216184a4",
@@ -305,7 +379,8 @@
         "SellPrice": 10.99,
         "CreatedAt": "2026-07-09T08:00:00",
         "UpdatedAt": "2026-07-09T08:00:00",
-        "ExpirationDate": "2031-07-31T00:00:00"
+        "ExpirationDate": "2031-07-31T00:00:00",
+        "Location": "Aisle 1, shelf A"
       }
     ]
   },
@@ -318,6 +393,12 @@
     "ImageURL": null,
     "Status": "Active",
     "Barcode": "3801011004073",
+    "SKU": "DEL-001",
+    "UnitOfMeasure": "Piece",
+    "IsPublished": true,
+    "ListPrice": 6.19,
+    "VatRate": 20.0,
+    "CategoryId": "0736a9bd-6bed-54c5-a1de-456dcc4a3fc4",
     "ReorderLevel": 30,
     "Weight": 0.25,
     "CreatedAt": "2026-09-18T08:00:00",
@@ -331,7 +412,8 @@
         "SellPrice": 6.19,
         "CreatedAt": "2026-09-18T08:00:00",
         "UpdatedAt": "2026-09-18T08:00:00",
-        "ExpirationDate": "2026-12-15T00:00:00"
+        "ExpirationDate": "2026-12-15T00:00:00",
+        "Location": "Cold room 1"
       }
     ]
   },
@@ -344,6 +426,12 @@
     "ImageURL": null,
     "Status": "Active",
     "Barcode": "3801012004447",
+    "SKU": "HOU-001",
+    "UnitOfMeasure": "Piece",
+    "IsPublished": false,
+    "ListPrice": 11.99,
+    "VatRate": 20.0,
+    "CategoryId": "568843f1-f762-5b21-8761-5a4e56def8ad",
     "ReorderLevel": 20,
     "Weight": 3.1,
     "CreatedAt": "2026-03-04T08:00:00",
@@ -357,7 +445,8 @@
         "SellPrice": 11.99,
         "CreatedAt": "2026-03-04T08:00:00",
         "UpdatedAt": "2026-03-04T08:00:00",
-        "ExpirationDate": "2029-03-31T00:00:00"
+        "ExpirationDate": "2029-03-31T00:00:00",
+        "Location": "Aisle 2, shelf A"
       }
     ]
   },
@@ -370,6 +459,12 @@
     "ImageURL": null,
     "Status": "Active",
     "Barcode": "3801013004811",
+    "SKU": "HOU-002",
+    "UnitOfMeasure": "Piece",
+    "IsPublished": true,
+    "ListPrice": 1.99,
+    "VatRate": 20.0,
+    "CategoryId": "568843f1-f762-5b21-8761-5a4e56def8ad",
     "ReorderLevel": 40,
     "Weight": 1.05,
     "CreatedAt": "2026-05-12T08:00:00",
@@ -383,7 +478,8 @@
         "SellPrice": 1.89,
         "CreatedAt": "2026-05-12T08:00:00",
         "UpdatedAt": "2026-05-12T08:00:00",
-        "ExpirationDate": "2029-05-31T00:00:00"
+        "ExpirationDate": "2029-05-31T00:00:00",
+        "Location": "Aisle 2, shelf C"
       },
       {
         "Id": "0d5bd51a-8130-52bd-84f0-fdadd4069141",
@@ -393,7 +489,8 @@
         "SellPrice": 1.99,
         "CreatedAt": "2026-09-21T08:00:00",
         "UpdatedAt": "2026-09-21T08:00:00",
-        "ExpirationDate": "2029-09-30T00:00:00"
+        "ExpirationDate": "2029-09-30T00:00:00",
+        "Location": "Cold room 1"
       }
     ]
   },
@@ -406,6 +503,12 @@
     "ImageURL": null,
     "Status": "Active",
     "Barcode": "3801014005183",
+    "SKU": "OFF-001",
+    "UnitOfMeasure": "Pack",
+    "IsPublished": false,
+    "ListPrice": 5.49,
+    "VatRate": 20.0,
+    "CategoryId": "c9641ef8-cce3-5ab6-98c4-326a5fb4bcc4",
     "ReorderLevel": 50,
     "Weight": 2.5,
     "CreatedAt": "2026-08-11T08:00:00",
@@ -419,7 +522,8 @@
         "SellPrice": 5.49,
         "CreatedAt": "2026-08-11T08:00:00",
         "UpdatedAt": "2026-08-11T08:00:00",
-        "ExpirationDate": "2036-08-31T00:00:00"
+        "ExpirationDate": "2036-08-31T00:00:00",
+        "Location": "Cold room 2"
       }
     ]
   },
@@ -432,6 +536,12 @@
     "ImageURL": null,
     "Status": "Inactive",
     "Barcode": "3801015005557",
+    "SKU": "PAN-003",
+    "UnitOfMeasure": "Piece",
+    "IsPublished": false,
+    "ListPrice": 2.39,
+    "VatRate": 20.0,
+    "CategoryId": "17b0aae4-f86c-5624-9c7c-7f63ed25d329",
     "ReorderLevel": 0,
     "Weight": 0.92,
     "CreatedAt": "2025-12-15T08:00:00",
@@ -445,7 +555,8 @@
         "SellPrice": 2.39,
         "CreatedAt": "2025-12-15T08:00:00",
         "UpdatedAt": "2025-12-15T08:00:00",
-        "ExpirationDate": "2026-06-30T00:00:00"
+        "ExpirationDate": "2026-06-30T00:00:00",
+        "Location": "Aisle 3, pallet 4"
       }
     ]
   }

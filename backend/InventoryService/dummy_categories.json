@@ -1,0 +1,50 @@
+[
+  {
+    "Id": "83907f7c-7ba8-5b11-b8c0-07e820a1df3e",
+    "Name": "Dairy",
+    "Description": "Cheese, yogurt and other milk products.",
+    "CreatedAt": "2025-12-01T08:00:00"
+  },
+  {
+    "Id": "17b0aae4-f86c-5624-9c7c-7f63ed25d329",
+    "Name": "Pantry",
+    "Description": "Shelf-stable foods: spreads, honey, oils.",
+    "CreatedAt": "2025-12-01T08:00:00"
+  },
+  {
+    "Id": "c3308547-db80-5024-8120-fa5ad0676a57",
+    "Name": "Beverages",
+    "Description": "Water and soft drinks.",
+    "CreatedAt": "2025-12-01T08:00:00"
+  },
+  {
+    "Id": "8d4e242e-893b-5c55-80dc-e7404c9513a6",
+    "Name": "Wine & Spirits",
+    "Description": "Wine, rakia and other alcoholic drinks.",
+    "CreatedAt": "2025-12-01T08:00:00"
+  },
+  {
+    "Id": "0736a9bd-6bed-54c5-a1de-456dcc4a3fc4",
+    "Name": "Meat & Deli",
+    "Description": "Cured meats and sausages.",
+    "CreatedAt": "2025-12-01T08:00:00"
+  },
+  {
+    "Id": "c4bed0d0-4abd-58fe-9014-63550bed953e",
+    "Name": "Cosmetics",
+    "Description": "Rose-based and other personal care products.",
+    "CreatedAt": "2025-12-01T08:00:00"
+  },
+  {
+    "Id": "568843f1-f762-5b21-8761-5a4e56def8ad",
+    "Name": "Household",
+    "Description": "Cleaning and laundry products.",
+    "CreatedAt": "2025-12-01T08:00:00"
+  },
+  {
+    "Id": "c9641ef8-cce3-5ab6-98c4-326a5fb4bcc4",
+    "Name": "Office Supplies",
+    "Description": "Paper and other office consumables.",
+    "CreatedAt": "2025-12-01T08:00:00"
+  }
+]

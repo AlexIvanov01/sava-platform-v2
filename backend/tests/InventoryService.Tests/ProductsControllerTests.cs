@@ -5,21 +5,24 @@ using InventoryService.Dtos;
 using InventoryService.Models;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute.ExceptionExtensions;
+using Sava.Tests.Shared;
 
 namespace InventoryService.Tests;
 
 public class ProductsControllerTests
 {
     private readonly IProductRepo _repo = Substitute.For<IProductRepo>();
+    private readonly ICategoryRepo _categories = Substitute.For<ICategoryRepo>();
     private readonly IMessageBusClient _bus = Substitute.For<IMessageBusClient>();
     private readonly ProductsController _controller;
 
-    public ProductsControllerTests() => _controller = new ProductsController(_repo, _bus);
+    public ProductsControllerTests() =>
+        _controller = new ProductsController(_repo, _categories, _bus);
 
     [Fact]
     public async Task GetProducts_Empty_ReturnsNotFound()
     {
-        _repo.GetAllProductsAsync(null, 10).Returns(new List<Product>());
+        _repo.GetAllProductsAsync(ProductFilter.None, null, 10).Returns(new List<Product>());
 
         var result = await _controller.GetProducts(null);
 
@@ -35,8 +38,8 @@ public class ProductsControllerTests
             InventoryBuilder.Product("A"),
             InventoryBuilder.Product("B"),
         };
-        _repo.GetAllProductsAsync(cursor, 2).Returns(products);
-        _repo.GetAllProductsCountAsync().Returns(5);
+        _repo.GetAllProductsAsync(ProductFilter.None, cursor, 2).Returns(products);
+        _repo.GetAllProductsCountAsync(ProductFilter.None).Returns(5);
 
         var result = await _controller.GetProducts(cursor, 2);
 
@@ -52,12 +55,84 @@ public class ProductsControllerTests
     public async Task GetProducts_RepoThrows_Returns500()
     {
         _repo
-            .GetAllProductsAsync(Arg.Any<Guid?>(), Arg.Any<int>())
+            .GetAllProductsAsync(Arg.Any<ProductFilter>(), Arg.Any<Guid?>(), Arg.Any<int>())
             .ThrowsAsync(new InvalidOperationException());
 
         var result = await _controller.GetProducts(null);
 
         result.Result.ShouldBeOfType<ObjectResult>().StatusCode.ShouldBe(500);
+    }
+
+    [Fact]
+    public async Task GetProducts_PassesFiltersToRepoAndCountsFilteredPages()
+    {
+        var categoryId = TestData.Faker.Random.Guid();
+        var filter = new ProductFilter("cheese", "DAI", "3801001000375", categoryId, true);
+        _repo.GetAllProductsAsync(filter, null, 1).Returns([InventoryBuilder.Product()]);
+        _repo.GetAllProductsCountAsync(filter).Returns(3);
+
+        var result = await _controller.GetProducts(
+            null,
+            1,
+            "cheese",
+            "DAI",
+            "3801001000375",
+            categoryId,
+            true
+        );
+
+        result
+            .Result.ShouldBeOfType<OkObjectResult>()
+            .Value.ShouldBeOfType<ProductPageReadDto>()
+            .Pages.ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task CreateProduct_DuplicateSku_Returns409WithoutSaving()
+    {
+        var dto = InventoryBuilder.ProductCreateDto();
+        _repo.SkuExistsAsync(dto.SKU, null).Returns(true);
+
+        var result = await _controller.CreateProduct(dto);
+
+        result
+            .Result.ShouldBeOfType<ObjectResult>()
+            .Value.ShouldBeOfType<ProblemDetails>()
+            .Status.ShouldBe(409);
+        await _repo.DidNotReceive().CreateProductAsync(Arg.Any<Product>());
+    }
+
+    [Fact]
+    public async Task CreateProduct_UnknownCategory_Returns400WithoutSaving()
+    {
+        var categoryId = TestData.Faker.Random.Guid();
+        var dto = InventoryBuilder.ProductCreateDto(categoryId: categoryId);
+        _categories.CategoryExistsAsync(categoryId).Returns(false);
+
+        var result = await _controller.CreateProduct(dto);
+
+        var problem = result
+            .Result.ShouldBeOfType<ObjectResult>()
+            .Value.ShouldBeOfType<ProblemDetails>();
+        problem.Status.ShouldBe(400);
+        problem.Title.ShouldBe("Unknown category");
+        await _repo.DidNotReceive().CreateProductAsync(Arg.Any<Product>());
+    }
+
+    [Fact]
+    public async Task UpdateProduct_SkuUsedByAnotherProduct_Returns409()
+    {
+        var id = TestData.Faker.Random.Guid();
+        var sku = InventoryBuilder.Sku();
+        _repo.SkuExistsAsync(sku, id).Returns(true);
+
+        var result = await _controller.UpdateProduct(
+            id,
+            InventoryBuilder.ProductUpdateDto(sku: sku)
+        );
+
+        result.Result.ShouldBeOfType<ObjectResult>().StatusCode.ShouldBe(409);
+        await _repo.DidNotReceive().UpdateProductAsync(Arg.Any<Product>());
     }
 
     [Fact]

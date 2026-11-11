@@ -34,7 +34,11 @@ public static class PrepDB
             return;
         }
 
-        await SeedData(context, Path.Combine(env.ContentRootPath, "dummy_data.json"));
+        await SeedData(
+            context,
+            Path.Combine(env.ContentRootPath, "dummy_categories.json"),
+            Path.Combine(env.ContentRootPath, "dummy_data.json")
+        );
     }
 
     private static async Task RunMigrations(ProductContext context)
@@ -52,16 +56,26 @@ public static class PrepDB
         }
     }
 
-    private static async Task SeedData(ProductContext context, string seedFile)
+    private static async Task SeedData(
+        ProductContext context,
+        string categoriesFile,
+        string productsFile
+    )
     {
-        if (await context.Products.AnyAsync())
+        if (await context.Products.AnyAsync() || await context.Categories.AnyAsync())
         {
             Log.Information("--> Data is already present");
             return;
         }
 
         Log.Information("--> Seeding data...");
-        string file = await File.ReadAllTextAsync(seedFile);
+        // Products reference categories by CategoryId, so both go in one SaveChanges.
+        var categories =
+            JsonSerializer.Deserialize<List<Category>>(await File.ReadAllTextAsync(categoriesFile))
+            ?? [];
+        context.Categories.AddRange(categories);
+
+        string file = await File.ReadAllTextAsync(productsFile);
         var products = JsonSerializer.Deserialize<List<Product>>(file) ?? [];
         foreach (var product in products)
         {
@@ -75,7 +89,8 @@ public static class PrepDB
         context.Products.AddRange(products);
         await context.SaveChangesAsync();
         Log.Information(
-            "--> Seeded {Count} products with {Batches} batches.",
+            "--> Seeded {Categories} categories and {Count} products with {Batches} batches.",
+            categories.Count,
             products.Count,
             products.Sum(p => p.Batches.Count)
         );

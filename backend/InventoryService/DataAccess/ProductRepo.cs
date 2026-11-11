@@ -21,6 +21,7 @@ public class ProductRepo : IProductRepo
     {
         await _context.Products.AddAsync(product);
         await _context.SaveChangesAsync();
+        await _context.Entry(product).Reference(p => p.Category).LoadAsync();
     }
 
     public async Task<Product?> DeleteProductAsync(Guid id)
@@ -61,30 +62,64 @@ public class ProductRepo : IProductRepo
         return dbBatch;
     }
 
-    public async Task<IEnumerable<Product>> GetAllProductsAsync(Guid? cursor, int pageSize)
+    public async Task<IEnumerable<Product>> GetAllProductsAsync(
+        ProductFilter filter,
+        Guid? cursor,
+        int pageSize
+    )
     {
+        var query = Filter(_context.Products.AsNoTracking(), filter);
+
         if (cursor != null)
         {
-            return await _context
-                .Products.AsNoTracking()
-                .Include(a => a.Batches)
-                .Where(p => p.Id > cursor)
-                .OrderBy(p => p.Id)
-                .Take(pageSize)
-                .ToListAsync();
+            query = query.Where(p => p.Id > cursor);
         }
-        return await _context
-            .Products.AsNoTracking()
-            .Include(a => a.Batches)
+
+        return await query
+            .Include(p => p.Category)
+            .Include(p => p.Batches)
             .OrderBy(p => p.Id)
             .Take(pageSize)
             .ToListAsync();
+    }
+
+    public async Task<bool> SkuExistsAsync(string sku, Guid? exceptProductId = null) =>
+        exceptProductId == null
+            ? await _context.Products.AnyAsync(p => p.SKU == sku)
+            : await _context.Products.AnyAsync(p => p.SKU == sku && p.Id != exceptProductId);
+
+    // Name and SKU match as substrings (case-insensitive under MySQL's default collation);
+    // barcodes come from a scanner, so they match exactly.
+    private static IQueryable<Product> Filter(IQueryable<Product> query, ProductFilter filter)
+    {
+        if (!string.IsNullOrWhiteSpace(filter.Name))
+        {
+            query = query.Where(p => p.Name!.Contains(filter.Name));
+        }
+        if (!string.IsNullOrWhiteSpace(filter.SKU))
+        {
+            query = query.Where(p => p.SKU!.Contains(filter.SKU));
+        }
+        if (!string.IsNullOrWhiteSpace(filter.Barcode))
+        {
+            query = query.Where(p => p.Barcode == filter.Barcode);
+        }
+        if (filter.CategoryId != null)
+        {
+            query = query.Where(p => p.CategoryId == filter.CategoryId);
+        }
+        if (filter.IsPublished != null)
+        {
+            query = query.Where(p => (p.IsPublished ?? false) == filter.IsPublished);
+        }
+        return query;
     }
 
     public async Task<Product?> GetProductAsync(Guid id)
     {
         var product = await _context
             .Products.AsNoTracking()
+            .Include(p => p.Category)
             .Include(a => a.Batches)
             .SingleOrDefaultAsync(p => p.Id == id);
 
@@ -110,8 +145,15 @@ public class ProductRepo : IProductRepo
         DbProduct.Barcode = product.Barcode ?? DbProduct.Barcode;
         DbProduct.ReorderLevel = product.ReorderLevel ?? DbProduct.ReorderLevel;
         DbProduct.Weight = product.Weight ?? DbProduct.Weight;
+        DbProduct.SKU = product.SKU ?? DbProduct.SKU;
+        DbProduct.ListPrice = product.ListPrice ?? DbProduct.ListPrice;
+        DbProduct.VatRate = product.VatRate ?? DbProduct.VatRate;
+        DbProduct.UnitOfMeasure = product.UnitOfMeasure ?? DbProduct.UnitOfMeasure;
+        DbProduct.IsPublished = product.IsPublished ?? DbProduct.IsPublished;
+        DbProduct.CategoryId = product.CategoryId ?? DbProduct.CategoryId;
 
         await _context.SaveChangesAsync();
+        await _context.Entry(DbProduct).Reference(p => p.Category).LoadAsync();
 
         return DbProduct;
     }
@@ -131,6 +173,7 @@ public class ProductRepo : IProductRepo
         DbBatch.PurchasePrice = batch.PurchasePrice ?? DbBatch.PurchasePrice;
         DbBatch.SellPrice = batch.SellPrice ?? DbBatch.SellPrice;
         DbBatch.ExpirationDate = batch.ExpirationDate ?? DbBatch.ExpirationDate;
+        DbBatch.Location = batch.Location ?? DbBatch.Location;
 
         await _context.SaveChangesAsync();
         return DbBatch;
@@ -139,7 +182,8 @@ public class ProductRepo : IProductRepo
     public async Task<Product?> AddBatchAsync(ProductBatch batch, Guid ProductId)
     {
         var product = await _context
-            .Products.Include(a => a.Batches)
+            .Products.Include(p => p.Category)
+            .Include(a => a.Batches)
             .SingleOrDefaultAsync(p => p.Id == ProductId);
 
         if (product == null)
@@ -154,9 +198,9 @@ public class ProductRepo : IProductRepo
         return product;
     }
 
-    public async Task<int> GetAllProductsCountAsync()
+    public async Task<int> GetAllProductsCountAsync(ProductFilter filter)
     {
-        return await _context.Products.CountAsync();
+        return await Filter(_context.Products, filter).CountAsync();
     }
 
     public Task DecrementBatchesAsync(IEnumerable<OrderItemPublishedDto> OrderItems)

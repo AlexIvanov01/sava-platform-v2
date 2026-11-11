@@ -57,16 +57,14 @@ public class InventoryApiTests(InventoryApiFactory factory) : IClassFixture<Inve
         product.Audit.CreatedAt.ShouldNotBeNull();
         product.Audit.UpdatedBy.ShouldBeNull();
 
-        var addBatch = await _client.PostAsJsonAsync(
-            $"/api/batches/{product.Id}",
-            InventoryBuilder.BatchCreateDto("L1", 4),
-            Ct
-        );
+        var batchCreate = InventoryBuilder.BatchCreateDto("L1", 4);
+        var addBatch = await _client.PostAsJsonAsync($"/api/batches/{product.Id}", batchCreate, Ct);
         addBatch.StatusCode.ShouldBe(HttpStatusCode.Created);
         var batch = (await addBatch.Content.ReadFromJsonAsync<ProductReadDto>(Ct))
             .ShouldNotBeNull()
             .Batches.ShouldHaveSingleItem();
         batch.Audit.CreatedBy.ShouldBe(creator);
+        batch.Location.ShouldBe(batchCreate.Location);
 
         _client.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(
             TestTokens.Bearer(editor)

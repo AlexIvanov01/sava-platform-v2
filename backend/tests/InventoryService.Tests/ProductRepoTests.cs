@@ -132,7 +132,7 @@ public class ProductRepoTests(MySqlFixture mySql) : IAsyncLifetime
         var repo = new ProductRepo(context);
         while (true)
         {
-            var page = (await repo.GetAllProductsAsync(cursor, 2)).ToList();
+            var page = (await repo.GetAllProductsAsync(ProductFilter.None, cursor, 2)).ToList();
             if (page.Count == 0)
             {
                 break;
@@ -144,7 +144,7 @@ public class ProductRepoTests(MySqlFixture mySql) : IAsyncLifetime
         }
 
         seen.ShouldBe(products.Select(p => p.Id), ignoreOrder: true);
-        (await repo.GetAllProductsCountAsync()).ShouldBe(5);
+        (await repo.GetAllProductsCountAsync(ProductFilter.None)).ShouldBe(5);
     }
 
     [Fact]
@@ -333,6 +333,130 @@ public class ProductRepoTests(MySqlFixture mySql) : IAsyncLifetime
     {
         await using var context = _db.CreateContext();
         return await context.ProductBatches.ToDictionaryAsync(b => b.Lot!, b => b.Quantity, Ct);
+    }
+
+    [Fact]
+    public async Task GetAllProducts_FiltersCombineAndCountMatches()
+    {
+        var category = InventoryBuilder.Category();
+        await SeedCategoriesAsync(category);
+        var match = InventoryBuilder.Product("Kashkaval Premium");
+        match.CategoryId = category.Id;
+        match.IsPublished = true;
+        var sameNameOtherCategory = InventoryBuilder.Product("Kashkaval Light");
+        sameNameOtherCategory.IsPublished = true;
+        var sameCategoryUnpublished = InventoryBuilder.Product("Kashkaval Old");
+        sameCategoryUnpublished.CategoryId = category.Id;
+        sameCategoryUnpublished.IsPublished = false;
+        var unrelated = InventoryBuilder.Product("Yogurt");
+        await SeedAsync(match, sameNameOtherCategory, sameCategoryUnpublished, unrelated);
+        var filter = new ProductFilter(
+            Name: "kashkaval",
+            CategoryId: category.Id,
+            IsPublished: true
+        );
+
+        await using var context = _db.CreateContext();
+        var repo = new ProductRepo(context);
+        var page = (await repo.GetAllProductsAsync(filter, null, 10)).ToList();
+
+        page.ShouldHaveSingleItem().Id.ShouldBe(match.Id);
+        page[0].Category.ShouldNotBeNull().Name.ShouldBe(category.Name);
+        (await repo.GetAllProductsCountAsync(filter)).ShouldBe(1);
+        (await repo.GetAllProductsCountAsync(new ProductFilter(Name: "kashkaval"))).ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task GetAllProducts_SkuMatchesSubstringAndBarcodeMatchesExactly()
+    {
+        var product = InventoryBuilder.Product();
+        await SeedAsync(product, InventoryBuilder.Product());
+
+        await using var context = _db.CreateContext();
+        var repo = new ProductRepo(context);
+
+        (await repo.GetAllProductsAsync(new ProductFilter(SKU: product.SKU![4..12]), null, 10))
+            .ShouldHaveSingleItem()
+            .Id.ShouldBe(product.Id);
+        (await repo.GetAllProductsAsync(new ProductFilter(Barcode: product.Barcode), null, 10))
+            .ShouldHaveSingleItem()
+            .Id.ShouldBe(product.Id);
+        (
+            await repo.GetAllProductsAsync(
+                new ProductFilter(Barcode: product.Barcode![..6]),
+                null,
+                10
+            )
+        ).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task SkuExistsAsync_IgnoresTheProductItself()
+    {
+        var product = InventoryBuilder.Product();
+        await SeedAsync(product);
+
+        await using var context = _db.CreateContext();
+        var repo = new ProductRepo(context);
+
+        (await repo.SkuExistsAsync(product.SKU!)).ShouldBeTrue();
+        (await repo.SkuExistsAsync(product.SKU!, product.Id)).ShouldBeFalse();
+        (await repo.SkuExistsAsync(product.SKU!, TestData.Faker.Random.Guid())).ShouldBeTrue();
+        (await repo.SkuExistsAsync(InventoryBuilder.Sku())).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Sku_IsUniqueInTheDatabase()
+    {
+        var product = InventoryBuilder.Product();
+        await SeedAsync(product);
+        var duplicate = InventoryBuilder.Product();
+        duplicate.SKU = product.SKU;
+
+        await Should.ThrowAsync<DbUpdateException>(() => SeedAsync(duplicate));
+    }
+
+    [Fact]
+    public async Task UpdateProductAsync_UpdatesCatalogFieldsAndLoadsCategory()
+    {
+        var category = InventoryBuilder.Category();
+        await SeedCategoriesAsync(category);
+        var product = InventoryBuilder.Product();
+        product.IsPublished = false;
+        await SeedAsync(product);
+        var sku = InventoryBuilder.Sku();
+        var listPrice = TestData.Faker.Finance.Amount(1, 100);
+
+        await using (var context = _db.CreateContext())
+        {
+            var result = await new ProductRepo(context).UpdateProductAsync(
+                InventoryBuilder
+                    .ProductUpdateDto(
+                        sku: sku,
+                        listPrice: listPrice,
+                        categoryId: category.Id,
+                        isPublished: true
+                    )
+                    .ToEntity(product.Id)
+            );
+            result.ShouldNotBeNull().Category.ShouldNotBeNull().Name.ShouldBe(category.Name);
+        }
+
+        await using var assertContext = _db.CreateContext();
+        var saved = await assertContext.Products.SingleAsync(Ct);
+        saved.SKU.ShouldBe(sku);
+        saved.ListPrice.ShouldBe(listPrice);
+        saved.CategoryId.ShouldBe(category.Id);
+        saved.IsPublished.ShouldBe(true);
+        saved.VatRate.ShouldBe(product.VatRate);
+        saved.UnitOfMeasure.ShouldBe(product.UnitOfMeasure);
+    }
+
+    private async Task SeedCategoriesAsync(params Category[] categories)
+    {
+        await using var context = _db.CreateContext();
+        context.Categories.AddRange(categories);
+        await context.SaveChangesAsync(Ct);
     }
 
     private async Task SeedAsync(params Product[] products)
