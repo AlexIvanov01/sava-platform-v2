@@ -10,32 +10,89 @@
         "tags": [
           "Customers"
         ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 10
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "uic",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vatNumber",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "text/plain": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/CustomerReadDto"
-                  }
+                  "$ref": "#/components/schemas/CustomerPageReadDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/CustomerReadDto"
-                  }
+                  "$ref": "#/components/schemas/CustomerPageReadDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/CustomerReadDto"
-                  }
+                  "$ref": "#/components/schemas/CustomerPageReadDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -286,6 +343,26 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -385,6 +462,34 @@
           }
         }
       },
+      "CustomerPageReadDto": {
+        "required": [
+          "customerReadDtos",
+          "cursor",
+          "pages"
+        ],
+        "type": "object",
+        "properties": {
+          "customerReadDtos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomerReadDto"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pages": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "CustomerReadDto": {
         "required": [
           "id",
@@ -400,6 +505,7 @@
           "bic",
           "vatNumber",
           "uic",
+          "hasOrders",
           "audit"
         ],
         "type": "object",
@@ -479,6 +585,9 @@
               "null",
               "string"
             ]
+          },
+          "hasOrders": {
+            "type": "boolean"
           },
           "audit": {
             "$ref": "#/components/schemas/AuditReadDto"

@@ -150,40 +150,46 @@ public class OrdersControllerTests
     }
 
     [Fact]
-    public async Task UpdateOrder_WithItems_PublishesTheNewItemListOnly()
+    public async Task UpdateOrder_PublishesTheSavedOrdersFullState()
     {
-        var oldItem = Guid.NewGuid();
-        var newItem = Guid.NewGuid();
-        var order = OrderBuilder.Order(OrderBuilder.Customer());
-        List<OrderItem> previous = [new() { ItemId = oldItem, OrderItemQuantity = 2 }];
-        _repo.UpdateOrderAsync(Arg.Any<Order>()).Returns((order, previous));
+        var newItem = OrderBuilder.Item();
+        var customer = OrderBuilder.Customer();
+        var saved = OrderBuilder.Order(customer, (newItem, 5));
+        List<OrderItem> previous = [new() { ItemId = Guid.NewGuid(), OrderItemQuantity = 2 }];
+        _repo.UpdateOrderAsync(Arg.Any<Order>()).Returns((saved, previous));
 
         var result = await _controller.UpdateOrder(
-            order.Id,
-            OrderBuilder.UpdateDto(lines: (newItem, 5))
+            saved.Id,
+            OrderBuilder.UpdateDto(lines: (newItem.ExternalBatchId, 5))
         );
 
         result
             .Result.ShouldBeOfType<OkObjectResult>()
             .Value.ShouldBeOfType<OrderReadDto>()
-            .Id.ShouldBe(order.Id);
+            .Id.ShouldBe(saved.Id);
         // Inventory reconciles the order's stock to this list, so the old items need no event.
         var published = _published.ShouldHaveSingleItem();
         published.Event.ShouldBe("Order_Published");
-        published.OrderId.ShouldBe(order.Id);
-        published.OrderItems.ShouldBe([new OrderItemPublishedDto(newItem, 5)]);
+        published.OrderId.ShouldBe(saved.Id);
+        published.CustomerId.ShouldBe(customer.ExternalId);
+        published.OrderItems.ShouldBe([new OrderItemPublishedDto(newItem.ExternalBatchId, 5)]);
     }
 
     [Fact]
-    public async Task UpdateOrder_WithoutItems_DoesNotPublish()
+    public async Task UpdateOrder_WithoutItems_StillPublishesSoACustomerChangeIsSeen()
     {
-        var order = OrderBuilder.Order(OrderBuilder.Customer());
-        _repo.UpdateOrderAsync(Arg.Any<Order>()).Returns((order, new List<OrderItem>()));
+        var item = OrderBuilder.Item();
+        var newCustomer = OrderBuilder.Customer();
+        var saved = OrderBuilder.Order(newCustomer, (item, 3));
+        _repo.UpdateOrderAsync(Arg.Any<Order>()).Returns((saved, new List<OrderItem>()));
 
         (
-            await _controller.UpdateOrder(order.Id, OrderBuilder.UpdateDto("Shipped"))
+            await _controller.UpdateOrder(saved.Id, OrderBuilder.UpdateDto("Shipped"))
         ).Result.ShouldBeOfType<OkObjectResult>();
-        _published.ShouldBeEmpty();
+
+        var published = _published.ShouldHaveSingleItem();
+        published.CustomerId.ShouldBe(newCustomer.ExternalId);
+        published.OrderItems.ShouldBe([new OrderItemPublishedDto(item.ExternalBatchId, 3)]);
     }
 
     [Fact]
@@ -214,6 +220,7 @@ public class OrdersControllerTests
         var published = _published.ShouldHaveSingleItem();
         published.Event.ShouldBe("Order_Deleted");
         published.OrderId.ShouldBe(order.Id);
+        published.CustomerId.ShouldBe(order.CustomerId!.Value);
         published.OrderItems.ShouldBe([new OrderItemPublishedDto(item.ExternalBatchId, 4)]);
     }
 

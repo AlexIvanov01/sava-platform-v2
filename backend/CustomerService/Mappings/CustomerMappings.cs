@@ -6,7 +6,7 @@ namespace CustomerService.Mappings;
 
 public static class CustomerMappings
 {
-    public static CustomerReadDto ToReadDto(this Customer customer) =>
+    public static CustomerReadDto ToReadDto(this Customer customer, bool hasOrders) =>
         new(
             customer.Id,
             customer.Name,
@@ -21,6 +21,7 @@ public static class CustomerMappings
             customer.BIC,
             customer.VATNumber,
             customer.UIC,
+            hasOrders,
             customer.ToAuditDto()
         );
 

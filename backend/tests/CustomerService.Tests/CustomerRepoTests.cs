@@ -1,4 +1,5 @@
 using CustomerService.DataAccess;
+using CustomerService.Dtos;
 using Microsoft.EntityFrameworkCore;
 using Sava.Tests.Shared;
 
@@ -107,7 +108,9 @@ public class CustomerRepoTests(MySqlFixture mySql) : IAsyncLifetime
 
         await using (var context = _db.CreateContext())
         {
-            (await new CustomerRepo(context).DeleteCustomerAsync(customer.Id)).ShouldNotBeNull();
+            (await new CustomerRepo(context).DeleteCustomerAsync(customer.Id)).Status.ShouldBe(
+                DeleteCustomerStatus.Deleted
+            );
         }
 
         await using var assertContext = _db.CreateContext();
@@ -121,7 +124,80 @@ public class CustomerRepoTests(MySqlFixture mySql) : IAsyncLifetime
     {
         await using var context = _db.CreateContext();
 
-        (await new CustomerRepo(context).DeleteCustomerAsync(Guid.NewGuid())).ShouldBeNull();
+        (await new CustomerRepo(context).DeleteCustomerAsync(Guid.NewGuid())).Status.ShouldBe(
+            DeleteCustomerStatus.NotFound
+        );
+    }
+
+    [Fact]
+    public async Task OrderReferences_FollowPublishedAndDeletedOrders()
+    {
+        var first = CustomerBuilder.Customer();
+        var second = CustomerBuilder.Customer();
+        await SeedAsync(first, second);
+        var order = TestData.Faker.Random.Guid();
+
+        await using var context = _db.CreateContext();
+        var repo = new CustomerRepo(context);
+
+        await repo.SetOrderCustomerAsync(order, first.Id);
+        await repo.SetOrderCustomerAsync(order, first.Id); // redelivery
+        (await repo.HasOrdersAsync(first.Id)).ShouldBeTrue();
+        (await repo.DeleteCustomerAsync(first.Id)).Status.ShouldBe(DeleteCustomerStatus.HasOrders);
+
+        await repo.SetOrderCustomerAsync(order, second.Id); // order moved to another customer
+        (await repo.HasOrdersAsync(first.Id)).ShouldBeFalse();
+        (await repo.HasOrdersAsync(second.Id)).ShouldBeTrue();
+
+        await repo.RemoveOrderAsync(order);
+        await repo.RemoveOrderAsync(order); // redelivery
+        (await repo.HasOrdersAsync(second.Id)).ShouldBeFalse();
+        (await repo.DeleteCustomerAsync(second.Id)).Status.ShouldBe(DeleteCustomerStatus.Deleted);
+    }
+
+    [Fact]
+    public async Task GetCustomersAsync_PagesFiltersAndFlagsCustomersWithOrders()
+    {
+        var acme = CustomerBuilder.Customer("Ivan Petrov");
+        acme.CompanyName = "Acme Trading Ltd";
+        acme.UIC = "201234567";
+        acme.VATNumber = "BG201234567";
+        var other = CustomerBuilder.Customer("Maria Ivanova");
+        other.CompanyName = "Other OOD";
+        await SeedAsync(acme, other);
+        await using (var context = _db.CreateContext())
+        {
+            await new CustomerRepo(context).SetOrderCustomerAsync(
+                TestData.Faker.Random.Guid(),
+                acme.Id
+            );
+        }
+
+        await using var readContext = _db.CreateContext();
+        var repo = new CustomerRepo(readContext);
+
+        var byCompany = (
+            await repo.GetCustomersAsync(new CustomerFilter(Name: "acme"), null, 10)
+        ).ToList();
+        byCompany.ShouldHaveSingleItem().Customer.Id.ShouldBe(acme.Id);
+        byCompany[0].HasOrders.ShouldBeTrue();
+        (await repo.GetCustomersAsync(new CustomerFilter(Name: "ivan"), null, 10))
+            .Count()
+            .ShouldBe(2); // "Ivan Petrov" and "Maria Ivanova"
+        (await repo.GetCustomersAsync(new CustomerFilter(UIC: "2012"), null, 10))
+            .ShouldHaveSingleItem()
+            .HasOrders.ShouldBeTrue();
+        (
+            await repo.GetCustomersAsync(new CustomerFilter(VATNumber: "BG2012"), null, 10)
+        ).ShouldHaveSingleItem();
+        (await repo.GetCustomersCountAsync(new CustomerFilter(Name: "ivan"))).ShouldBe(2);
+
+        var all = (await repo.GetCustomersAsync(CustomerFilter.None, null, 1)).ToList();
+        var next = (
+            await repo.GetCustomersAsync(CustomerFilter.None, all[0].Customer.Id, 1)
+        ).ToList();
+        next.ShouldHaveSingleItem().Customer.Id.ShouldNotBe(all[0].Customer.Id);
+        (await repo.GetCustomersAsync(CustomerFilter.None, next[0].Customer.Id, 1)).ShouldBeEmpty();
     }
 
     private async Task SeedAsync(params Models.Customer[] customers)

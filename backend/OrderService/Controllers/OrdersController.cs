@@ -153,6 +153,7 @@ public class OrdersController : ControllerBase
             OrderPublishedEvent orderPublishedEvent = new()
             {
                 OrderId = orderModel.Id,
+                CustomerId = orderModel.CustomerId.GetValueOrDefault(),
                 OrderItems = orderModel.OrderItems.ToPublishedDtos(),
                 Event = "Order_Published",
             };
@@ -201,18 +202,17 @@ public class OrdersController : ControllerBase
         //Send Async Message
         try
         {
-            // The new item list replaces the old one; Inventory moves only the difference.
-            if (orderUpdateDto.OrderItems != null && orderUpdateDto.OrderItems.Count != 0)
+            // Always the full current state: subscribers apply only what changed (Inventory moves
+            // stock for changed items, CustomerService follows a change of customer).
+            OrderPublishedEvent orderPublishedEvent = new()
             {
-                OrderPublishedEvent orderPublishedEvent = new()
-                {
-                    OrderId = id,
-                    OrderItems = orderUpdateDto.OrderItems.ToPublishedDtos(),
-                    Event = "Order_Published",
-                };
+                OrderId = id,
+                CustomerId = updatedOrder.CustomerId.GetValueOrDefault(),
+                OrderItems = updatedOrder.OrderItems.ToPublishedDtos(),
+                Event = "Order_Published",
+            };
 
-                await _messageBusClient.PublishNewOrderAsync(orderPublishedEvent);
-            }
+            await _messageBusClient.PublishNewOrderAsync(orderPublishedEvent);
         }
         catch (Exception ex)
         {
@@ -267,6 +267,7 @@ public class OrdersController : ControllerBase
             OrderPublishedEvent orderDeletedEvent = new()
             {
                 OrderId = id,
+                CustomerId = preDeleteOrderModel.CustomerId.GetValueOrDefault(),
                 OrderItems = preDeleteOrderModel.OrderItems.ToPublishedDtos(),
                 Event = "Order_Deleted",
             };

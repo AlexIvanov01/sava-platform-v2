@@ -18,6 +18,7 @@ public class CustomerContext : DbContext
     }
 
     public DbSet<Customer> Customers { get; set; }
+    public DbSet<CustomerOrder> CustomerOrders { get; set; }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -29,5 +30,10 @@ public class CustomerContext : DbContext
     {
         AuditStamper.Stamp(ChangeTracker, _currentUser);
         return base.SaveChanges();
+    }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<CustomerOrder>().HasIndex(o => o.CustomerId);
     }
 }

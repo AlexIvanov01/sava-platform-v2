@@ -4,6 +4,7 @@ using System.Reflection;
 using CustomerService.AsyncDataServices;
 using CustomerService.Auditing;
 using CustomerService.DataAccess;
+using CustomerService.EventProcessing;
 using CustomerService.SyncDataServices.Grpc;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -21,6 +22,12 @@ var builder = WebApplication.CreateBuilder(args);
 var isOpenApiGeneration = Assembly.GetEntryAssembly()?.GetName().Name == "GetDocument.Insider";
 
 builder.Services.AddControllers();
+
+if (!isOpenApiGeneration)
+{
+    builder.Services.AddHostedService<MessageBusSubscriber>();
+}
+
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks().AddDbContextCheck<CustomerContext>(tags: ["ready"]);
 builder.Services.AddDbContext<CustomerContext>(options =>
@@ -35,6 +42,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 builder.Services.AddGrpc();
 builder.Services.AddSingleton<IMessageBusClient, MessageBusClient>();
+builder.Services.AddSingleton<IEventProcessor, EventProcessor>();
 
 Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration).CreateLogger();
 

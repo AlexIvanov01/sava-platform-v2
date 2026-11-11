@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using CustomerService.AsyncDataServices;
@@ -26,26 +27,51 @@ namespace CustomerService.Controllers
             _messageBusClient = messageBusClient;
         }
 
+        // Filters combine with AND and match substrings; name also matches the company name.
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<IEnumerable<CustomerReadDto>>> GetCustomers()
+        public async Task<ActionResult<CustomerPageReadDto>> GetCustomers(
+            Guid? cursor,
+            [Range(1, 100)] int pageSize = 10,
+            string? name = null,
+            string? uic = null,
+            string? vatNumber = null
+        )
         {
             try
             {
-                Log.Information("--> Getting all customers.........");
+                var filter = new CustomerFilter(name, uic, vatNumber);
+                Log.Information(
+                    "--> Getting {PageSize} customers after cursor {Cursor} with {@Filter}",
+                    pageSize,
+                    cursor,
+                    filter
+                );
 
-                var customers = await _repository.GetAllCustomersAsync();
+                var customers = (
+                    await _repository.GetCustomersAsync(filter, cursor, pageSize)
+                ).ToList();
 
-                if (!customers.Any())
+                if (customers.Count == 0)
                 {
-                    Log.Warning("--> No customers found in database.");
+                    Log.Warning("--> No customers found after cursor {Cursor}.", cursor);
                     return NotFound();
                 }
 
-                Log.Information("--> Fetched all customers from database.");
+                var pages = (int)
+                    Math.Ceiling(
+                        await _repository.GetCustomersCountAsync(filter) / (double)pageSize
+                    );
 
-                return Ok(customers.Select(c => c.ToReadDto()));
+                return Ok(
+                    new CustomerPageReadDto(
+                        customers.Select(c => c.Customer.ToReadDto(c.HasOrders)).ToList(),
+                        customers[^1].Customer.Id,
+                        pages
+                    )
+                );
             }
             catch (Exception ex)
             {
@@ -73,7 +99,7 @@ namespace CustomerService.Controllers
 
                 Log.Information("--> Fetched a customer with id {Id}.", id);
 
-                return Ok(customer.ToReadDto());
+                return Ok(customer.ToReadDto(await _repository.HasOrdersAsync(id)));
             }
             catch (Exception ex)
             {
@@ -99,7 +125,7 @@ namespace CustomerService.Controllers
 
                 Log.Information("--> Customer created: {Id}", customerModel.Id);
 
-                customerReadDto = customerModel.ToReadDto();
+                customerReadDto = customerModel.ToReadDto(false);
             }
             catch (Exception ex)
             {
@@ -168,24 +194,35 @@ namespace CustomerService.Controllers
                 Log.Error(ex, "Error with publishing customer message: {Message}", ex.Message);
             }
 
-            return Ok(savedCustomer.ToReadDto());
+            return Ok(savedCustomer.ToReadDto(await _repository.HasOrdersAsync(id)));
         }
 
         [HttpDelete("{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> DeleteCustomer(Guid id)
         {
             try
             {
                 Log.Information("--> Deleting a customer...........");
 
-                var nullCheck = await _repository.DeleteCustomerAsync(id);
+                var (status, _) = await _repository.DeleteCustomerAsync(id);
 
-                if (nullCheck == null)
+                if (status == DeleteCustomerStatus.NotFound)
                 {
                     Log.Warning("--> Customer with id {Id} not found for deleting.", id);
                     return NotFound();
+                }
+
+                if (status == DeleteCustomerStatus.HasOrders)
+                {
+                    Log.Warning("--> Customer with id {Id} has orders; not deleted.", id);
+                    return Problem(
+                        title: "Customer has orders",
+                        detail: $"Customer {id} is referenced by orders and can't be deleted.",
+                        statusCode: StatusCodes.Status409Conflict
+                    );
                 }
 
                 Log.Information("--> Customer with id {Id} deleted", id);

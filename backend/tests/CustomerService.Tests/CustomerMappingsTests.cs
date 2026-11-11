@@ -10,7 +10,9 @@ public class CustomerMappingsTests
     {
         var customer = CustomerBuilder.Customer();
 
-        var dto = customer.ToReadDto();
+        var dto = customer.ToReadDto(true);
+
+        dto.HasOrders.ShouldBeTrue();
 
         dto.Id.ShouldBe(customer.Id);
         dto.Name.ShouldBe(customer.Name);

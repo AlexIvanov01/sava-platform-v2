@@ -9,7 +9,7 @@ using Sava.Tests.Shared;
 
 namespace CustomerService.Tests;
 
-// Runs the real app against its own MySQL database; RabbitMQ is replaced with a substitute.
+// Runs the real app against its own MySQL database; RabbitMQ (publisher and subscriber) is replaced.
 public class CustomerApiFactory(MySqlFixture mySql) : WebApplicationFactory<Program>
 {
     private readonly string _connectionString = mySql.GetConnectionString(
@@ -28,6 +28,14 @@ public class CustomerApiFactory(MySqlFixture mySql) : WebApplicationFactory<Prog
         {
             services.RemoveAll<IMessageBusClient>();
             services.AddSingleton(MessageBus);
+            foreach (
+                var hosted in services
+                    .Where(d => d.ImplementationType == typeof(MessageBusSubscriber))
+                    .ToList()
+            )
+            {
+                services.Remove(hosted);
+            }
         });
     }
 }

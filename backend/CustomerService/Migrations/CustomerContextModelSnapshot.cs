@@ -91,6 +91,21 @@ namespace CustomerService.Migrations
 
                     b.ToTable("Customers");
                 });
+
+            modelBuilder.Entity("CustomerService.Models.CustomerOrder", b =>
+                {
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("OrderId");
+
+                    b.HasIndex("CustomerId");
+
+                    b.ToTable("CustomerOrders");
+                });
 #pragma warning restore 612, 618
         }
     }

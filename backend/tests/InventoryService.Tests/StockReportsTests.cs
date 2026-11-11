@@ -79,8 +79,7 @@ public class StockReportsTests
             .ShouldBe([("TODAY", 0), ("WEEK", 7), ("LAST", 30)]);
         report[1].ValueAtCost.ShouldBe(7.5m);
         StockReports
-            .Expiring(batches, Today, 30, includeExpired: true)
-            .First()
+            .Expiring(batches, Today, 30, includeExpired: true)[0]
             .ShouldSatisfyAllConditions(
                 r => r.Lot.ShouldBe("EXPIRED"),
                 r => r.DaysUntilExpiry.ShouldBe(-2)

@@ -16,7 +16,7 @@ public sealed class EventProcessorTests : IDisposable
     public EventProcessorTests()
     {
         _stock
-            .SetOrderStockAsync(default, default!)
+            .SetOrderStockAsync(Guid.Empty, default!)
             .ReturnsForAnyArgs(Task.FromResult<IReadOnlyList<Guid>>([]));
         _services = new ServiceCollection().AddScoped(_ => _stock).BuildServiceProvider();
         _processor = new EventProcessor(_services.GetRequiredService<IServiceScopeFactory>());
@@ -88,7 +88,7 @@ public sealed class EventProcessorTests : IDisposable
             )
         );
 
-        await _stock.DidNotReceiveWithAnyArgs().SetOrderStockAsync(default, default!);
+        await _stock.DidNotReceiveWithAnyArgs().SetOrderStockAsync(Guid.Empty, default!);
     }
 
     [Fact]

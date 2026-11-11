@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace CustomerService.Dtos;
@@ -24,8 +25,22 @@ public record CustomerReadDto(
     string? BIC,
     string? VATNumber,
     string? UIC,
+    // True while any order references the customer; such customers can't be deleted.
+    bool HasOrders,
     AuditReadDto Audit
 );
+
+public record CustomerPageReadDto(
+    IEnumerable<CustomerReadDto> CustomerReadDtos,
+    Guid Cursor,
+    int Pages
+);
+
+// Query-string filters for GET /api/Customers; null fields don't filter.
+public record CustomerFilter(string? Name = null, string? UIC = null, string? VATNumber = null)
+{
+    public static readonly CustomerFilter None = new();
+}
 
 public record CustomerCreateDto(
     [Required] string Name,

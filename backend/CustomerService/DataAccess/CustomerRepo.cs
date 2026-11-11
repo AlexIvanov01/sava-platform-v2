@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using CustomerService.Dtos;
 using CustomerService.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,7 +23,9 @@ namespace CustomerService.DataAccess
             await _context.SaveChangesAsync();
         }
 
-        public async Task<Customer?> DeleteCustomerAsync(Guid id)
+        public async Task<(DeleteCustomerStatus Status, Customer? Customer)> DeleteCustomerAsync(
+            Guid id
+        )
         {
             var dbCustomer = await _context
                 .Customers.AsNoTracking()
@@ -29,7 +33,12 @@ namespace CustomerService.DataAccess
 
             if (dbCustomer == null)
             {
-                return null;
+                return (DeleteCustomerStatus.NotFound, null);
+            }
+
+            if (await HasOrdersAsync(id))
+            {
+                return (DeleteCustomerStatus.HasOrders, dbCustomer);
             }
 
             _context.Customers.Attach(dbCustomer);
@@ -37,8 +46,87 @@ namespace CustomerService.DataAccess
 
             await _context.SaveChangesAsync();
 
-            return dbCustomer;
+            return (DeleteCustomerStatus.Deleted, dbCustomer);
         }
+
+        public async Task<IEnumerable<(Customer Customer, bool HasOrders)>> GetCustomersAsync(
+            CustomerFilter filter,
+            Guid? cursor,
+            int pageSize
+        )
+        {
+            var query = Filter(_context.Customers.AsNoTracking(), filter);
+
+            if (cursor != null)
+            {
+                query = query.Where(c => c.Id > cursor);
+            }
+
+            var rows = await query
+                .OrderBy(c => c.Id)
+                .Take(pageSize)
+                .Select(c => new
+                {
+                    Customer = c,
+                    HasOrders = _context.CustomerOrders.Any(o => o.CustomerId == c.Id),
+                })
+                .ToListAsync();
+
+            return rows.Select(r => (r.Customer, r.HasOrders));
+        }
+
+        public async Task<int> GetCustomersCountAsync(CustomerFilter filter) =>
+            await Filter(_context.Customers, filter).CountAsync();
+
+        // Substring matches (case-insensitive under MySQL's default collation); Name matches
+        // either the contact name or the company name.
+        private static IQueryable<Customer> Filter(
+            IQueryable<Customer> query,
+            CustomerFilter filter
+        )
+        {
+            if (!string.IsNullOrWhiteSpace(filter.Name))
+            {
+                query = query.Where(c =>
+                    c.Name!.Contains(filter.Name) || c.CompanyName!.Contains(filter.Name)
+                );
+            }
+            if (!string.IsNullOrWhiteSpace(filter.UIC))
+            {
+                query = query.Where(c => c.UIC!.Contains(filter.UIC));
+            }
+            if (!string.IsNullOrWhiteSpace(filter.VATNumber))
+            {
+                query = query.Where(c => c.VATNumber!.Contains(filter.VATNumber));
+            }
+            return query;
+        }
+
+        public async Task<bool> HasOrdersAsync(Guid customerId) =>
+            await _context.CustomerOrders.AnyAsync(o => o.CustomerId == customerId);
+
+        public async Task SetOrderCustomerAsync(Guid orderId, Guid customerId)
+        {
+            var reference = await _context.CustomerOrders.SingleOrDefaultAsync(o =>
+                o.OrderId == orderId
+            );
+
+            if (reference == null)
+            {
+                _context.CustomerOrders.Add(
+                    new CustomerOrder { OrderId = orderId, CustomerId = customerId }
+                );
+            }
+            else
+            {
+                reference.CustomerId = customerId;
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+        public Task RemoveOrderAsync(Guid orderId) =>
+            _context.CustomerOrders.Where(o => o.OrderId == orderId).ExecuteDeleteAsync();
 
         public async Task<IEnumerable<Customer>> GetAllCustomersAsync()
         {

@@ -19,33 +19,41 @@ public class CustomersControllerTests
     [Fact]
     public async Task GetCustomers_NoCustomers_ReturnsNotFound()
     {
-        _repo.GetAllCustomersAsync().Returns(new List<Customer>());
+        _repo.GetCustomersAsync(CustomerFilter.None, null, 10).Returns([]);
 
-        var result = await _controller.GetCustomers();
+        var result = await _controller.GetCustomers(null);
 
         result.Result.ShouldBeOfType<NotFoundResult>();
     }
 
     [Fact]
-    public async Task GetCustomers_WithCustomers_ReturnsOkWithDtos()
+    public async Task GetCustomers_ReturnsPageWithFiltersCursorAndPageCount()
     {
-        var customer = CustomerBuilder.Customer();
-        _repo.GetAllCustomersAsync().Returns(new List<Customer> { customer });
+        var a = CustomerBuilder.Customer();
+        var b = CustomerBuilder.Customer();
+        var filter = new CustomerFilter("Ltd", "201", "BG2");
+        _repo.GetCustomersAsync(filter, null, 2).Returns([(a, true), (b, false)]);
+        _repo.GetCustomersCountAsync(filter).Returns(5);
 
-        var result = await _controller.GetCustomers();
+        var result = await _controller.GetCustomers(null, 2, "Ltd", "201", "BG2");
 
-        var dtos = result
+        var page = result
             .Result.ShouldBeOfType<OkObjectResult>()
-            .Value.ShouldBeAssignableTo<IEnumerable<CustomerReadDto>>();
-        dtos.ShouldHaveSingleItem().Id.ShouldBe(customer.Id);
+            .Value.ShouldBeOfType<CustomerPageReadDto>();
+        page.CustomerReadDtos.Select(c => (c.Id, c.HasOrders))
+            .ShouldBe([(a.Id, true), (b.Id, false)]);
+        page.Cursor.ShouldBe(b.Id);
+        page.Pages.ShouldBe(3);
     }
 
     [Fact]
     public async Task GetCustomers_RepoThrows_Returns500()
     {
-        _repo.GetAllCustomersAsync().ThrowsAsync(new InvalidOperationException("db down"));
+        _repo
+            .GetCustomersAsync(Arg.Any<CustomerFilter>(), Arg.Any<Guid?>(), Arg.Any<int>())
+            .ThrowsAsync(new InvalidOperationException("db down"));
 
-        var result = await _controller.GetCustomers();
+        var result = await _controller.GetCustomers(null);
 
         result.Result.ShouldBeOfType<ObjectResult>().StatusCode.ShouldBe(500);
     }
@@ -63,13 +71,15 @@ public class CustomersControllerTests
     {
         var customer = CustomerBuilder.Customer();
         _repo.GetCustomerAsync(customer.Id).Returns(customer);
+        _repo.HasOrdersAsync(customer.Id).Returns(true);
 
         var result = await _controller.GetCustomerById(customer.Id);
 
-        result
+        var dto = result
             .Result.ShouldBeOfType<OkObjectResult>()
-            .Value.ShouldBeOfType<CustomerReadDto>()
-            .Name.ShouldBe(customer.Name);
+            .Value.ShouldBeOfType<CustomerReadDto>();
+        dto.Name.ShouldBe(customer.Name);
+        dto.HasOrders.ShouldBeTrue();
     }
 
     [Fact]
@@ -153,6 +163,8 @@ public class CustomersControllerTests
     [Fact]
     public async Task DeleteCustomer_Missing_ReturnsNotFound()
     {
+        _repo.DeleteCustomerAsync(Arg.Any<Guid>()).Returns((DeleteCustomerStatus.NotFound, null));
+
         var result = await _controller.DeleteCustomer(Guid.NewGuid());
 
         result.ShouldBeOfType<NotFoundResult>();
@@ -163,7 +175,7 @@ public class CustomersControllerTests
     public async Task DeleteCustomer_Existing_ReturnsNoContentAndPublishesCustomerDeleted()
     {
         var customer = CustomerBuilder.Customer();
-        _repo.DeleteCustomerAsync(customer.Id).Returns(customer);
+        _repo.DeleteCustomerAsync(customer.Id).Returns((DeleteCustomerStatus.Deleted, customer));
 
         var result = await _controller.DeleteCustomer(customer.Id);
 
@@ -174,5 +186,19 @@ public class CustomersControllerTests
                     p.Event == "Customer_Deleted" && p.ExternalId == customer.Id
                 )
             );
+    }
+
+    [Fact]
+    public async Task DeleteCustomer_WithOrders_Returns409AndDoesNotPublish()
+    {
+        var customer = CustomerBuilder.Customer();
+        _repo.DeleteCustomerAsync(customer.Id).Returns((DeleteCustomerStatus.HasOrders, customer));
+
+        var result = await _controller.DeleteCustomer(customer.Id);
+
+        var problem = result.ShouldBeOfType<ObjectResult>().Value.ShouldBeOfType<ProblemDetails>();
+        problem.Status.ShouldBe(409);
+        problem.Title.ShouldBe("Customer has orders");
+        await _bus.DidNotReceiveWithAnyArgs().PublishNewCustomerAsync(default!);
     }
 }
