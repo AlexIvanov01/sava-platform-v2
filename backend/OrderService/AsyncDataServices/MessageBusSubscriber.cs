@@ -15,6 +15,9 @@ public class MessageBusSubscriber : BackgroundService
 {
     private const string Exchange = "trigger";
     private const string RoutingKey = "";
+
+    // Durable and named, so messages published while this service is down wait for it.
+    public const string Queue = "order.catalog-events";
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(5);
 
     private readonly ConnectionFactory _factory;
@@ -79,41 +82,78 @@ public class MessageBusSubscriber : BackgroundService
             type: ExchangeType.Fanout,
             cancellationToken: stoppingToken
         );
-        var queueName = (
-            await _channel.QueueDeclareAsync(cancellationToken: stoppingToken)
-        ).QueueName;
+        await _channel.QueueDeclareAsync(
+            queue: Queue,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            cancellationToken: stoppingToken
+        );
         await _channel.QueueBindAsync(
-            queue: queueName,
+            queue: Queue,
             exchange: Exchange,
             routingKey: RoutingKey,
             cancellationToken: stoppingToken
         );
 
-        var consumer = new AsyncEventingBasicConsumer(_channel);
-        consumer.ReceivedAsync += async (_, ea) =>
-        {
-            Log.Information("--> Event Received!");
+        // One unacknowledged message at a time keeps events in order.
+        await _channel.BasicQosAsync(
+            prefetchSize: 0,
+            prefetchCount: 1,
+            global: false,
+            cancellationToken: stoppingToken
+        );
 
-            var notificationMessage = Encoding.UTF8.GetString(ea.Body.Span);
-
-            try
-            {
-                await _eventProcessor.ProcessEvent(notificationMessage);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "--> Could not process event: {Ex}", ex.Message);
-            }
-        };
+        var channel = _channel;
+        var consumer = new AsyncEventingBasicConsumer(channel);
+        consumer.ReceivedAsync += (_, ea) =>
+            HandleDeliveryAsync(channel, _eventProcessor, ea, RetryDelay, stoppingToken);
 
         await _channel.BasicConsumeAsync(
-            queue: queueName,
-            autoAck: true,
+            queue: Queue,
+            autoAck: false,
             consumer: consumer,
             cancellationToken: stoppingToken
         );
 
         Log.Information("--> Listening on the Message Bus....");
+    }
+
+    // Acknowledges a message only after it was processed. A failure is retried once (after
+    // retryDelay, to ride out e.g. a database restart); if the redelivery fails too, the message is
+    // dropped and logged so it can't block the queue. Messages the processor rejects as invalid
+    // don't throw, so they are acknowledged and not retried.
+    public static async Task HandleDeliveryAsync(
+        IChannel channel,
+        IEventProcessor eventProcessor,
+        BasicDeliverEventArgs ea,
+        TimeSpan retryDelay,
+        CancellationToken cancellationToken
+    )
+    {
+        Log.Information("--> Event Received!");
+        var message = Encoding.UTF8.GetString(ea.Body.Span);
+
+        try
+        {
+            await eventProcessor.ProcessEvent(message);
+        }
+        catch (Exception ex)
+        {
+            if (ea.Redelivered)
+            {
+                Log.Error(ex, "--> Could not process event again; dropping it: {Message}", message);
+                await channel.BasicNackAsync(ea.DeliveryTag, false, false, cancellationToken);
+                return;
+            }
+
+            Log.Warning(ex, "--> Could not process event; retrying it once: {Message}", message);
+            await Task.Delay(retryDelay, cancellationToken);
+            await channel.BasicNackAsync(ea.DeliveryTag, false, true, cancellationToken);
+            return;
+        }
+
+        await channel.BasicAckAsync(ea.DeliveryTag, false, cancellationToken);
     }
 
     private static Task RabbitMQ_ConnectionShutdownAsync(object sender, ShutdownEventArgs e)
