@@ -29,11 +29,11 @@ public class AccountApiTests(AuthApiFactory factory) : IClassFixture<AuthApiFact
 
         tokens.UserName.ShouldBe(AuthApiFactory.AdminUserName);
         tokens.Role.ShouldBe(User.AdministratorRole);
-        tokens.ExpiresIn.ShouldBe(15 * 60);
+        tokens.AccessTokenExpiresIn.ShouldBe(15 * 60);
         tokens.RefreshToken.ShouldNotBeNullOrWhiteSpace();
         tokens.RefreshTokenExpiresIn.ShouldBe(7 * 24 * 3600);
         var validation = await new JwtSecurityTokenHandler().ValidateTokenAsync(
-            tokens.JwtToken,
+            tokens.AccessToken,
             new TokenValidationParameters
             {
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestJwt.Key)),
@@ -293,7 +293,7 @@ public class AccountApiTests(AuthApiFactory factory) : IClassFixture<AuthApiFact
         var tokens = await LoginAsync(client, userName, password);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
-            tokens.JwtToken
+            tokens.AccessToken
         );
         return client;
     }

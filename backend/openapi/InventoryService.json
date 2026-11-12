@@ -2597,7 +2597,6 @@
       },
       "StockMovementType": {
         "enum": [
-          "OpeningBalance",
           "Receipt",
           "Sale",
           "SaleReversal",

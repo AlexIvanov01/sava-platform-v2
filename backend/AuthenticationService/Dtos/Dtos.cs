@@ -15,12 +15,12 @@ public record AuditReadDto(
 
 public record LoginRequestDto([Required] string? UserName, [Required] string? Password);
 
-// JwtToken/ExpiresIn keep the names of the original login response.
+// Lifetimes are in seconds.
 public record TokenResponseDto(
     string UserName,
     string Role,
-    string JwtToken,
-    int ExpiresIn,
+    string AccessToken,
+    int AccessTokenExpiresIn,
     string RefreshToken,
     int RefreshTokenExpiresIn
 );

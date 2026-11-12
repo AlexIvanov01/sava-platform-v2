@@ -750,8 +750,8 @@
         "required": [
           "userName",
           "role",
-          "jwtToken",
-          "expiresIn",
+          "accessToken",
+          "accessTokenExpiresIn",
           "refreshToken",
           "refreshTokenExpiresIn"
         ],
@@ -763,10 +763,10 @@
           "role": {
             "type": "string"
           },
-          "jwtToken": {
+          "accessToken": {
             "type": "string"
           },
-          "expiresIn": {
+          "accessTokenExpiresIn": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",

@@ -38,7 +38,7 @@ public class TokenServiceTests(MySqlFixture mySql) : IAsyncLifetime
 
         response.UserName.ShouldBe(user.UserName);
         response.Role.ShouldBe(user.Role);
-        response.ExpiresIn.ShouldBe(JwtTokenHandler.DefaultAccessTokenMinutes * 60);
+        response.AccessTokenExpiresIn.ShouldBe(JwtTokenHandler.DefaultAccessTokenMinutes * 60);
         response.RefreshTokenExpiresIn.ShouldBe(TokenService.DefaultRefreshTokenDays * 24 * 3600);
         await using var context = _db.CreateContext();
         var stored = await context.RefreshTokens.SingleAsync(Ct);
@@ -60,7 +60,7 @@ public class TokenServiceTests(MySqlFixture mySql) : IAsyncLifetime
 
         second.ShouldNotBeNull();
         second.RefreshToken.ShouldNotBe(first.RefreshToken);
-        second.JwtToken.ShouldNotBe(first.JwtToken);
+        second.AccessToken.ShouldNotBe(first.AccessToken);
         await using var context = _db.CreateContext();
         var tokens = await context.RefreshTokens.OrderBy(t => t.CreatedAt).ToListAsync(Ct);
         tokens.Count.ShouldBe(2);

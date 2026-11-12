@@ -35,8 +35,6 @@ public class StockMovement : AuditableEntity
 [JsonConverter(typeof(JsonStringEnumConverter<StockMovementType>))]
 public enum StockMovementType
 {
-    // The quantity a batch had when the ledger was introduced.
-    OpeningBalance,
     Receipt,
     Sale,
     SaleReversal,

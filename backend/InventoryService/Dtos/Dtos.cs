@@ -139,7 +139,7 @@ public record CategoryUpdateDto(
     [MaxLength(500)] string? Description
 );
 
-// OrderId is null in messages from before the stock ledger; those are skipped.
+// OrderId is required; EventProcessor rejects messages without it.
 public record OrderPublishedDto(
     Guid? OrderId,
     IEnumerable<OrderItemPublishedDto> OrderItems,

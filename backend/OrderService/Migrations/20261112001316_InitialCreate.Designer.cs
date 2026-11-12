@@ -11,8 +11,8 @@ using OrderService.DataAccess;
 namespace OrderService.Migrations
 {
     [DbContext(typeof(OrderContext))]
-    [Migration("20261111205320_AuditFields")]
-    partial class AuditFields
+    [Migration("20261112001316_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
