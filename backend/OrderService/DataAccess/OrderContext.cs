@@ -14,6 +14,7 @@ public class OrderContext(DbContextOptions options, ICurrentUser? currentUser = 
     public DbSet<Invoice> Invoices { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<OrderItemBatch> OrderItemBatches { get; set; }
+    public DbSet<CompanySettings> CompanySettings { get; set; }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

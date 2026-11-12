@@ -33,6 +33,7 @@ builder.Services.AddScoped<IOrderRepo, OrderRepo>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 builder.Services.AddScoped<IInvoiceRepo, InvoiceRepo>();
+builder.Services.AddScoped<ICompanySettingsRepo, CompanySettingsRepo>();
 builder.Services.AddSingleton<IInventoryDataClient, InventoryDataClient>();
 builder.Services.AddSingleton<ICustomerDataClient, CustomerDataClient>();
 builder.Services.AddSingleton<IMessageBusClient, MessageBusClient>();

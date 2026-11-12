@@ -106,6 +106,11 @@ public class GatewayAuthorizationTests(GatewayFactory factory) : IClassFixture<G
                 "Administrator",
                 HttpStatusCode.BadGateway
             },
+            // Company settings: anyone can read, only Administrator saves.
+            { "GET", "/api/CompanySettings", "User", HttpStatusCode.BadGateway },
+            { "GET", "/api/CompanySettings", null, HttpStatusCode.Unauthorized },
+            { "PUT", "/api/CompanySettings", "User", HttpStatusCode.Forbidden },
+            { "PUT", "/api/CompanySettings", "Administrator", HttpStatusCode.BadGateway },
             // Stock ledger: anyone can read history, only Administrator adjusts.
             {
                 "GET",

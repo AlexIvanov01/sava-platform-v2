@@ -37,6 +37,11 @@ public static class PrepDB
             return;
         }
 
+        await SeedCompanySettingsAsync(
+            context,
+            Path.Combine(env.ContentRootPath, "dummy_company.json")
+        );
+
         Log.Information(
             "--> Waiting 5 seconds for Inventory and Customer Service initialization..."
         );
@@ -137,6 +142,24 @@ public static class PrepDB
             orders.Count,
             orders.Count(o => o.Invoice != null)
         );
+    }
+
+    // Sample company details, only when none have been saved yet.
+    public static async Task SeedCompanySettingsAsync(OrderContext context, string seedFile)
+    {
+        if (await context.CompanySettings.AnyAsync())
+        {
+            Log.Information("--> Company settings already present.");
+            return;
+        }
+
+        var settings =
+            JsonSerializer.Deserialize<CompanySettings>(await File.ReadAllTextAsync(seedFile))
+            ?? throw new InvalidOperationException($"{seedFile} is empty.");
+        settings.Id = Guid.NewGuid();
+        context.CompanySettings.Add(settings);
+        await context.SaveChangesAsync();
+        Log.Information("--> Seeded company settings.");
     }
 
     private static void SkipSeed(string reason) =>

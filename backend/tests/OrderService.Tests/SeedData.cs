@@ -10,6 +10,7 @@ namespace OrderService.Tests;
 internal static class SeedData
 {
     public static string OrdersFile => PathOf("orders.json");
+    public static string CompanyFile => PathOf("company.json");
 
     public static Dictionary<Guid, CustomerSnapshot> Customers()
     {

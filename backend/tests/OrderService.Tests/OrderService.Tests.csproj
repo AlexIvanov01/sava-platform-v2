@@ -32,5 +32,10 @@
       Link="SeedData\orders.json"
       CopyToOutputDirectory="PreserveNewest"
     />
+    <None
+      Include="..\..\OrderService\dummy_company.json"
+      Link="SeedData\company.json"
+      CopyToOutputDirectory="PreserveNewest"
+    />
   </ItemGroup>
 </Project>

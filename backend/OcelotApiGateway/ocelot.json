@@ -635,6 +635,41 @@
             "RouteClaimsRequirement": {
                 "Role": "Administrator"
             }
+        },
+        {
+            "UpstreamPathTemplate": "/api/CompanySettings",
+            "UpstreamHttpMethod": [ "Get" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "order-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/CompanySettings",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            }
+        },
+        {
+            "UpstreamPathTemplate": "/api/CompanySettings",
+            "UpstreamHttpMethod": [ "Put" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "order-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/CompanySettings",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            },
+            "RouteClaimsRequirement": {
+                "Role": "Administrator"
+            }
         }
     ],
     "GlobalConfiguration": {

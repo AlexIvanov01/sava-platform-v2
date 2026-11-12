@@ -16,6 +16,92 @@ namespace OrderService.Migrations
 
             migrationBuilder
                 .CreateTable(
+                    name: "CompanySettings",
+                    columns: table => new
+                    {
+                        Id = table.Column<Guid>(type: "char(36)", nullable: false),
+                        Name = table.Column<string>(
+                            type: "varchar(200)",
+                            maxLength: 200,
+                            nullable: true
+                        ),
+                        UIC = table.Column<string>(
+                            type: "varchar(20)",
+                            maxLength: 20,
+                            nullable: true
+                        ),
+                        VATNumber = table.Column<string>(
+                            type: "varchar(20)",
+                            maxLength: 20,
+                            nullable: true
+                        ),
+                        Address = table.Column<string>(
+                            type: "varchar(500)",
+                            maxLength: 500,
+                            nullable: true
+                        ),
+                        City = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        Country = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        Manager = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        BankName = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        IBAN = table.Column<string>(
+                            type: "varchar(35)",
+                            maxLength: 35,
+                            nullable: true
+                        ),
+                        BIC = table.Column<string>(
+                            type: "varchar(15)",
+                            maxLength: 15,
+                            nullable: true
+                        ),
+                        Email = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        PhoneNumber = table.Column<string>(
+                            type: "varchar(20)",
+                            maxLength: 20,
+                            nullable: true
+                        ),
+                        CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                        UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                        CreatedBy = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        UpdatedBy = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                    },
+                    constraints: table =>
+                    {
+                        table.PrimaryKey("PK_CompanySettings", x => x.Id);
+                    }
+                )
+                .Annotation("MySQL:Charset", "utf8mb4");
+
+            migrationBuilder
+                .CreateTable(
                     name: "Orders",
                     columns: table => new
                     {
@@ -280,6 +366,8 @@ namespace OrderService.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(name: "CompanySettings");
+
             migrationBuilder.DropTable(name: "Invoices");
 
             migrationBuilder.DropTable(name: "OrderItemBatches");
