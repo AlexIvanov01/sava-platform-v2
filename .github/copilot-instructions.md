@@ -12,7 +12,7 @@ dotnet run                       # uses appsettings.Development.json (localhost 
 dotnet ef migrations add <Name>  # EF Core tools are referenced in each csproj
 ```
 
-Deployment uses the Helm chart in `deploy/helm/sava` with `values-dev.yaml` (Docker Desktop Kubernetes: `Development`, in-cluster MySQL, chart-generated Secret, gateway on `localhost:80`) or `values-prod.yaml` (`Production`, external MySQL, pre-created `sava-secrets` Secret, Ingress with cert-manager TLS). Images are `alexivanov01/<service>:<tag>`, using `dev` locally and the git SHA in prod. The README has the full commands:
+Deployment uses the Helm chart in `deploy/helm/sava` with `values-dev.yaml` (Docker Desktop Kubernetes: `Development`, in-cluster MySQL, chart-generated Secret, gateway on `localhost:80`) or `values-prod.yaml` (`Production`, in-cluster MySQL, pre-created `sava-secrets` Secret, Ingress with cert-manager TLS). Images are `alexivanov01/<service>:<tag>`, using `dev` locally and the git SHA in prod. The README has the full commands:
 
 ```bash
 docker build -t alexivanov01/inventoryservice:dev backend/InventoryService

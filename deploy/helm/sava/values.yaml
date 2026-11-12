@@ -1,6 +1,6 @@
 # Defaults shared by every environment. Install with one of the environment files:
 #   values-dev.yaml   full stack on Docker Desktop Kubernetes (localhost)
-#   values-prod.yaml  hosted cluster with external MySQL and an Ingress
+#   values-prod.yaml  hosted cluster with in-cluster MySQL and an Ingress
 
 # ASP.NET Core environment for all services. Development seeds sample data on an empty
 # database and enables Swagger UI and detailed error pages.
@@ -39,6 +39,9 @@ secrets:
 mysql:
   enabled: false
   image: mysql:9.7
+  # InnoDB's cache for data and indexes; ideally larger than the databases. MySQL uses roughly
+  # 500 MiB on top of it, so keep resources.limits.memory above the sum.
+  innodbBufferPoolSize: 128M
   storage: 1Gi
   storageClassName: ""
   # Optional LoadBalancer for connecting from the host (e.g. a SQL client on localhost:<port>).

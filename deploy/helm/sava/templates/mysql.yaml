@@ -35,6 +35,8 @@ spec:
       containers:
         - name: mysql
           image: {{ .Values.mysql.image }}
+          args:
+            - --innodb-buffer-pool-size={{ .Values.mysql.innodbBufferPoolSize }}
           ports:
             - name: mysql
               containerPort: 3306
