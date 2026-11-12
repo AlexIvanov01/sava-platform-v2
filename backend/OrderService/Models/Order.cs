@@ -22,7 +22,12 @@ public class Order : AuditableEntity
     public string? OrderStatus { get; set; }
 
     public Guid? CustomerId { get; set; }
-    public Customer? Customer { get; set; }
+
+    // The customer as CustomerService returned it when the order was created or its customer
+    // was last changed; later edits in CustomerService don't reach it.
+    public CustomerSnapshot? Customer { get; set; }
     public Invoice? Invoice { get; set; }
-    public List<OrderItem> OrderItems { get; set; } = [];
+
+    // One item per product.
+    public List<OrderItem> Items { get; set; } = [];
 }

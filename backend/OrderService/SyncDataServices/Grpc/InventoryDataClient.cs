@@ -1,47 +1,59 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using Grpc.Core;
 using Grpc.Net.Client;
 using InventoryService;
 using Microsoft.Extensions.Configuration;
 using OrderService.Mappings;
-using OrderService.Models;
 using Serilog;
 
 namespace OrderService.SyncDataServices.Grpc;
 
-public class InventoryDataClient : IInventoryDataClient
+// Singleton: one channel, reused for every call.
+public sealed class InventoryDataClient : IInventoryDataClient, IDisposable
 {
-    private readonly IConfiguration _configuration;
+    private readonly GrpcChannel _channel;
+    private readonly GrpcInventory.GrpcInventoryClient _client;
+    private readonly TimeSpan _timeout;
 
     public InventoryDataClient(IConfiguration configuration)
     {
-        _configuration = configuration;
-    }
-
-    public IEnumerable<Item>? ReturnAllItems()
-    {
-        Log.Information(
-            "--> Calling inventory GRPC service {Service}",
-            _configuration["GrpcInventoryService"]
-        );
-
-        var channel = GrpcChannel.ForAddress(
-            _configuration["GrpcInventoryService"]
+        _channel = GrpcChannel.ForAddress(
+            configuration["GrpcInventoryService"]
                 ?? throw new InvalidOperationException("GrpcInventoryService is not configured.")
         );
-        var client = new GrpcInventory.GrpcInventoryClient(channel);
-        var request = new GetAllRequest();
+        _client = new GrpcInventory.GrpcInventoryClient(_channel);
+        _timeout = GrpcTimeout.From(configuration);
+    }
+
+    public async Task<CatalogSnapshot> GetOrderSnapshotAsync(
+        IReadOnlyCollection<Guid> productIds,
+        IReadOnlyCollection<Guid> batchIds
+    )
+    {
+        var request = new OrderSnapshotRequest();
+        request.ProductIds.AddRange(productIds.Select(id => id.ToString()));
+        request.BatchIds.AddRange(batchIds.Select(id => id.ToString()));
 
         try
         {
-            var reply = client.GetAllItems(request);
-            return reply.Item.Select(m => m.ToEntity()).ToList();
+            var reply = await _client.GetOrderSnapshotAsync(
+                request,
+                deadline: DateTime.UtcNow.Add(_timeout)
+            );
+            return new CatalogSnapshot(
+                reply.Products.Select(p => p.ToSnapshot()).ToDictionary(p => p.Id),
+                reply.Batches.Select(b => b.ToSnapshot()).ToDictionary(b => b.Id)
+            );
         }
-        catch (Exception ex)
+        catch (RpcException ex)
         {
-            Log.Error(ex, "Could not call GRPC server : {Ex}", ex.Message);
-            return null;
+            Log.Error(ex, "--> InventoryService GetOrderSnapshot failed: {Status}", ex.StatusCode);
+            throw new UpstreamUnavailableException("InventoryService", ex);
         }
     }
+
+    public void Dispose() => _channel.Dispose();
 }

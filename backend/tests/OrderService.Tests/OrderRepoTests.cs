@@ -1,12 +1,48 @@
 using Microsoft.EntityFrameworkCore;
 using OrderService.DataAccess;
+using OrderService.Mappings;
 using OrderService.Models;
+using OrderService.Ordering;
 using Sava.Tests.Shared;
 
 namespace OrderService.Tests;
 
 public class OrderRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
 {
+    private static List<(Guid ProductId, Guid BatchId, string? Lot, int Quantity)> Batches(
+        Order order
+    ) =>
+        [
+            .. order
+                .Items.SelectMany(l =>
+                    l.Batches.Select(b => (l.ProductId, b.BatchId, b.Lot, b.Quantity))
+                )
+                .OrderBy(b => b.BatchId),
+        ];
+
+    private static (
+        Guid ProductId,
+        string? SKU,
+        string? Name,
+        string? UnitOfMeasure,
+        decimal? ListPrice,
+        decimal? UnitPrice,
+        decimal? VatRate,
+        decimal? Cost,
+        int Quantity
+    ) Snapshot(OrderItem l) =>
+        (
+            l.ProductId,
+            l.SKU,
+            l.Name,
+            l.UnitOfMeasure,
+            l.ListPrice,
+            l.UnitPrice,
+            l.VatRate,
+            l.Cost,
+            l.Quantity
+        );
+
     [Fact]
     public async Task Migrations_MatchTheModel()
     {
@@ -16,70 +52,68 @@ public class OrderRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
     }
 
     [Fact]
-    public async Task CreateOrderAsync_ValidOrder_PersistsWithItemsAndCustomer()
+    public async Task CreateOrderAsync_PersistsItemsBatchesAndCustomerSnapshot()
     {
-        var customer = OrderBuilder.Customer();
-        var item = OrderBuilder.Item();
-        await SeedAsync(customer, item);
-        var order = OrderBuilder
-            .CreateDto(customer.ExternalId, (item.ExternalBatchId, 3))
-            .ToEntityForTest();
+        var order = OrderBuilder.Order(OrderBuilder.Item(batchCount: 2), OrderBuilder.Item());
+        var presetId = order.Id;
 
-        Order? created;
         await using (var context = Db.CreateContext())
         {
-            created = await new OrderRepo(context).CreateOrderAsync(order);
+            await new OrderRepo(context).CreateOrderAsync(order);
         }
 
-        created
+        order.Id.ShouldNotBe(presetId);
+        await using var assert = Db.CreateContext();
+        var saved = (await new OrderRepo(assert).GetOrderByIdAsync(order.Id)).ShouldNotBeNull();
+        saved.CustomerId.ShouldBe(order.CustomerId);
+        saved.OrderDate.ShouldBe(order.OrderDate);
+        saved.ShippingAddress.ShouldBe(order.ShippingAddress);
+        saved.OrderStatus.ShouldBe(order.OrderStatus);
+        saved.Customer.ShouldNotBeNull().ToReadDto().ShouldBe(order.Customer!.ToReadDto());
+        saved.CreatedAt.ShouldNotBeNull();
+        // Everything a item snapshots.
+        saved.Items.Select(Snapshot).ShouldBe(order.Items.Select(Snapshot), ignoreOrder: true);
+        foreach (var item in order.Items)
+        {
+            saved
+                .Items.Single(l => l.ProductId == item.ProductId)
+                .ToReadDto()
+                .Batches.ShouldBe(item.ToReadDto().Batches);
+        }
+        (await assert.OrderItems.CountAsync(Ct)).ShouldBe(2);
+        (await assert.OrderItemBatches.CountAsync(Ct)).ShouldBe(3);
+    }
+
+    // Saving a customer snapshot whose fields are all empty still needs no customer.
+    [Fact]
+    public async Task CreateOrderAsync_EmptyCustomerSnapshot_RoundTrips()
+    {
+        var order = OrderBuilder.Order(OrderBuilder.Item());
+        order.Customer = new CustomerSnapshot();
+
+        await using (var context = Db.CreateContext())
+        {
+            await new OrderRepo(context).CreateOrderAsync(order);
+        }
+
+        await using var assert = Db.CreateContext();
+        (await new OrderRepo(assert).GetOrderByIdAsync(order.Id))
             .ShouldNotBeNull()
             .Customer.ShouldNotBeNull()
-            .ExternalId.ShouldBe(customer.ExternalId);
-        await using var assert = Db.CreateContext();
-        var saved = (await new OrderRepo(assert).GetOrderByIdAsync(created.Id)).ShouldNotBeNull();
-        saved.Customer.ShouldNotBeNull();
-        var line = saved.OrderItems.ShouldHaveSingleItem();
-        line.Item.Name.ShouldBe(item.Name);
-        line.OrderItemQuantity.ShouldBe(3);
-        (await assert.Items.CountAsync(Ct)).ShouldBe(1);
+            .Name.ShouldBeNull();
     }
 
     [Fact]
-    public async Task CreateOrderAsync_InvalidInput_ReturnsNullAndPersistsNothing()
+    public async Task SameProductTwiceOnAnOrder_IsRejectedByTheDatabase()
     {
-        var customer = OrderBuilder.Customer();
         var item = OrderBuilder.Item();
-        await SeedAsync(customer, item);
+        var duplicate = OrderBuilder.Item();
+        duplicate.ProductId = item.ProductId;
 
         await using var context = Db.CreateContext();
-        var repo = new OrderRepo(context);
-        (
-            await repo.CreateOrderAsync(
-                OrderBuilder.CreateDto(customer.ExternalId).ToEntityForTest()
-            )
-        ).ShouldBeNull();
-        (
-            await repo.CreateOrderAsync(
-                OrderBuilder.CreateDto(Guid.NewGuid(), (item.ExternalBatchId, 1)).ToEntityForTest()
-            )
-        ).ShouldBeNull();
-        (
-            await repo.CreateOrderAsync(
-                OrderBuilder.CreateDto(customer.ExternalId, (Guid.NewGuid(), 1)).ToEntityForTest()
-            )
-        ).ShouldBeNull();
-        (
-            await repo.CreateOrderAsync(
-                OrderBuilder
-                    .CreateDto(
-                        customer.ExternalId,
-                        (item.ExternalBatchId, 1),
-                        (item.ExternalBatchId, 2)
-                    )
-                    .ToEntityForTest()
-            )
-        ).ShouldBeNull();
-        (await context.Orders.CountAsync(Ct)).ShouldBe(0);
+        await Should.ThrowAsync<DbUpdateException>(
+            new OrderRepo(context).CreateOrderAsync(OrderBuilder.Order(item, duplicate))
+        );
     }
 
     [Fact]
@@ -97,137 +131,142 @@ public class OrderRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
 
         first.Count.ShouldBe(2);
         first[0].Customer.ShouldNotBeNull();
-        first[0].OrderItems.ShouldHaveSingleItem().Item.ShouldNotBeNull();
-        second.ShouldHaveSingleItem();
-        first.Select(o => o.Id).ShouldNotContain(second[0].Id);
+        first[0].Items.ShouldHaveSingleItem().Batches.ShouldHaveSingleItem();
+        first.Select(o => o.Id).ShouldNotContain(second.ShouldHaveSingleItem().Id);
         (await repo.GetOrderCountAsync()).ShouldBe(3);
     }
 
     [Fact]
     public async Task GetAllOrdersByCustomerIdAsync_FiltersAndPages()
     {
-        var customer = OrderBuilder.Customer();
-        var item = OrderBuilder.Item();
+        var customerId = TestData.Faker.Random.Guid();
         var orders = new[]
         {
-            OrderBuilder.Order(customer, (item, 1)),
-            OrderBuilder.Order(customer, (item, 2)),
+            OrderBuilder.OrderFor(customerId, OrderBuilder.Item()),
+            OrderBuilder.OrderFor(customerId, OrderBuilder.Item()),
         };
-        await SeedAsync(customer, orders[0], orders[1]);
+        await SeedAsync(orders[0], orders[1]);
         await SeedOrderAsync();
 
         await using var context = Db.CreateContext();
         var repo = new OrderRepo(context);
         var first = (
-            await repo.GetAllOrdersByCustomerIdAsync(customer.ExternalId, null, 1)
+            await repo.GetAllOrdersByCustomerIdAsync(customerId, null, 1)
         ).ShouldHaveSingleItem();
         var second = (
-            await repo.GetAllOrdersByCustomerIdAsync(customer.ExternalId, first.Id, 10)
+            await repo.GetAllOrdersByCustomerIdAsync(customerId, first.Id, 10)
         ).ShouldHaveSingleItem();
 
         new[] { first.Id, second.Id }.ShouldBe(orders.Select(o => o.Id), ignoreOrder: true);
+        second.Items.ShouldHaveSingleItem();
     }
 
     [Fact]
-    public async Task UpdateOrderAsync_UpdatesFieldsAndMergesItems()
+    public async Task GetOrderForUpdateAsync_Unknown_ReturnsNull()
     {
-        var (_, items, order) = await SeedOrderAsync(2);
-        var newItem = OrderBuilder.Item("New");
-        await SeedAsync(newItem);
-        var update = OrderBuilder
-            .UpdateDto("Shipped", null, (items[1].ExternalBatchId, 7), (newItem.ExternalBatchId, 1))
-            .ToEntityForTest(order.Id);
+        await SeedOrderAsync(1);
+        await using var context = Db.CreateContext();
+
+        (
+            await new OrderRepo(context).GetOrderForUpdateAsync(TestData.Faker.Random.Guid())
+        ).ShouldBeNull();
+    }
+
+    // The update path of the controller: load tracked, apply the requested items, save.
+    [Fact]
+    public async Task GetOrderForUpdateAsync_ChangedItemsAndBatches_ArePersisted()
+    {
+        var keep = OrderBuilder.Item(batchCount: 2);
+        var drop = OrderBuilder.Item(batchCount: 2);
+        var order = OrderBuilder.Order(keep, drop);
+        await SeedAsync(order);
+        var product = OrderBuilder.Product();
+        var newBatch = OrderBuilder.Batch(product.Id);
+        var keptBatch = OrderBuilder.Batch(keep.ProductId);
+        var price = TestData.Faker.Finance.Amount(1, 100);
+        var newCustomer = OrderBuilder.Customer();
+        var (keptQuantity, addedQuantity, newQuantity) = (
+            TestData.Faker.Random.Int(1, 50),
+            TestData.Faker.Random.Int(1, 50),
+            TestData.Faker.Random.Int(1, 50)
+        );
 
         await using (var context = Db.CreateContext())
         {
-            var result = (await new OrderRepo(context).UpdateOrderAsync(update)).ShouldNotBeNull();
-
-            result
-                .PreviousItems.Select(oi => (oi.ItemId, oi.OrderItemQuantity))
-                .ShouldBe(
-                    [(items[0].ExternalBatchId, 1), (items[1].ExternalBatchId, 2)],
-                    ignoreOrder: true
-                );
+            var repo = new OrderRepo(context);
+            var tracked = (await repo.GetOrderForUpdateAsync(order.Id)).ShouldNotBeNull();
+            tracked.Items.Count.ShouldBe(2);
+            tracked.Items.ShouldAllBe(l => l.Batches.Count == 2);
+            OrderItems
+                .Apply(
+                    tracked,
+                    [
+                        OrderBuilder.ItemDto(
+                            keep.ProductId,
+                            (keep.Batches[0].BatchId, keptQuantity),
+                            (keptBatch.Id, addedQuantity)
+                        ) with
+                        {
+                            UnitPrice = price,
+                        },
+                        OrderBuilder.ItemDto(product.Id, (newBatch.Id, newQuantity)),
+                    ],
+                    OrderBuilder.Catalog([product], [newBatch, keptBatch])
+                )
+                .ShouldBeEmpty();
+            tracked.Customer = newCustomer;
+            tracked.UpdatedAt = DateTime.UtcNow;
+            await repo.SaveChangesAsync();
         }
 
         await using var assert = Db.CreateContext();
         var saved = (await new OrderRepo(assert).GetOrderByIdAsync(order.Id)).ShouldNotBeNull();
-        saved.OrderStatus.ShouldBe("Shipped");
-        saved.ShippingAddress.ShouldBe(order.ShippingAddress);
-        saved
-            .OrderItems.Select(oi => (oi.ItemId, oi.OrderItemQuantity))
+        saved.Customer.ShouldNotBeNull().ToReadDto().ShouldBe(newCustomer.ToReadDto());
+        saved.UpdatedAt.ShouldNotBeNull();
+        saved.Items.Single(l => l.ProductId == keep.ProductId).UnitPrice.ShouldBe(price);
+        saved.Items.Single(l => l.ProductId == product.Id).Name.ShouldBe(product.Name);
+        Batches(saved)
             .ShouldBe(
-                [(items[1].ExternalBatchId, 7), (newItem.ExternalBatchId, 1)],
-                ignoreOrder: true
+                new[]
+                {
+                    (keep.ProductId, keep.Batches[0].BatchId, keep.Batches[0].Lot, keptQuantity),
+                    (keep.ProductId, keptBatch.Id, keptBatch.Lot, addedQuantity),
+                    (product.Id, newBatch.Id, newBatch.Lot, newQuantity),
+                }.OrderBy(b => b.Item2)
             );
+        // The dropped item and batch rows are deleted, not orphaned.
+        (await assert.OrderItems.CountAsync(Ct)).ShouldBe(2);
+        (await assert.OrderItemBatches.CountAsync(Ct)).ShouldBe(3);
     }
 
     [Fact]
-    public async Task UpdateOrderAsync_WithoutItems_KeepsItems()
+    public async Task DeleteOrderAsync_RemovesOrderWithItsItemsAndBatches()
     {
-        var (_, _, order) = await SeedOrderAsync(2);
+        var order = OrderBuilder.Order(OrderBuilder.Item(batchCount: 2), OrderBuilder.Item());
+        var other = await SeedOrderAsync(1);
+        await SeedAsync(order);
 
         await using (var context = Db.CreateContext())
         {
-            (
-                await new OrderRepo(context).UpdateOrderAsync(
-                    OrderBuilder.UpdateDto("Paid").ToEntityForTest(order.Id)
-                )
-            ).ShouldNotBeNull();
-        }
-
-        await using var assert = Db.CreateContext();
-        (await assert.OrderItems.CountAsync(oi => oi.OrderId == order.Id, Ct)).ShouldBe(2);
-    }
-
-    [Fact]
-    public async Task UpdateOrderAsync_UnknownOrderCustomerOrItem_ReturnsNull()
-    {
-        var (_, _, order) = await SeedOrderAsync(1);
-
-        await using var context = Db.CreateContext();
-        var repo = new OrderRepo(context);
-        (
-            await repo.UpdateOrderAsync(OrderBuilder.UpdateDto("x").ToEntityForTest(Guid.NewGuid()))
-        ).ShouldBeNull();
-        (
-            await repo.UpdateOrderAsync(
-                OrderBuilder.UpdateDto(customerId: Guid.NewGuid()).ToEntityForTest(order.Id)
-            )
-        ).ShouldBeNull();
-        (
-            await repo.UpdateOrderAsync(
-                OrderBuilder.UpdateDto(lines: (Guid.NewGuid(), 1)).ToEntityForTest(order.Id)
-            )
-        ).ShouldBeNull();
-    }
-
-    [Fact]
-    public async Task DeleteOrderAsync_RemovesOrderAndItsLines_KeepsItems()
-    {
-        var (_, items, order) = await SeedOrderAsync(2);
-
-        await using (var context = Db.CreateContext())
-        {
-            var (status, deleted) = await new OrderRepo(context).DeleteOrderAsync(order.Id);
+            var repo = new OrderRepo(context);
+            var (status, deleted) = await repo.DeleteOrderAsync(order.Id);
             status.ShouldBe(DeleteOrderStatus.Deleted);
-            deleted.ShouldNotBeNull().OrderItems.Count.ShouldBe(2);
-            (await new OrderRepo(context).DeleteOrderAsync(order.Id)).ShouldBe(
-                (DeleteOrderStatus.NotFound, null)
-            );
+            // Returned with its items, for the Order_Deleted event.
+            Batches(deleted.ShouldNotBeNull()).ShouldBe(Batches(order));
+            (await repo.DeleteOrderAsync(order.Id)).ShouldBe((DeleteOrderStatus.NotFound, null));
         }
 
         await using var assert = Db.CreateContext();
-        (await assert.Orders.AnyAsync(Ct)).ShouldBeFalse();
-        (await assert.OrderItems.AnyAsync(Ct)).ShouldBeFalse();
-        (await assert.Items.CountAsync(Ct)).ShouldBe(items.Length);
+        (await assert.Orders.SingleAsync(Ct)).Id.ShouldBe(other.Id);
+        (await assert.OrderItems.SingleAsync(Ct)).OrderId.ShouldBe(other.Id);
+        (await assert.OrderItemBatches.CountAsync(Ct)).ShouldBe(1);
     }
 
-    // An invoiced order is reported, not deleted; its lines stay intact.
+    // An invoiced order is reported, not deleted; its items stay intact.
     [Fact]
     public async Task DeleteOrderAsync_InvoicedOrder_ReturnsHasInvoiceWithoutDeleting()
     {
-        var (_, _, order) = await SeedOrderAsync(2);
+        var order = await SeedOrderAsync(2);
         await using (var seed = Db.CreateContext())
         {
             seed.Invoices.Add(
@@ -243,12 +282,14 @@ public class OrderRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
 
         await using (var context = Db.CreateContext())
         {
-            var (status, _) = await new OrderRepo(context).DeleteOrderAsync(order.Id);
+            var (status, returned) = await new OrderRepo(context).DeleteOrderAsync(order.Id);
             status.ShouldBe(DeleteOrderStatus.HasInvoice);
+            returned.ShouldNotBeNull().Invoice.ShouldNotBeNull();
         }
 
         await using var assert = Db.CreateContext();
         (await assert.Orders.AnyAsync(o => o.Id == order.Id, Ct)).ShouldBeTrue();
-        (await assert.OrderItems.CountAsync(oi => oi.OrderId == order.Id, Ct)).ShouldBe(2);
+        (await assert.OrderItems.CountAsync(l => l.OrderId == order.Id, Ct)).ShouldBe(2);
+        (await assert.OrderItemBatches.CountAsync(Ct)).ShouldBe(2);
     }
 }

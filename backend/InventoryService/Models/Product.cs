@@ -44,7 +44,7 @@ public class Product : AuditableEntity
     // Visible in the future online catalog.
     public bool? IsPublished { get; set; }
 
-    // EUR, VAT exclusive. The default price for new order lines.
+    // EUR, VAT exclusive. The default price for new order items.
     [Precision(18, 2)]
     public decimal? ListPrice { get; set; }
 

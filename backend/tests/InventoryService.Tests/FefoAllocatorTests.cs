@@ -15,17 +15,17 @@ public class FefoAllocatorTests
         var early = Batch(4, expiresInDays: 5);
         var product = InventoryBuilder.Product(null, late, early);
 
-        var line = FefoAllocator.Suggest(product, 7, Nothing, Today);
+        var item = FefoAllocator.Suggest(product, 7, Nothing, Today);
 
-        line.ProductId.ShouldBe(product.Id);
-        line.SKU.ShouldBe(product.SKU);
-        line.Allocated.ShouldBe(7);
-        line.Shortage.ShouldBeFalse();
-        line.ShortBy.ShouldBe(0);
-        line.Batches.Select(b => (b.BatchId, b.Available, b.Quantity))
+        item.ProductId.ShouldBe(product.Id);
+        item.SKU.ShouldBe(product.SKU);
+        item.Allocated.ShouldBe(7);
+        item.Shortage.ShouldBeFalse();
+        item.ShortBy.ShouldBe(0);
+        item.Batches.Select(b => (b.BatchId, b.Available, b.Quantity))
             .ShouldBe([(early.Id, 4, 4), (late.Id, 10, 3)]);
-        line.Batches[0].Lot.ShouldBe(early.Lot);
-        line.Batches[0].Location.ShouldBe(early.Location);
+        item.Batches[0].Lot.ShouldBe(early.Lot);
+        item.Batches[0].Location.ShouldBe(early.Location);
     }
 
     [Fact]
@@ -38,9 +38,9 @@ public class FefoAllocatorTests
         var noExpiry = Batch(20, expiresInDays: null);
         var product = InventoryBuilder.Product(null, noExpiry, expired, empty, negative, lastDay);
 
-        var line = FefoAllocator.Suggest(product, 5, Nothing, Today);
+        var item = FefoAllocator.Suggest(product, 5, Nothing, Today);
 
-        line.Batches.Select(b => (b.BatchId, b.Quantity))
+        item.Batches.Select(b => (b.BatchId, b.Quantity))
             .ShouldBe([(lastDay.Id, 2), (noExpiry.Id, 3)]);
     }
 
@@ -51,23 +51,23 @@ public class FefoAllocatorTests
         var b = Batch(2, expiresInDays: 20);
         var product = InventoryBuilder.Product(null, a, b, Batch(100, expiresInDays: -5));
 
-        var line = FefoAllocator.Suggest(product, 9, Nothing, Today);
+        var item = FefoAllocator.Suggest(product, 9, Nothing, Today);
 
-        line.Quantity.ShouldBe(9);
-        line.Allocated.ShouldBe(5);
-        line.Shortage.ShouldBeTrue();
-        line.ShortBy.ShouldBe(4);
-        line.Batches.Sum(x => x.Quantity).ShouldBe(5);
+        item.Quantity.ShouldBe(9);
+        item.Allocated.ShouldBe(5);
+        item.Shortage.ShouldBeTrue();
+        item.ShortBy.ShouldBe(4);
+        item.Batches.Sum(x => x.Quantity).ShouldBe(5);
     }
 
     [Fact]
     public void Suggest_NoBatches_IsShortByEverything()
     {
-        var line = FefoAllocator.Suggest(InventoryBuilder.Product(), 6, Nothing, Today);
+        var item = FefoAllocator.Suggest(InventoryBuilder.Product(), 6, Nothing, Today);
 
-        line.Batches.ShouldBeEmpty();
-        line.ShortBy.ShouldBe(6);
-        line.Shortage.ShouldBeTrue();
+        item.Batches.ShouldBeEmpty();
+        item.ShortBy.ShouldBe(6);
+        item.Shortage.ShouldBeTrue();
     }
 
     [Fact]
@@ -78,14 +78,14 @@ public class FefoAllocatorTests
         var other = Batch(10, expiresInDays: 30);
         var product = InventoryBuilder.Product(null, held, other);
 
-        var line = FefoAllocator.Suggest(
+        var item = FefoAllocator.Suggest(
             product,
             6,
             new Dictionary<Guid, int> { [held.Id] = 4 },
             Today
         );
 
-        line.Batches.Select(b => (b.BatchId, b.Available, b.Quantity))
+        item.Batches.Select(b => (b.BatchId, b.Available, b.Quantity))
             .ShouldBe([(held.Id, 4, 4), (other.Id, 10, 2)]);
     }
 

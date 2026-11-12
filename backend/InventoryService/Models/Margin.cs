@@ -2,7 +2,7 @@ using System;
 
 namespace InventoryService.Models;
 
-// EBIT per unit and its margin on price. OrderService computes the same figures per order line.
+// EBIT per unit and its margin on price. OrderService computes the same figures per order item.
 public static class Margin
 {
     public static decimal? Ebit(decimal? price, decimal? cost) => price - cost;

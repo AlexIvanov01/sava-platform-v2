@@ -11,7 +11,7 @@ public static class FefoAllocator
 {
     // Expects product.Batches to be loaded. heldByOrder (batch id -> units) is stock the order
     // being edited already holds, which counts as available to it again.
-    public static LineAllocationSuggestionDto Suggest(
+    public static ItemAllocationSuggestionDto Suggest(
         Product product,
         int quantity,
         IReadOnlyDictionary<Guid, int> heldByOrder,
@@ -55,7 +55,7 @@ public static class FefoAllocator
             remaining -= take;
         }
 
-        return new LineAllocationSuggestionDto(
+        return new ItemAllocationSuggestionDto(
             product.Id,
             product.SKU,
             product.Name,

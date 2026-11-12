@@ -35,7 +35,7 @@ public class EventProcessor : IEventProcessor
         }
     }
 
-    // Order_Published carries the order's full item list, so it becomes the target of what is sold
+    // Order_Published carries the order's full batch quantities, so it becomes the target of what is sold
     // to the order; Order_Deleted sets that target to nothing. The ledger posts only the difference,
     // which makes redelivered or repeated messages harmless.
     private async Task SetOrderStock(string message, bool deleted)
@@ -52,8 +52,9 @@ public class EventProcessor : IEventProcessor
             Log.Error("--> Could not update stock because the message has no OrderId: {Dto}", dto);
             return;
         }
+        var batches = (dto.Items ?? []).SelectMany(l => l.Batches ?? []).ToList();
         // An order always has items, so an empty list is a broken message, not "sell nothing".
-        if (!deleted && !dto.OrderItems.Any())
+        if (!deleted && batches.Count == 0)
         {
             Log.Error(
                 "--> Could not update stock because Order_Published has no items: {Dto}",
@@ -77,9 +78,7 @@ public class EventProcessor : IEventProcessor
 
         var target = deleted
             ? []
-            : dto
-                .OrderItems.GroupBy(i => i.ItemId)
-                .ToDictionary(g => g.Key, g => g.Sum(i => i.OrderItemQuantity));
+            : batches.GroupBy(b => b.BatchId).ToDictionary(g => g.Key, g => g.Sum(b => b.Quantity));
 
         var unknown = await stock.SetOrderStockAsync(orderId, target);
 

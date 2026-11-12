@@ -184,7 +184,12 @@ public class StockApiTests(InventoryApiFactory factory) : IClassFixture<Inventor
         var orderId = TestData.Faker.Random.Guid();
 
         await processor.ProcessEvent(
-            OrderEvent("Order_Published", orderId, new OrderItemPublishedDto(batch.Id, 4))
+            OrderEvent(
+                "Order_Published",
+                orderId,
+                product.Id,
+                new OrderItemBatchPublishedDto(batch.Id, 4)
+            )
         );
 
         var fetched = (
@@ -202,7 +207,12 @@ public class StockApiTests(InventoryApiFactory factory) : IClassFixture<Inventor
         );
 
         await processor.ProcessEvent(
-            OrderEvent("Order_Deleted", orderId, new OrderItemPublishedDto(batch.Id, 4))
+            OrderEvent(
+                "Order_Deleted",
+                orderId,
+                product.Id,
+                new OrderItemBatchPublishedDto(batch.Id, 4)
+            )
         );
 
         (await _client.DeleteAsync($"/api/batches/{batch.Id}", Ct)).StatusCode.ShouldBe(
@@ -231,7 +241,12 @@ public class StockApiTests(InventoryApiFactory factory) : IClassFixture<Inventor
         await factory
             .Services.GetRequiredService<IEventProcessor>()
             .ProcessEvent(
-                OrderEvent("Order_Published", orderId, new OrderItemPublishedDto(early.Id, 5))
+                OrderEvent(
+                    "Order_Published",
+                    orderId,
+                    product.Id,
+                    new OrderItemBatchPublishedDto(early.Id, 5)
+                )
             );
 
         var holding = new BatchOrderReadDto(orderId, early.Id, 5);
@@ -316,13 +331,13 @@ public class StockApiTests(InventoryApiFactory factory) : IClassFixture<Inventor
         );
     }
 
-    private async Task<LineAllocationSuggestionDto> SuggestAsync(
+    private async Task<ItemAllocationSuggestionDto> SuggestAsync(
         AllocationSuggestRequestDto request
     )
     {
         var response = await _client.PostAsJsonAsync("/api/allocations/suggest", request, Ct);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        return (await response.Content.ReadFromJsonAsync<List<LineAllocationSuggestionDto>>(Ct))
+        return (await response.Content.ReadFromJsonAsync<List<ItemAllocationSuggestionDto>>(Ct))
             .ShouldNotBeNull()
             .ShouldHaveSingleItem();
     }
@@ -347,8 +362,16 @@ public class StockApiTests(InventoryApiFactory factory) : IClassFixture<Inventor
     private static string OrderEvent(
         string eventName,
         Guid orderId,
-        params OrderItemPublishedDto[] items
-    ) => JsonSerializer.Serialize(new OrderPublishedDto(orderId, items, eventName));
+        Guid productId,
+        params OrderItemBatchPublishedDto[] batches
+    ) =>
+        JsonSerializer.Serialize(
+            new OrderPublishedDto(
+                orderId,
+                [new OrderItemPublishedDto(productId, batches)],
+                eventName
+            )
+        );
 
     private async Task<ProductReadDto> CreateProductAsync()
     {

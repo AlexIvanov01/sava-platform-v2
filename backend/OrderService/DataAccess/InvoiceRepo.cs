@@ -42,10 +42,8 @@ public class InvoiceRepo : IInvoiceRepo
             .Invoices.AsNoTracking()
             .Where(i => i.OrderId == orderId)
             .Include(i => i.Order)
-                .ThenInclude(o => o.OrderItems)
-                    .ThenInclude(oi => oi.Item)
-            .Include(i => i.Order)
-                .ThenInclude(o => o.Customer)
+                .ThenInclude(o => o.Items)
+                    .ThenInclude(l => l.Batches)
             .SingleOrDefaultAsync();
 
         return invoice;
@@ -57,10 +55,8 @@ public class InvoiceRepo : IInvoiceRepo
             .Invoices.AsNoTracking()
             .Where(i => i.Id == id)
             .Include(i => i.Order)
-                .ThenInclude(o => o.Customer)
-            .Include(i => i.Order)
-                .ThenInclude(o => o.OrderItems)
-                    .ThenInclude(oi => oi.Item)
+                .ThenInclude(o => o.Items)
+                    .ThenInclude(l => l.Batches)
             .SingleOrDefaultAsync();
     }
 
@@ -72,10 +68,8 @@ public class InvoiceRepo : IInvoiceRepo
                 .Invoices.AsNoTracking()
                 .Where(i => i.Id > cursor)
                 .Include(i => i.Order)
-                    .ThenInclude(o => o.OrderItems)
-                        .ThenInclude(oi => oi.Item)
-                .Include(i => i.Order)
-                    .ThenInclude(o => o.Customer)
+                    .ThenInclude(o => o.Items)
+                        .ThenInclude(l => l.Batches)
                 .OrderBy(i => i.Id)
                 .Take(pageSize)
                 .ToArrayAsync();
@@ -83,10 +77,8 @@ public class InvoiceRepo : IInvoiceRepo
         return await _context
             .Invoices.AsNoTracking()
             .Include(i => i.Order)
-                .ThenInclude(o => o.OrderItems)
-                    .ThenInclude(oi => oi.Item)
-            .Include(i => i.Order)
-                .ThenInclude(o => o.Customer)
+                .ThenInclude(o => o.Items)
+                    .ThenInclude(l => l.Batches)
             .OrderBy(i => i.Id)
             .Take(pageSize)
             .ToArrayAsync();

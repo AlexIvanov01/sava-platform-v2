@@ -4,6 +4,7 @@ using OrderService.Controllers;
 using OrderService.DataAccess;
 using OrderService.Dtos;
 using OrderService.Models;
+using Sava.Tests.Shared;
 
 namespace OrderService.Tests;
 
@@ -16,7 +17,7 @@ public class InvoicesControllerTests
 
     private static Invoice Invoice(int id)
     {
-        var order = OrderBuilder.Order(OrderBuilder.Customer(), (OrderBuilder.Item(), 1));
+        var order = OrderBuilder.Order(OrderBuilder.Item());
         var invoice = new Invoice
         {
             Id = id,
@@ -39,7 +40,7 @@ public class InvoicesControllerTests
         var page = result
             .Result.ShouldBeOfType<OkObjectResult>()
             .Value.ShouldBeOfType<InvoicePageReadDto>();
-        page.OrderReadDtos.ShouldNotBeNull().Count().ShouldBe(2);
+        page.OrderReadDtos.ShouldNotBeNull().Select(o => o.Invoice!.Id).ShouldBe([6, 8]);
         page.Cursor.ShouldBe(8);
         page.Pages.ShouldBe(3);
     }
@@ -73,9 +74,11 @@ public class InvoicesControllerTests
         (await _controller.GetInvoiceById(1)).Result.ShouldBeOfType<NotFoundResult>();
         var dto = (await _controller.GetInvoiceById(4))
             .Result.ShouldBeOfType<OkObjectResult>()
-            .Value.ShouldBeOfType<OrderFullReadDto>();
+            .Value.ShouldBeOfType<OrderReadDto>();
         dto.Id.ShouldBe(invoice.OrderId);
         dto.Invoice.ShouldNotBeNull().Id.ShouldBe(4);
+        dto.Items.ShouldHaveSingleItem().ProductId.ShouldBe(invoice.Order.Items[0].ProductId);
+        dto.Totals.Gross.ShouldBe(invoice.Order.Items.Gross());
     }
 
     [Fact]
@@ -83,7 +86,7 @@ public class InvoicesControllerTests
     {
         var result = await _controller.CreateInvoice(
             new InvoiceCreateDto(null, null, "Draft", 1m),
-            Guid.NewGuid()
+            TestData.Faker.Random.Guid()
         );
 
         result.Result.ShouldBeOfType<NotFoundResult>();
@@ -92,7 +95,7 @@ public class InvoicesControllerTests
     [Fact]
     public async Task CreateInvoice_Valid_ReturnsCreated()
     {
-        var orderId = Guid.NewGuid();
+        var orderId = TestData.Faker.Random.Guid();
         _repo.CreateInvoiceAsync(Arg.Any<Invoice>(), orderId).Returns(ci => ci.Arg<Invoice>());
 
         var result = await _controller.CreateInvoice(
@@ -111,7 +114,7 @@ public class InvoicesControllerTests
         var saved = new Invoice
         {
             Id = 2,
-            OrderId = Guid.NewGuid(),
+            OrderId = TestData.Faker.Random.Guid(),
             InvoiceStatus = "Paid",
             TotalAmount = 15m,
         };

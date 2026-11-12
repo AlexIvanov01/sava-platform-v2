@@ -25,17 +25,13 @@ public abstract class OrderDbTestBase(MySqlFixture mySql) : IAsyncLifetime
         await context.SaveChangesAsync(Ct);
     }
 
-    protected async Task<(Customer Customer, Item[] Items, Order Order)> SeedOrderAsync(
-        int itemCount = 2
-    )
+    // An order with lineCount items of one batch each.
+    protected async Task<Order> SeedOrderAsync(int lineCount = 2)
     {
-        var customer = OrderBuilder.Customer();
-        var items = Enumerable
-            .Range(1, itemCount)
-            .Select(i => OrderBuilder.Item($"Item {i}"))
-            .ToArray();
-        var order = OrderBuilder.Order(customer, [.. items.Select((item, i) => (item, i + 1))]);
-        await SeedAsync(customer, order);
-        return (customer, items, order);
+        var order = OrderBuilder.Order([
+            .. Enumerable.Range(0, lineCount).Select(_ => OrderBuilder.Item()),
+        ]);
+        await SeedAsync(order);
+        return order;
     }
 }

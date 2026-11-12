@@ -17,7 +17,7 @@ public class InvoiceRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
 
     private async Task<(Order Order, Invoice Invoice)> SeedInvoicedOrderAsync()
     {
-        var (_, _, order) = await SeedOrderAsync(1);
+        var order = await SeedOrderAsync(1);
         await using var context = Db.CreateContext();
         var invoice = (
             await new InvoiceRepo(context).CreateInvoiceAsync(NewInvoice(), order.Id)
@@ -35,7 +35,7 @@ public class InvoiceRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
         await using var context = Db.CreateContext();
         var repo = new InvoiceRepo(context);
         (await repo.CreateInvoiceAsync(NewInvoice(), order.Id)).ShouldBeNull();
-        (await repo.CreateInvoiceAsync(NewInvoice(), Guid.NewGuid())).ShouldBeNull();
+        (await repo.CreateInvoiceAsync(NewInvoice(), TestData.Faker.Random.Guid())).ShouldBeNull();
         (await repo.GetInvoiceCountAsync()).ShouldBe(1);
     }
 
@@ -55,8 +55,10 @@ public class InvoiceRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
         )
         {
             loaded.ShouldNotBeNull().Order.Id.ShouldBe(order.Id);
-            loaded.Order.Customer.ShouldNotBeNull();
-            loaded.Order.OrderItems.ShouldHaveSingleItem().Item.Name.ShouldNotBeNull();
+            loaded.Order.Customer.ShouldNotBeNull().Name.ShouldBe(order.Customer!.Name);
+            var item = loaded.Order.Items.ShouldHaveSingleItem();
+            item.Name.ShouldBe(order.Items[0].Name);
+            item.Batches.ShouldHaveSingleItem().BatchId.ShouldBe(order.Items[0].Batches[0].BatchId);
         }
         (await repo.GetInvoiceByIdAsync(invoice.Id + 1000)).ShouldBeNull();
     }
@@ -77,7 +79,7 @@ public class InvoiceRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
 
         first.Select(i => i.Id).ShouldBe(ids.Take(2));
         second.ShouldHaveSingleItem().Id.ShouldBe(ids[2]);
-        first[0].Order.OrderItems.ShouldNotBeEmpty();
+        first[0].Order.Items.ShouldHaveSingleItem().Batches.ShouldHaveSingleItem();
     }
 
     [Fact]

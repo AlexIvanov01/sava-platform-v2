@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using OrderService.Dtos;
@@ -8,21 +7,81 @@ namespace OrderService.Mappings;
 
 public static class OrderMappings
 {
-    public static OrderReadDto ToReadDto(this Order order) =>
-        new(
+    public static OrderReadDto ToReadDto(this Order order) => order.ToReadDto(order.Invoice);
+
+    // An invoice with its order; the invoice is passed in because untracked queries don't always
+    // set the order's back-reference.
+    public static OrderReadDto ToOrderReadDto(this Invoice invoice) =>
+        invoice.Order.ToReadDto(invoice);
+
+    private static OrderReadDto ToReadDto(this Order order, Invoice? invoice)
+    {
+        var cost = order.Items.TotalCost();
+        var net = order.Items.Net();
+        return new(
             order.Id,
-            order.OrderDate.GetValueOrDefault(),
+            order.OrderDate,
             order.ShippedDate,
             order.ShippingAddress,
             order.OrderStatus,
-            order.CustomerId.GetValueOrDefault(),
-            order.Invoice?.ToReadDto(),
-            order.OrderItems.Select(oi => oi.ToReadDto()).ToList(),
+            order.CustomerId,
+            order.Customer?.ToReadDto(),
+            invoice?.ToReadDto(),
+            order.Items.OrderBy(l => l.Name).ThenBy(l => l.ProductId).Select(ToReadDto).ToList(),
+            new OrderTotalsReadDto(
+                net,
+                order.Items.Vat(),
+                order.Items.Gross(),
+                cost,
+                net - cost,
+                OrderFigures.EbitPercent(net, cost)
+            ),
             order.ToAuditDto()
         );
+    }
 
-    public static OrderItemReadDto ToReadDto(this OrderItem orderItem) =>
-        new(orderItem.ItemId, orderItem.OrderItemQuantity);
+    public static OrderItemReadDto ToReadDto(this OrderItem item) =>
+        new(
+            item.ProductId,
+            item.SKU,
+            item.Name,
+            item.UnitOfMeasure,
+            item.Quantity,
+            item.ListPrice,
+            item.UnitPrice,
+            item.VatRate,
+            item.Cost,
+            item.Net(),
+            item.Vat(),
+            item.Gross(),
+            item.Ebit(),
+            item.EbitPercent(),
+            item.Batches.OrderBy(b => b.ExpirationDate)
+                .ThenBy(b => b.BatchId)
+                .Select(b => new OrderItemBatchReadDto(
+                    b.BatchId,
+                    b.Lot,
+                    b.ExpirationDate,
+                    b.Quantity
+                ))
+                .ToList()
+        );
+
+    public static CustomerSnapshotReadDto ToReadDto(this CustomerSnapshot customer) =>
+        new(
+            customer.Name,
+            customer.CompanyName,
+            customer.Email,
+            customer.PhoneNumber,
+            customer.Address,
+            customer.City,
+            customer.Country,
+            customer.BankName,
+            customer.IBAN,
+            customer.BIC,
+            customer.VATNumber,
+            customer.UIC
+        );
 
     public static InvoiceReadDto ToReadDto(this Invoice invoice) =>
         new(
@@ -37,37 +96,7 @@ public static class OrderMappings
     public static AuditReadDto ToAuditDto(this AuditableEntity entity) =>
         new(entity.CreatedAt, entity.UpdatedAt, entity.CreatedBy, entity.UpdatedBy);
 
-    public static OrderFullReadDto ToFullReadDto(this Order order) =>
-        order.ToFullReadDto(order.Invoice);
-
-    public static OrderFullReadDto ToFullReadDto(this Invoice invoice) =>
-        invoice.Order.ToFullReadDto(invoice);
-
-    private static OrderFullReadDto ToFullReadDto(this Order order, Invoice? invoice) =>
-        new()
-        {
-            Id = order.Id,
-            OrderDate = order.OrderDate,
-            ShippedDate = order.ShippedDate,
-            ShippingAddress = order.ShippingAddress,
-            OrderStatus = order.OrderStatus,
-            Customer = order.Customer?.ToReadDto(),
-            Invoice = invoice?.ToReadDto(),
-            Audit = order.ToAuditDto(),
-            Items = order
-                .OrderItems.Select(oi => new ItemReadDto
-                {
-                    ExternalBatchId = oi.ItemId,
-                    ExternalProductId = oi.Item.ExternalProductId,
-                    Name = oi.Item.Name,
-                    Price = oi.Item.Price,
-                    Lot = oi.Item.Lot,
-                    ExpirationDate = oi.Item.ExpirationDate,
-                    Quantity = oi.OrderItemQuantity,
-                })
-                .ToList(),
-        };
-
+    // Items are added separately (Ordering/OrderItems), because they need snapshots.
     public static Order ToEntity(this OrderCreateDto dto) =>
         new()
         {
@@ -76,32 +105,6 @@ public static class OrderMappings
             ShippingAddress = dto.ShippingAddress,
             OrderStatus = dto.OrderStatus,
             CustomerId = dto.CustomerId,
-            OrderItems = dto
-                .OrderItems.Select(oi => new OrderItem
-                {
-                    ItemId = oi.ItemId,
-                    OrderItemQuantity = oi.OrderItemQuantity,
-                })
-                .ToList(),
-        };
-
-    public static Order ToEntity(this OrderUpdateDto dto, Guid id) =>
-        new()
-        {
-            Id = id,
-            OrderDate = dto.OrderDate,
-            ShippedDate = dto.ShippedDate,
-            ShippingAddress = dto.ShippingAddress,
-            OrderStatus = dto.OrderStatus,
-            CustomerId = dto.CustomerId,
-            OrderItems =
-                dto.OrderItems?.Select(oi => new OrderItem
-                    {
-                        ItemId = oi.ItemId,
-                        OrderItemQuantity = oi.OrderItemQuantity,
-                    })
-                    .ToList()
-                ?? [],
         };
 
     public static Invoice ToEntity(this InvoiceCreateDto dto) =>
@@ -122,17 +125,12 @@ public static class OrderMappings
             TotalAmount = dto.TotalAmount,
         };
 
-    public static List<OrderItemPublishedDto> ToPublishedDtos(
-        this IEnumerable<OrderItem> orderItems
-    ) =>
-        orderItems
-            .Select(oi => new OrderItemPublishedDto(oi.ItemId, oi.OrderItemQuantity))
-            .ToList();
-
-    public static List<OrderItemPublishedDto> ToPublishedDtos(
-        this IEnumerable<OrderItemUpdateDto> orderItems
-    ) =>
-        orderItems
-            .Select(oi => new OrderItemPublishedDto(oi.ItemId, oi.OrderItemQuantity))
+    public static List<OrderItemPublishedDto> ToPublishedDtos(this IEnumerable<OrderItem> items) =>
+        items
+            .Select(l => new OrderItemPublishedDto(
+                l.ProductId,
+                l.Batches.Select(b => new OrderItemBatchPublishedDto(b.BatchId, b.Quantity))
+                    .ToList()
+            ))
             .ToList();
 }

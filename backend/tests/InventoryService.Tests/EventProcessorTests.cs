@@ -30,21 +30,47 @@ public sealed class EventProcessorTests : IDisposable
         params OrderItemPublishedDto[] items
     ) => JsonSerializer.Serialize(new OrderPublishedDto(orderId, items, eventName));
 
+    private static OrderItemPublishedDto Item(params (Guid BatchId, int Quantity)[] batches) =>
+        new(
+            TestData.Faker.Random.Guid(),
+            [.. batches.Select(b => new OrderItemBatchPublishedDto(b.BatchId, b.Quantity))]
+        );
+
+    private static OrderItemPublishedDto AnyItem() =>
+        Item((TestData.Faker.Random.Guid(), TestData.Faker.Random.Int(1, 10)));
+
     [Fact]
-    public async Task OrderPublished_SetsTheOrdersStockToItsItemsSummedPerBatch()
+    public async Task OrderPublished_SetsTheOrdersStockToTheBatchesOfAllItems()
+    {
+        var orderId = TestData.Faker.Random.Guid();
+        var a = TestData.Faker.Random.Guid();
+        var b = TestData.Faker.Random.Guid();
+        var c = TestData.Faker.Random.Guid();
+
+        await _processor.ProcessEvent(
+            Message("Order_Published", orderId, Item((a, 3), (b, 1)), Item((c, 7)))
+        );
+
+        await _stock
+            .Received(1)
+            .SetOrderStockAsync(
+                orderId,
+                Arg.Is<IReadOnlyDictionary<Guid, int>>(t =>
+                    t.Count == 3 && t[a] == 3 && t[b] == 1 && t[c] == 7
+                )
+            );
+    }
+
+    // Order validates against this, but a hand-written message could still repeat a batch.
+    [Fact]
+    public async Task OrderPublished_SameBatchInDifferentItems_IsSummed()
     {
         var orderId = TestData.Faker.Random.Guid();
         var a = TestData.Faker.Random.Guid();
         var b = TestData.Faker.Random.Guid();
 
         await _processor.ProcessEvent(
-            Message(
-                "Order_Published",
-                orderId,
-                new OrderItemPublishedDto(a, 3),
-                new OrderItemPublishedDto(b, 1),
-                new OrderItemPublishedDto(a, 2)
-            )
+            Message("Order_Published", orderId, Item((a, 3), (b, 1)), Item((a, 2)))
         );
 
         await _stock
@@ -61,13 +87,7 @@ public sealed class EventProcessorTests : IDisposable
         var orderId = TestData.Faker.Random.Guid();
         _stock.OrderHasMovementsAsync(orderId).Returns(true);
 
-        await _processor.ProcessEvent(
-            Message(
-                "Order_Deleted",
-                orderId,
-                new OrderItemPublishedDto(TestData.Faker.Random.Guid(), 3)
-            )
-        );
+        await _processor.ProcessEvent(Message("Order_Deleted", orderId, AnyItem()));
 
         await _stock
             .Received(1)
@@ -80,13 +100,7 @@ public sealed class EventProcessorTests : IDisposable
         var orderId = TestData.Faker.Random.Guid();
         _stock.OrderHasMovementsAsync(orderId).Returns(false);
 
-        await _processor.ProcessEvent(
-            Message(
-                "Order_Deleted",
-                orderId,
-                new OrderItemPublishedDto(TestData.Faker.Random.Guid(), 3)
-            )
-        );
+        await _processor.ProcessEvent(Message("Order_Deleted", orderId, AnyItem()));
 
         await _stock.DidNotReceiveWithAnyArgs().SetOrderStockAsync(Guid.Empty, default!);
     }
@@ -99,21 +113,35 @@ public sealed class EventProcessorTests : IDisposable
         _stock.ReceivedCalls().ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task OrderPublished_ItemsWithoutBatches_IsRejected()
+    {
+        await _processor.ProcessEvent(
+            Message("Order_Published", TestData.Faker.Random.Guid(), Item(), Item())
+        );
+
+        _stock.ReceivedCalls().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task OrderPublished_NullItems_IsRejected()
+    {
+        await _processor.ProcessEvent(
+            JsonSerializer.Serialize(
+                new OrderPublishedDto(TestData.Faker.Random.Guid(), null, "Order_Published")
+            )
+        );
+
+        _stock.ReceivedCalls().ShouldBeEmpty();
+    }
+
     [Theory]
     [InlineData("Order_Published")]
     [InlineData("Order_Deleted")]
     public async Task MessageWithoutOrderId_IsSkipped(string eventName)
     {
-        await _processor.ProcessEvent(
-            Message(eventName, null, new OrderItemPublishedDto(TestData.Faker.Random.Guid(), 1))
-        );
-        await _processor.ProcessEvent(
-            Message(
-                eventName,
-                Guid.Empty,
-                new OrderItemPublishedDto(TestData.Faker.Random.Guid(), 1)
-            )
-        );
+        await _processor.ProcessEvent(Message(eventName, null, AnyItem()));
+        await _processor.ProcessEvent(Message(eventName, Guid.Empty, AnyItem()));
 
         _stock.ReceivedCalls().ShouldBeEmpty();
     }

@@ -8,12 +8,12 @@ namespace InventoryService.Dtos;
 // OrderId: when editing an order, the stock it already holds counts as available to it.
 public record AllocationSuggestRequestDto(
     Guid? OrderId,
-    [Required] [MinLength(1)] List<AllocationLineRequestDto>? Lines
+    [Required] [MinLength(1)] List<AllocationItemRequestDto>? Items
 ) : IValidatableObject
 {
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        var duplicates = (Lines ?? [])
+        var duplicates = (Items ?? [])
             .Where(l => l.ProductId != null)
             .GroupBy(l => l.ProductId)
             .Where(g => g.Count() > 1)
@@ -23,20 +23,20 @@ public record AllocationSuggestRequestDto(
         {
             yield return new ValidationResult(
                 $"Each product may appear only once: {string.Join(", ", duplicates)}.",
-                [nameof(Lines)]
+                [nameof(Items)]
             );
         }
     }
 }
 
-public record AllocationLineRequestDto(
+public record AllocationItemRequestDto(
     [Required] Guid? ProductId,
     [Required] [Range(1, int.MaxValue)] int? Quantity
 );
 
 // Batches are suggested earliest expiry first (no date last), skipping expired ones; a batch's
 // Available includes what OrderId already holds from it. ShortBy is what no batch could cover.
-public record LineAllocationSuggestionDto(
+public record ItemAllocationSuggestionDto(
     Guid ProductId,
     string? SKU,
     string? Name,

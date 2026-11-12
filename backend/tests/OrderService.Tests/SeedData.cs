@@ -1,5 +1,7 @@
 using System.Text.Json;
+using OrderService.Dtos;
 using OrderService.Models;
+using OrderService.SyncDataServices.Grpc;
 
 namespace OrderService.Tests;
 
@@ -9,56 +11,77 @@ internal static class SeedData
 {
     public static string OrdersFile => PathOf("orders.json");
 
-    public static Customer[] Customers()
+    public static Dictionary<Guid, CustomerSnapshot> Customers()
     {
         using var doc = Read("customers.json");
-        return
-        [
-            .. doc
-                .RootElement.EnumerateArray()
-                .Select(c => new Customer
+        return doc
+            .RootElement.EnumerateArray()
+            .ToDictionary(
+                c => c.GetProperty("Id").GetGuid(),
+                c => new CustomerSnapshot
                 {
-                    ExternalId = c.GetProperty("Id").GetGuid(),
                     Name = c.GetProperty("Name").GetString(),
                     CompanyName = c.GetProperty("CompanyName").GetString(),
+                    Email = c.GetProperty("Email").GetString(),
+                    PhoneNumber = c.GetProperty("PhoneNumber").GetString(),
                     Address = c.GetProperty("Address").GetString(),
-                }),
-        ];
+                    City = c.GetProperty("City").GetString(),
+                    Country = c.GetProperty("Country").GetString(),
+                    BankName = c.GetProperty("BankName").GetString(),
+                    IBAN = c.GetProperty("IBAN").GetString(),
+                    BIC = c.GetProperty("BIC").GetString(),
+                    VATNumber = c.GetProperty("VATNumber").GetString(),
+                    UIC = c.GetProperty("UIC").GetString(),
+                }
+            );
     }
 
-    // The Inventory service exposes one item per batch.
-    public static Item[] Items()
+    // Everything InventoryService would snapshot from its seed data. Cost is the highest purchase
+    // price of the batches in stock (Inventory also leaves out expired ones, but that depends on
+    // today's date and the order seed doesn't depend on it).
+    public static CatalogSnapshot Catalog()
     {
         using var doc = Read("products.json");
-        return
-        [
-            .. doc
-                .RootElement.EnumerateArray()
-                .SelectMany(p =>
-                    p.GetProperty("Batches")
-                        .EnumerateArray()
-                        .Select(b => new Item
-                        {
-                            ExternalBatchId = b.GetProperty("Id").GetGuid(),
-                            ExternalProductId = p.GetProperty("Id").GetGuid(),
-                            Name = p.GetProperty("Name").GetString(),
-                            Price = b.GetProperty("SellPrice").GetDecimal(),
-                            Lot = b.GetProperty("Lot").GetString(),
-                            ExpirationDate = b.GetProperty("ExpirationDate").GetDateTime(),
-                        })
-                ),
-        ];
-    }
-
-    public static (int Orders, int Invoices) OrderCounts()
-    {
-        using var doc = Read("orders.json");
-        var orders = doc.RootElement.EnumerateArray().ToList();
-        return (
-            orders.Count,
-            orders.Count(o => o.GetProperty("Invoice").ValueKind != JsonValueKind.Null)
+        var products = doc.RootElement.EnumerateArray().ToList();
+        return OrderBuilder.Catalog(
+            products.Select(p =>
+            {
+                var costs = p.GetProperty("Batches")
+                    .EnumerateArray()
+                    .Where(b => b.GetProperty("Quantity").GetInt32() > 0)
+                    .Select(b => b.GetProperty("PurchasePrice").GetDecimal())
+                    .ToList();
+                return new ProductSnapshot(
+                    p.GetProperty("Id").GetGuid(),
+                    p.GetProperty("SKU").GetString(),
+                    p.GetProperty("Name").GetString(),
+                    p.GetProperty("UnitOfMeasure").GetString(),
+                    Decimal(p.GetProperty("ListPrice")),
+                    Decimal(p.GetProperty("VatRate")),
+                    costs.Count == 0 ? null : costs.Max()
+                );
+            }),
+            products.SelectMany(p =>
+                p.GetProperty("Batches")
+                    .EnumerateArray()
+                    .Select(b => new BatchSnapshot(
+                        b.GetProperty("Id").GetGuid(),
+                        p.GetProperty("Id").GetGuid(),
+                        b.GetProperty("Lot").GetString(),
+                        b.GetProperty("ExpirationDate").ValueKind == JsonValueKind.Null
+                            ? null
+                            : b.GetProperty("ExpirationDate").GetDateTime()
+                    ))
+            )
         );
     }
+
+    public static List<OrderSeed> Orders() =>
+        JsonSerializer.Deserialize<List<OrderSeed>>(File.ReadAllText(OrdersFile))
+        ?? throw new InvalidOperationException("The order seed file is empty.");
+
+    private static decimal? Decimal(JsonElement value) =>
+        value.ValueKind == JsonValueKind.Null ? null : value.GetDecimal();
 
     private static string PathOf(string file) =>
         Path.Combine(AppContext.BaseDirectory, "SeedData", file);
@@ -66,3 +89,17 @@ internal static class SeedData
     private static JsonDocument Read(string file) =>
         JsonDocument.Parse(File.ReadAllText(PathOf(file)));
 }
+
+// An order in OrderService's dummy_data.json.
+internal sealed record OrderSeed(
+    Guid Id,
+    DateTime? OrderDate,
+    DateTime? ShippedDate,
+    string? ShippingAddress,
+    string? OrderStatus,
+    Guid CustomerId,
+    List<OrderItemWriteDto> Items,
+    InvoiceSeed? Invoice
+);
+
+internal sealed record InvoiceSeed(DateTime? InvoiceDate, string? InvoiceStatus);

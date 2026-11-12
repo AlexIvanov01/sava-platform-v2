@@ -61,7 +61,7 @@ namespace OrderService.Controllers
                     await _repository.GetInvoiceCountAsync() / (float)pageSize
                 );
 
-                List<OrderFullReadDto> dtos = invoiceItems.Select(i => i.ToFullReadDto()).ToList();
+                List<OrderReadDto> dtos = invoiceItems.Select(i => i.ToOrderReadDto()).ToList();
 
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
                 InvoicePageReadDto invoicePageReadDto = new()
@@ -84,7 +84,7 @@ namespace OrderService.Controllers
         [HttpGet("{id}", Name = "GetInvoiceById")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<OrderFullReadDto>> GetInvoiceById(int id)
+        public async Task<ActionResult<OrderReadDto>> GetInvoiceById(int id)
         {
             try
             {
@@ -100,7 +100,7 @@ namespace OrderService.Controllers
 
                 Log.Information("--> Fetched an invoice with id {Id}.", id);
 
-                var dto = invoice.ToFullReadDto();
+                var dto = invoice.ToOrderReadDto();
                 return Ok(dto);
             }
             catch (Exception ex)

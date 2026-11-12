@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Threading.Tasks;
 using CustomerService;
+using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Configuration;
 using OrderService.Mappings;
@@ -10,38 +10,43 @@ using Serilog;
 
 namespace OrderService.SyncDataServices.Grpc;
 
-public class CustomerDataClient : ICustomerDataClient
+// Singleton: one channel, reused for every call.
+public sealed class CustomerDataClient : ICustomerDataClient, IDisposable
 {
-    private readonly IConfiguration _configuration;
+    private readonly GrpcChannel _channel;
+    private readonly GrpcCustomer.GrpcCustomerClient _client;
+    private readonly TimeSpan _timeout;
 
     public CustomerDataClient(IConfiguration configuration)
     {
-        _configuration = configuration;
-    }
-
-    public IEnumerable<Customer>? ReturnAllCustomers()
-    {
-        Log.Information(
-            "--> Calling customer GRPC service {Service}",
-            _configuration["GrpcCustomerService"]
-        );
-
-        var channel = GrpcChannel.ForAddress(
-            _configuration["GrpcCustomerService"]
+        _channel = GrpcChannel.ForAddress(
+            configuration["GrpcCustomerService"]
                 ?? throw new InvalidOperationException("GrpcCustomerService is not configured.")
         );
-        var client = new GrpcCustomer.GrpcCustomerClient(channel);
-        var request = new GetAllRequest();
+        _client = new GrpcCustomer.GrpcCustomerClient(_channel);
+        _timeout = GrpcTimeout.From(configuration);
+    }
 
+    public async Task<CustomerSnapshot?> GetCustomerAsync(Guid id)
+    {
         try
         {
-            var reply = client.GetAllCustomers(request);
-            return reply.Customers.Select(m => m.ToEntity()).ToList();
+            var reply = await _client.GetCustomerAsync(
+                new GetCustomerRequest { Id = id.ToString() },
+                deadline: DateTime.UtcNow.Add(_timeout)
+            );
+            return reply.ToSnapshot();
         }
-        catch (Exception ex)
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
         {
-            Log.Error(ex, "Could not call GRPC server : {Ex}", ex.Message);
             return null;
         }
+        catch (RpcException ex)
+        {
+            Log.Error(ex, "--> CustomerService GetCustomer failed: {Status}", ex.StatusCode);
+            throw new UpstreamUnavailableException("CustomerService", ex);
+        }
     }
+
+    public void Dispose() => _channel.Dispose();
 }

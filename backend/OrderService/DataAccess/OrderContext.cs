@@ -12,9 +12,8 @@ public class OrderContext(DbContextOptions options, ICurrentUser? currentUser = 
 {
     public DbSet<Order> Orders { get; set; }
     public DbSet<Invoice> Invoices { get; set; }
-    public DbSet<Customer> Customers { get; set; }
-    public DbSet<Item> Items { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
+    public DbSet<OrderItemBatch> OrderItemBatches { get; set; }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -30,33 +29,33 @@ public class OrderContext(DbContextOptions options, ICurrentUser? currentUser = 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<OrderItem>().HasKey(oi => new { oi.OrderId, oi.ItemId });
+        modelBuilder.Entity<Order>().OwnsOne(o => o.Customer);
+        // Every order has a customer snapshot, even if all its fields are empty.
+        modelBuilder.Entity<Order>().Navigation(o => o.Customer).IsRequired();
 
         modelBuilder
             .Entity<OrderItem>()
-            .HasOne(oi => oi.Order)
-            .WithMany(o => o.OrderItems)
-            .HasForeignKey(oi => oi.OrderId)
+            .HasOne(l => l.Order)
+            .WithMany(o => o.Items)
+            .HasForeignKey(l => l.OrderId)
             .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<OrderItem>().HasIndex(l => new { l.OrderId, l.ProductId }).IsUnique();
 
         modelBuilder
-            .Entity<OrderItem>()
-            .HasOne(oi => oi.Item)
-            .WithMany(i => i.ItemOrders)
-            .HasForeignKey(oi => oi.ItemId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .Entity<OrderItemBatch>()
+            .HasOne(b => b.Item)
+            .WithMany(l => l.Batches)
+            .HasForeignKey(b => b.OrderItemId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder
+            .Entity<OrderItemBatch>()
+            .HasIndex(b => new { b.OrderItemId, b.BatchId })
+            .IsUnique();
 
         modelBuilder
             .Entity<Order>()
             .HasOne(o => o.Invoice)
             .WithOne(i => i.Order)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder
-            .Entity<Customer>()
-            .HasMany(c => c.Orders)
-            .WithOne(o => o.Customer)
-            .HasForeignKey(o => o.CustomerId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

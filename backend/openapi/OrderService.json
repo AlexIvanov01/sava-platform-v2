@@ -110,17 +110,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderFullReadDto"
+                  "$ref": "#/components/schemas/OrderReadDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderFullReadDto"
+                  "$ref": "#/components/schemas/OrderReadDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderFullReadDto"
+                  "$ref": "#/components/schemas/OrderReadDto"
                 }
               }
             }
@@ -466,23 +466,23 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderFullReadDto"
+                  "$ref": "#/components/schemas/OrderReadDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderFullReadDto"
+                  "$ref": "#/components/schemas/OrderReadDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderFullReadDto"
+                  "$ref": "#/components/schemas/OrderReadDto"
                 }
               }
             }
           },
-          "404": {
-            "description": "Not Found",
+          "400": {
+            "description": "Bad Request",
             "content": {
               "text/plain": {
                 "schema": {
@@ -500,6 +500,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Service Unavailable"
           }
         }
       }
@@ -527,17 +530,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderFullReadDto"
+                  "$ref": "#/components/schemas/OrderReadDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderFullReadDto"
+                  "$ref": "#/components/schemas/OrderReadDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderFullReadDto"
+                  "$ref": "#/components/schemas/OrderReadDto"
                 }
               }
             }
@@ -620,6 +623,26 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -639,6 +662,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Service Unavailable"
           }
         }
       },
@@ -744,9 +770,8 @@
           }
         }
       },
-      "CustomerReadDto": {
+      "CustomerSnapshotReadDto": {
         "required": [
-          "externalId",
           "name",
           "companyName",
           "email",
@@ -762,10 +787,6 @@
         ],
         "type": "object",
         "properties": {
-          "externalId": {
-            "type": "string",
-            "format": "uuid"
-          },
           "name": {
             "type": [
               "null",
@@ -888,7 +909,7 @@
               "array"
             ],
             "items": {
-              "$ref": "#/components/schemas/OrderFullReadDto"
+              "$ref": "#/components/schemas/OrderReadDto"
             }
           },
           "cursor": {
@@ -987,34 +1008,73 @@
           }
         }
       },
-      "ItemReadDto": {
+      "OrderCreateDto": {
+        "required": [
+          "orderDate",
+          "shippedDate",
+          "shippingAddress",
+          "orderStatus",
+          "customerId",
+          "items"
+        ],
         "type": "object",
         "properties": {
-          "externalBatchId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "externalProductId": {
+          "orderDate": {
             "type": [
               "null",
               "string"
             ],
-            "format": "uuid"
+            "format": "date-time"
           },
-          "name": {
+          "shippedDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "shippingAddress": {
             "type": [
               "null",
               "string"
             ]
           },
-          "price": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+          "orderStatus": {
             "type": [
               "null",
-              "number",
+              "string"
+            ]
+          },
+          "customerId": {
+            "type": [
+              "null",
               "string"
             ],
-            "format": "double"
+            "format": "uuid"
+          },
+          "items": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/OrderItemWriteDto"
+            }
+          }
+        }
+      },
+      "OrderItemBatchReadDto": {
+        "required": [
+          "batchId",
+          "lot",
+          "expirationDate",
+          "quantity"
+        ],
+        "type": "object",
+        "properties": {
+          "batchId": {
+            "type": "string",
+            "format": "uuid"
           },
           "lot": {
             "type": [
@@ -1039,137 +1099,24 @@
           }
         }
       },
-      "OrderCreateDto": {
+      "OrderItemBatchWriteDto": {
         "required": [
-          "orderDate",
-          "shippedDate",
-          "shippingAddress",
-          "orderStatus",
-          "customerId",
-          "orderItems"
+          "batchId",
+          "quantity"
         ],
         "type": "object",
         "properties": {
-          "orderDate": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          },
-          "shippedDate": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          },
-          "shippingAddress": {
-            "type": "string"
-          },
-          "orderStatus": {
-            "type": "string"
-          },
-          "customerId": {
+          "batchId": {
             "type": [
               "null",
               "string"
             ],
             "format": "uuid"
           },
-          "orderItems": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/OrderItemCreateDto"
-            }
-          }
-        }
-      },
-      "OrderFullReadDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "orderDate": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          },
-          "shippedDate": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          },
-          "shippingAddress": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "orderStatus": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "customer": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/CustomerReadDto"
-              }
-            ]
-          },
-          "invoice": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/InvoiceReadDto"
-              }
-            ]
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ItemReadDto"
-            }
-          },
-          "audit": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/AuditReadDto"
-              }
-            ]
-          }
-        }
-      },
-      "OrderItemCreateDto": {
-        "required": [
-          "itemId",
-          "orderItemQuantity"
-        ],
-        "type": "object",
-        "properties": {
-          "itemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "orderItemQuantity": {
+          "quantity": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
+              "null",
               "integer",
               "string"
             ],
@@ -1179,53 +1126,182 @@
       },
       "OrderItemReadDto": {
         "required": [
-          "itemId",
-          "orderItemQuantity"
+          "productId",
+          "sku",
+          "name",
+          "unitOfMeasure",
+          "quantity",
+          "listPrice",
+          "unitPrice",
+          "vatRate",
+          "cost",
+          "net",
+          "vat",
+          "gross",
+          "ebit",
+          "ebitPercent",
+          "batches"
         ],
         "type": "object",
         "properties": {
-          "itemId": {
+          "productId": {
             "type": "string",
             "format": "uuid"
           },
-          "orderItemQuantity": {
+          "sku": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "unitOfMeasure": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "quantity": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
               "string"
             ],
             "format": "int32"
+          },
+          "listPrice": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "unitPrice": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "vatRate": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "cost": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "net": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "vat": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "gross": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "ebit": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "ebitPercent": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "batches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItemBatchReadDto"
+            }
           }
         }
       },
-      "OrderItemUpdateDto": {
+      "OrderItemWriteDto": {
         "required": [
-          "itemId",
-          "orderItemQuantity"
+          "productId",
+          "unitPrice",
+          "batches"
         ],
         "type": "object",
         "properties": {
-          "itemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "orderItemQuantity": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
+          "productId": {
             "type": [
-              "integer",
+              "null",
               "string"
             ],
-            "format": "int32"
+            "format": "uuid"
+          },
+          "unitPrice": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "batches": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/OrderItemBatchWriteDto"
+            }
           }
         }
       },
       "OrderPageReadDto": {
         "type": "object",
         "properties": {
-          "orderFullReadDtos": {
+          "orders": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/OrderFullReadDto"
+              "$ref": "#/components/schemas/OrderReadDto"
             }
           },
           "cursor": {
@@ -1250,8 +1326,10 @@
           "shippingAddress",
           "orderStatus",
           "customerId",
+          "customer",
           "invoice",
-          "orderItems",
+          "items",
+          "totals",
           "audit"
         ],
         "type": "object",
@@ -1261,7 +1339,10 @@
             "format": "uuid"
           },
           "orderDate": {
-            "type": "string",
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           },
           "shippedDate": {
@@ -1284,8 +1365,21 @@
             ]
           },
           "customerId": {
-            "type": "string",
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
+          },
+          "customer": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CustomerSnapshotReadDto"
+              }
+            ]
           },
           "invoice": {
             "oneOf": [
@@ -1297,17 +1391,81 @@
               }
             ]
           },
-          "orderItems": {
-            "type": [
-              "null",
-              "array"
-            ],
+          "items": {
+            "type": "array",
             "items": {
               "$ref": "#/components/schemas/OrderItemReadDto"
             }
           },
+          "totals": {
+            "$ref": "#/components/schemas/OrderTotalsReadDto"
+          },
           "audit": {
             "$ref": "#/components/schemas/AuditReadDto"
+          }
+        }
+      },
+      "OrderTotalsReadDto": {
+        "required": [
+          "net",
+          "vat",
+          "gross",
+          "cost",
+          "ebit",
+          "ebitPercent"
+        ],
+        "type": "object",
+        "properties": {
+          "net": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "vat": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "gross": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "cost": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "ebit": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "ebitPercent": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -1318,7 +1476,7 @@
           "shippingAddress",
           "orderStatus",
           "customerId",
-          "orderItems"
+          "items"
         ],
         "type": "object",
         "properties": {
@@ -1355,13 +1513,13 @@
             ],
             "format": "uuid"
           },
-          "orderItems": {
+          "items": {
             "type": [
               "null",
               "array"
             ],
             "items": {
-              "$ref": "#/components/schemas/OrderItemUpdateDto"
+              "$ref": "#/components/schemas/OrderItemWriteDto"
             }
           }
         }

@@ -1,6 +1,7 @@
 using Bogus.Extensions;
 using OrderService.Dtos;
 using OrderService.Models;
+using OrderService.SyncDataServices.Grpc;
 using Sava.Tests.Shared;
 
 namespace OrderService.Tests;
@@ -9,96 +10,176 @@ namespace OrderService.Tests;
 internal static class OrderBuilder
 {
     private static readonly string[] Statuses = ["New", "Confirmed", "Shipped"];
+    private static readonly string[] Units = ["Piece", "Kilogram", "Liter", "Pack"];
+    private static readonly decimal[] VatRates = [0m, 9m, 20m];
 
-    public static Customer Customer(string? name = null)
+    public static CustomerSnapshot Customer()
     {
         var f = TestData.Faker;
         return new()
         {
-            ExternalId = f.Random.Guid(),
-            Name = name ?? f.Name.FullName(),
-            CompanyName = f.Company.CompanyName(),
+            Name = f.Name.FullName().ClampLength(max: 100),
+            CompanyName = f.Company.CompanyName().ClampLength(max: 200),
             Email = f.Internet.Email().ClampLength(max: 100),
-            City = f.Address.City(),
-            IBAN = f.Finance.Iban(),
+            PhoneNumber = f.Random.Replace("+359#########"),
+            Address = f.Address.StreetAddress().ClampLength(max: 500),
+            City = f.Address.City().ClampLength(max: 100),
+            Country = f.Address.Country().ClampLength(max: 100),
+            BankName = f.Company.CompanyName().ClampLength(max: 100),
+            IBAN = f.Finance.Iban().ClampLength(max: 35),
+            BIC = f.Finance.Bic().ClampLength(max: 15),
             VATNumber = f.Random.Replace("BG#########"),
+            UIC = f.Random.Replace("#########"),
         };
     }
 
-    public static Item Item(string? name = null, decimal? price = null)
+    public static ProductSnapshot Product()
+    {
+        var f = TestData.Faker;
+        return new(
+            f.Random.Guid(),
+            f.Random.Replace("???-#####"),
+            f.Commerce.ProductName().ClampLength(max: 100),
+            f.PickRandom(Units),
+            f.Finance.Amount(1, 100),
+            f.PickRandom(VatRates),
+            f.Finance.Amount(0.5m, 50)
+        );
+    }
+
+    public static BatchSnapshot Batch(Guid productId)
+    {
+        var f = TestData.Faker;
+        return new(
+            f.Random.Guid(),
+            productId,
+            f.Random.Replace("LOT-#####"),
+            TestData.Date(2027, 2035)
+        );
+    }
+
+    public static CatalogSnapshot Catalog(
+        IEnumerable<ProductSnapshot> products,
+        IEnumerable<BatchSnapshot> batches
+    ) => new(products.ToDictionary(p => p.Id), batches.ToDictionary(b => b.Id));
+
+    public static CatalogSnapshot EmptyCatalog() => Catalog([], []);
+
+    // What InventoryService answers for these ids: only the ones it knows.
+    public static CatalogSnapshot Filter(
+        this CatalogSnapshot catalog,
+        IEnumerable<Guid> productIds,
+        IEnumerable<Guid> batchIds
+    ) =>
+        Catalog(
+            productIds.Where(catalog.Products.ContainsKey).Select(id => catalog.Products[id]),
+            batchIds.Where(catalog.Batches.ContainsKey).Select(id => catalog.Batches[id])
+        );
+
+    // Answers every GetOrderSnapshotAsync call from the catalog, like InventoryService would.
+    // The arguments are null while a test reconfigures the call (NSubstitute invokes it then).
+    public static void Serves(this IInventoryDataClient client, CatalogSnapshot catalog) =>
+        client
+            .GetOrderSnapshotAsync(default!, default!)
+            .ReturnsForAnyArgs(ci =>
+                catalog.Filter(
+                    ci.ArgAt<IReadOnlyCollection<Guid>?>(0) ?? [],
+                    ci.ArgAt<IReadOnlyCollection<Guid>?>(1) ?? []
+                )
+            );
+
+    // A item as OrderItems.Apply snapshots it: UnitPrice is the list price.
+    public static OrderItem Item(
+        ProductSnapshot product,
+        params (BatchSnapshot Batch, int Quantity)[] batches
+    ) =>
+        new()
+        {
+            ProductId = product.Id,
+            SKU = product.SKU,
+            Name = product.Name,
+            UnitOfMeasure = product.UnitOfMeasure,
+            ListPrice = product.ListPrice,
+            UnitPrice = product.ListPrice,
+            VatRate = product.VatRate,
+            Cost = product.Cost,
+            Batches =
+            [
+                .. batches.Select(b => new OrderItemBatch
+                {
+                    BatchId = b.Batch.Id,
+                    Lot = b.Batch.Lot,
+                    ExpirationDate = b.Batch.ExpirationDate,
+                    Quantity = b.Quantity,
+                }),
+            ],
+        };
+
+    // A item for a new product with batchCount new batches of it.
+    public static OrderItem Item(int batchCount = 1)
+    {
+        var product = Product();
+        return Item(
+            product,
+            [
+                .. Enumerable
+                    .Range(0, batchCount)
+                    .Select(_ => (Batch(product.Id), TestData.Faker.Random.Int(1, 20))),
+            ]
+        );
+    }
+
+    public static Order Order(params OrderItem[] items) =>
+        OrderFor(TestData.Faker.Random.Guid(), items);
+
+    public static Order OrderFor(Guid customerId, params OrderItem[] items)
     {
         var f = TestData.Faker;
         return new()
-        {
-            ExternalBatchId = f.Random.Guid(),
-            ExternalProductId = f.Random.Guid(),
-            Name = name ?? f.Commerce.ProductName(),
-            Price = price ?? f.Finance.Amount(1, 100),
-            Lot = f.Random.Replace("LOT-#####"),
-            ExpirationDate = TestData.Date(2027, 2035),
-        };
-    }
-
-    // Sets both navigations explicitly: OrderItem defaults them to new (empty) entities, which EF would insert.
-    public static Order Order(Customer customer, params (Item Item, int Quantity)[] lines)
-    {
-        var f = TestData.Faker;
-        var order = new Order
         {
             Id = f.Random.Guid(),
             OrderDate = TestData.Date(2024, 2026),
-            ShippingAddress = f.Address.FullAddress(),
+            ShippingAddress = f.Address.FullAddress().ClampLength(max: 500),
             OrderStatus = f.PickRandom(Statuses),
-            CustomerId = customer.ExternalId,
+            CustomerId = customerId,
+            Customer = Customer(),
+            Items = [.. items],
         };
-        order.OrderItems = lines
-            .Select(l => new OrderItem
-            {
-                Order = order,
-                OrderId = order.Id,
-                Item = l.Item,
-                ItemId = l.Item.ExternalBatchId,
-                OrderItemQuantity = l.Quantity,
-            })
-            .ToList();
-        return order;
     }
 
-    public static OrderCreateDto CreateDto(
-        Guid customerId,
-        params (Guid ItemId, int Quantity)[] lines
+    // The batches of a item as they would be requested again.
+    public static OrderItemWriteDto ToWriteDto(this OrderItem item) =>
+        new(
+            item.ProductId,
+            null,
+            [.. item.Batches.Select(b => new OrderItemBatchWriteDto(b.BatchId, b.Quantity))]
+        );
+
+    public static OrderItemWriteDto ItemDto(
+        Guid productId,
+        params (Guid BatchId, int Quantity)[] batches
     ) =>
+        new(
+            productId,
+            null,
+            [.. batches.Select(b => new OrderItemBatchWriteDto(b.BatchId, b.Quantity))]
+        );
+
+    public static OrderCreateDto CreateDto(Guid customerId, params OrderItemWriteDto[] items) =>
         new(
             TestData.Date(2024, 2026),
             null,
-            TestData.Faker.Address.FullAddress(),
+            TestData.Faker.Address.FullAddress().ClampLength(max: 500),
             TestData.Faker.PickRandom(Statuses),
             customerId,
-            [.. lines.Select(l => new OrderItemCreateDto(l.ItemId, l.Quantity))]
+            [.. items]
         );
 
     public static OrderUpdateDto UpdateDto(
         string? status = null,
         Guid? customerId = null,
-        params (Guid ItemId, int Quantity)[] lines
-    ) =>
-        new(
-            null,
-            null,
-            null,
-            status,
-            customerId,
-            lines.Length == 0
-                ? null
-                : [.. lines.Select(l => new OrderItemUpdateDto(l.ItemId, l.Quantity))]
-        );
-}
+        params OrderItemWriteDto[] items
+    ) => new(null, null, null, status, customerId, items.Length == 0 ? null : [.. items]);
 
-internal static class OrderDtoTestExtensions
-{
-    public static Order ToEntityForTest(this OrderCreateDto dto) =>
-        OrderService.Mappings.OrderMappings.ToEntity(dto);
-
-    public static Order ToEntityForTest(this OrderUpdateDto dto, Guid id) =>
-        OrderService.Mappings.OrderMappings.ToEntity(dto, id);
+    public static string Status() => TestData.Faker.PickRandom(Statuses);
 }

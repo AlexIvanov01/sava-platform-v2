@@ -1,10 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using NSubstitute.ExceptionExtensions;
 using OrderService.AsyncDataServices;
 using OrderService.Controllers;
 using OrderService.DataAccess;
 using OrderService.Dtos;
+using OrderService.Mappings;
 using OrderService.Models;
+using OrderService.SyncDataServices.Grpc;
+using Sava.Tests.Shared;
 
 namespace OrderService.Tests;
 
@@ -12,20 +16,56 @@ public class OrdersControllerTests
 {
     private readonly IOrderRepo _repo = Substitute.For<IOrderRepo>();
     private readonly IMessageBusClient _bus = Substitute.For<IMessageBusClient>();
+    private readonly IInventoryDataClient _inventory = Substitute.For<IInventoryDataClient>();
+    private readonly ICustomerDataClient _customers = Substitute.For<ICustomerDataClient>();
     private readonly OrdersController _controller;
     private readonly List<OrderPublishedEvent> _published = [];
 
+    // Known to the substituted Customer and Inventory services.
+    private readonly Guid _customerId = TestData.Faker.Random.Guid();
+    private readonly CustomerSnapshot _customer = OrderBuilder.Customer();
+    private readonly ProductSnapshot _product = OrderBuilder.Product();
+    private readonly BatchSnapshot[] _batches;
+
     public OrdersControllerTests()
     {
-        _controller = new OrdersController(_repo, _bus);
+        _controller = new OrdersController(_repo, _bus, _inventory, _customers);
         _bus.PublishNewOrderAsync(Arg.Do<OrderPublishedEvent>(_published.Add));
+        _batches = [OrderBuilder.Batch(_product.Id), OrderBuilder.Batch(_product.Id)];
+        _customers.GetCustomerAsync(_customerId).Returns(_customer);
+        _inventory.Serves(OrderBuilder.Catalog([_product], _batches));
     }
+
+    private static UpstreamUnavailableException Unavailable(string service) =>
+        new(service, new InvalidOperationException());
+
+    private static ProblemDetails ShouldBeProblem(IConvertToActionResult result, int status)
+    {
+        var objectResult = result.Convert().ShouldBeOfType<ObjectResult>();
+        objectResult.StatusCode.ShouldBe(status);
+        return objectResult.Value.ShouldBeOfType<ProblemDetails>();
+    }
+
+    private Order ExistingOrder()
+    {
+        var order = OrderBuilder.OrderFor(_customerId, OrderBuilder.Item(batchCount: 2));
+        _repo.GetOrderForUpdateAsync(order.Id).Returns(order);
+        return order;
+    }
+
+    // (product, batch, quantity) per item batch, in order.
+    private static List<(Guid ProductId, Guid BatchId, int Quantity)> Payload(
+        IEnumerable<OrderItemPublishedDto> items
+    ) => [.. items.SelectMany(l => l.Batches.Select(b => (l.ProductId, b.BatchId, b.Quantity)))];
+
+    private static List<(Guid ProductId, Guid BatchId, int Quantity)> Payload(
+        IEnumerable<OrderItem> items
+    ) => [.. items.SelectMany(l => l.Batches.Select(b => (l.ProductId, b.BatchId, b.Quantity)))];
 
     [Fact]
     public async Task GetAllOrders_NoCustomerFilter_UsesAllOrdersAndBuildsPage()
     {
-        var customer = OrderBuilder.Customer();
-        var orders = new[] { OrderBuilder.Order(customer), OrderBuilder.Order(customer) };
+        var orders = new[] { OrderBuilder.Order(OrderBuilder.Item()), OrderBuilder.Order() };
         _repo.GetAllOrdersAsync(null, 2).Returns(orders);
         _repo.GetOrderCountAsync().Returns(3);
 
@@ -34,7 +74,8 @@ public class OrdersControllerTests
         var page = result
             .Result.ShouldBeOfType<OkObjectResult>()
             .Value.ShouldBeOfType<OrderPageReadDto>();
-        page.OrderFullReadDtos.Count().ShouldBe(2);
+        page.Orders.Select(o => o.Id).ShouldBe(orders.Select(o => o.Id));
+        page.Orders.First().Items.ShouldHaveSingleItem();
         page.Cursor.ShouldBe(orders[1].Id);
         page.Pages.ShouldBe(2);
         await _repo
@@ -45,15 +86,19 @@ public class OrdersControllerTests
     [Fact]
     public async Task GetAllOrders_WithCustomerFilter_UsesCustomerQuery()
     {
-        var customer = OrderBuilder.Customer();
-        var cursor = Guid.NewGuid();
+        var cursor = TestData.Faker.Random.Guid();
         _repo
-            .GetAllOrdersByCustomerIdAsync(customer.ExternalId, cursor, 10)
-            .Returns([OrderBuilder.Order(customer)]);
+            .GetAllOrdersByCustomerIdAsync(_customerId, cursor, 10)
+            .Returns([OrderBuilder.OrderFor(_customerId)]);
+        _repo.GetOrderCountAsync().Returns(1);
 
-        var result = await _controller.GetAllOrdersAsync(cursor, customer.ExternalId);
+        var result = await _controller.GetAllOrdersAsync(cursor, _customerId);
 
-        result.Result.ShouldBeOfType<OkObjectResult>();
+        result
+            .Result.ShouldBeOfType<OkObjectResult>()
+            .Value.ShouldBeOfType<OrderPageReadDto>()
+            .Orders.ShouldHaveSingleItem()
+            .CustomerId.ShouldBe(_customerId);
         await _repo.DidNotReceiveWithAnyArgs().GetAllOrdersAsync(default, default);
     }
 
@@ -80,52 +125,143 @@ public class OrdersControllerTests
     [Fact]
     public async Task GetOrderById_MissingAndExisting()
     {
-        var order = OrderBuilder.Order(OrderBuilder.Customer());
+        var order = OrderBuilder.Order(OrderBuilder.Item());
         _repo.GetOrderByIdAsync(order.Id).Returns(order);
 
-        (await _controller.GetOrderById(Guid.NewGuid())).Result.ShouldBeOfType<NotFoundResult>();
+        (
+            await _controller.GetOrderById(TestData.Faker.Random.Guid())
+        ).Result.ShouldBeOfType<NotFoundResult>();
         (await _controller.GetOrderById(order.Id))
             .Result.ShouldBeOfType<OkObjectResult>()
-            .Value.ShouldBeOfType<OrderFullReadDto>()
-            .Id.ShouldBe(order.Id);
+            .Value.ShouldBeOfType<OrderReadDto>()
+            .Items.ShouldHaveSingleItem()
+            .ProductId.ShouldBe(order.Items[0].ProductId);
     }
 
     [Fact]
-    public async Task CreateOrder_Invalid_ReturnsNotFoundAndDoesNotPublish()
+    public async Task CreateOrder_Valid_SnapshotsSavesAndPublishes()
     {
-        var result = await _controller.CreateOrder(
-            OrderBuilder.CreateDto(Guid.NewGuid(), (Guid.NewGuid(), 1))
-        );
-
-        result.Result.ShouldBeOfType<NotFoundResult>();
-        _published.ShouldBeEmpty();
-    }
-
-    [Fact]
-    public async Task CreateOrder_Valid_ReturnsCreatedAndPublishesOrderPublished()
-    {
-        var itemId = Guid.NewGuid();
-        var orderId = Guid.NewGuid();
+        var orderId = TestData.Faker.Random.Guid();
+        Order? saved = null;
         _repo
             .CreateOrderAsync(Arg.Any<Order>())
             .Returns(ci =>
             {
-                var created = ci.Arg<Order>();
-                created.Id = orderId;
-                return created;
+                saved = ci.Arg<Order>();
+                saved.Id = orderId;
+                return Task.CompletedTask;
             });
-
-        var result = await _controller.CreateOrder(
-            OrderBuilder.CreateDto(Guid.NewGuid(), (itemId, 3))
+        var (q0, q1) = (TestData.Faker.Random.Int(1, 20), TestData.Faker.Random.Int(1, 20));
+        var dto = OrderBuilder.CreateDto(
+            _customerId,
+            OrderBuilder.ItemDto(_product.Id, (_batches[0].Id, q0), (_batches[1].Id, q1))
         );
 
-        result
-            .Result.ShouldBeOfType<CreatedAtRouteResult>()
-            .RouteName.ShouldBe(nameof(OrdersController.GetOrderById));
+        var result = await _controller.CreateOrder(dto);
+
+        var created = result.Result.ShouldBeOfType<CreatedAtRouteResult>();
+        created.RouteName.ShouldBe(nameof(OrdersController.GetOrderById));
+        created.RouteValues.ShouldNotBeNull()["Id"].ShouldBe(orderId);
+        var body = created.Value.ShouldBeOfType<OrderReadDto>();
+        body.Id.ShouldBe(orderId);
+        body.CustomerId.ShouldBe(_customerId);
+        body.Customer.ShouldBe(_customer.ToReadDto());
+        body.OrderStatus.ShouldBe(dto.OrderStatus);
+        body.ShippingAddress.ShouldBe(dto.ShippingAddress);
+        var item = body.Items.ShouldHaveSingleItem();
+        item.ProductId.ShouldBe(_product.Id);
+        item.Name.ShouldBe(_product.Name);
+        item.UnitPrice.ShouldBe(_product.ListPrice);
+        item.Quantity.ShouldBe(q0 + q1);
+        item.Batches.Select(b => b.Lot).ShouldBe(_batches.Select(b => b.Lot), ignoreOrder: true);
+
+        saved.ShouldNotBeNull().Customer.ShouldBeSameAs(_customer);
+        saved.Items.ShouldHaveSingleItem().Batches.Count.ShouldBe(2);
+        await _inventory
+            .Received(1)
+            .GetOrderSnapshotAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { _product.Id })),
+                Arg.Is<IReadOnlyCollection<Guid>>(ids =>
+                    ids.SequenceEqual(new[] { _batches[0].Id, _batches[1].Id })
+                )
+            );
+
         var published = _published.ShouldHaveSingleItem();
         published.Event.ShouldBe("Order_Published");
         published.OrderId.ShouldBe(orderId);
-        published.OrderItems.ShouldBe([new OrderItemPublishedDto(itemId, 3)]);
+        published.CustomerId.ShouldBe(_customerId);
+        Payload(published.Items)
+            .ShouldBe([(_product.Id, _batches[0].Id, q0), (_product.Id, _batches[1].Id, q1)]);
+    }
+
+    [Fact]
+    public async Task CreateOrder_UnknownCustomer_Returns400WithoutAskingInventory()
+    {
+        var unknown = TestData.Faker.Random.Guid();
+
+        var result = await _controller.CreateOrder(
+            OrderBuilder.CreateDto(unknown, OrderBuilder.ItemDto(_product.Id, (_batches[0].Id, 1)))
+        );
+
+        var problem = ShouldBeProblem(result, 400);
+        problem.Title.ShouldBe("Unknown customer");
+        problem.Detail.ShouldBe($"Customer {unknown} does not exist.");
+        await _inventory.DidNotReceiveWithAnyArgs().GetOrderSnapshotAsync(default!, default!);
+        await _repo.DidNotReceiveWithAnyArgs().CreateOrderAsync(default!);
+        _published.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateOrder_InvalidItems_Returns400WithTheErrors()
+    {
+        var unknownProduct = TestData.Faker.Random.Guid();
+        var unknownBatch = TestData.Faker.Random.Guid();
+
+        var result = await _controller.CreateOrder(
+            OrderBuilder.CreateDto(
+                _customerId,
+                OrderBuilder.ItemDto(_product.Id, (unknownBatch, 1)),
+                OrderBuilder.ItemDto(unknownProduct, (_batches[0].Id, 1))
+            )
+        );
+
+        var problem = ShouldBeProblem(result, 400);
+        problem.Title.ShouldBe("Invalid order items");
+        problem.Detail.ShouldBe(
+            $"Batch {unknownBatch} does not exist. Product {unknownProduct} does not exist."
+        );
+        await _repo.DidNotReceiveWithAnyArgs().CreateOrderAsync(default!);
+        _published.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData("CustomerService")]
+    [InlineData("InventoryService")]
+    public async Task CreateOrder_ServiceUnavailable_Returns503(string service)
+    {
+        if (service == "CustomerService")
+        {
+            _customers.GetCustomerAsync(_customerId).ThrowsAsync(Unavailable(service));
+        }
+        else
+        {
+            _inventory
+                .GetOrderSnapshotAsync(default!, default!)
+                .ThrowsAsyncForAnyArgs(Unavailable(service));
+        }
+
+        var result = await _controller.CreateOrder(
+            OrderBuilder.CreateDto(
+                _customerId,
+                OrderBuilder.ItemDto(_product.Id, (_batches[0].Id, 1))
+            )
+        );
+
+        var problem = ShouldBeProblem(result, 503);
+        problem.Title.ShouldBe($"{service} unavailable");
+        problem.Detail.ShouldNotBeNull().ShouldContain("the order was not saved");
+        await _repo.DidNotReceiveWithAnyArgs().CreateOrderAsync(default!);
+        _published.ShouldBeEmpty();
     }
 
     [Fact]
@@ -134,100 +270,310 @@ public class OrdersControllerTests
         _repo.CreateOrderAsync(Arg.Any<Order>()).ThrowsAsync(new InvalidOperationException());
 
         var result = await _controller.CreateOrder(
-            OrderBuilder.CreateDto(Guid.NewGuid(), (Guid.NewGuid(), 1))
+            OrderBuilder.CreateDto(
+                _customerId,
+                OrderBuilder.ItemDto(_product.Id, (_batches[0].Id, 1))
+            )
         );
 
         result.Result.ShouldBeOfType<ObjectResult>().StatusCode.ShouldBe(500);
+        _published.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateOrder_PublishFails_StillReturnsCreated()
+    {
+        _bus.PublishNewOrderAsync(Arg.Any<OrderPublishedEvent>())
+            .ThrowsAsync(new InvalidOperationException());
+
+        var result = await _controller.CreateOrder(
+            OrderBuilder.CreateDto(
+                _customerId,
+                OrderBuilder.ItemDto(_product.Id, (_batches[0].Id, 1))
+            )
+        );
+
+        result.Result.ShouldBeOfType<CreatedAtRouteResult>();
+        await _repo.Received(1).CreateOrderAsync(Arg.Any<Order>());
     }
 
     [Fact]
     public async Task UpdateOrder_Missing_ReturnsNotFound()
     {
         (
-            await _controller.UpdateOrder(Guid.NewGuid(), OrderBuilder.UpdateDto("x"))
+            await _controller.UpdateOrder(
+                TestData.Faker.Random.Guid(),
+                OrderBuilder.UpdateDto(OrderBuilder.Status())
+            )
         ).Result.ShouldBeOfType<NotFoundResult>();
+        await _repo.DidNotReceive().SaveChangesAsync();
         _published.ShouldBeEmpty();
     }
 
     [Fact]
-    public async Task UpdateOrder_PublishesTheSavedOrdersFullState()
+    public async Task UpdateOrder_ScalarFieldsOnly_KeepsItemsAndCustomerAndPublishesFullState()
     {
-        var newItem = OrderBuilder.Item();
-        var customer = OrderBuilder.Customer();
-        var saved = OrderBuilder.Order(customer, (newItem, 5));
-        List<OrderItem> previous = [new() { ItemId = Guid.NewGuid(), OrderItemQuantity = 2 }];
-        _repo.UpdateOrderAsync(Arg.Any<Order>()).Returns((saved, previous));
+        var order = ExistingOrder();
+        var items = Payload(order.Items);
+        var (address, customer) = (order.ShippingAddress, order.Customer);
+        var status = TestData.Faker.Lorem.Word();
 
-        var result = await _controller.UpdateOrder(
-            saved.Id,
-            OrderBuilder.UpdateDto(lines: (newItem.ExternalBatchId, 5))
-        );
+        var result = await _controller.UpdateOrder(order.Id, OrderBuilder.UpdateDto(status));
 
-        result
+        var body = result
             .Result.ShouldBeOfType<OkObjectResult>()
-            .Value.ShouldBeOfType<OrderReadDto>()
-            .Id.ShouldBe(saved.Id);
-        // Inventory reconciles the order's stock to this list, so the old items need no event.
+            .Value.ShouldBeOfType<OrderReadDto>();
+        body.OrderStatus.ShouldBe(status);
+        body.ShippingAddress.ShouldBe(address);
+        order.Customer.ShouldBeSameAs(customer);
+        Payload(order.Items).ShouldBe(items);
+        await _repo.Received(1).SaveChangesAsync();
+        await _customers.DidNotReceiveWithAnyArgs().GetCustomerAsync(Guid.Empty);
+        await _inventory.DidNotReceiveWithAnyArgs().GetOrderSnapshotAsync(default!, default!);
+        // Always the full current state, so subscribers see a customer change too.
         var published = _published.ShouldHaveSingleItem();
         published.Event.ShouldBe("Order_Published");
-        published.OrderId.ShouldBe(saved.Id);
-        published.CustomerId.ShouldBe(customer.ExternalId);
-        published.OrderItems.ShouldBe([new OrderItemPublishedDto(newItem.ExternalBatchId, 5)]);
+        published.OrderId.ShouldBe(order.Id);
+        published.CustomerId.ShouldBe(_customerId);
+        Payload(published.Items).ShouldBe(items);
     }
 
     [Fact]
-    public async Task UpdateOrder_WithoutItems_StillPublishesSoACustomerChangeIsSeen()
+    public async Task UpdateOrder_SameCustomerId_KeepsTheCustomerSnapshot()
     {
-        var item = OrderBuilder.Item();
-        var newCustomer = OrderBuilder.Customer();
-        var saved = OrderBuilder.Order(newCustomer, (item, 3));
-        _repo.UpdateOrderAsync(Arg.Any<Order>()).Returns((saved, new List<OrderItem>()));
+        var order = ExistingOrder();
+        var snapshot = order.Customer;
 
         (
-            await _controller.UpdateOrder(saved.Id, OrderBuilder.UpdateDto("Shipped"))
+            await _controller.UpdateOrder(order.Id, OrderBuilder.UpdateDto(customerId: _customerId))
         ).Result.ShouldBeOfType<OkObjectResult>();
 
-        var published = _published.ShouldHaveSingleItem();
-        published.CustomerId.ShouldBe(newCustomer.ExternalId);
-        published.OrderItems.ShouldBe([new OrderItemPublishedDto(item.ExternalBatchId, 3)]);
+        order.Customer.ShouldBeSameAs(snapshot);
+        await _customers.DidNotReceiveWithAnyArgs().GetCustomerAsync(Guid.Empty);
     }
 
     [Fact]
-    public async Task UpdateOrder_RepoThrows_Returns500()
+    public async Task UpdateOrder_NewCustomerId_TakesAFreshCustomerSnapshot()
     {
-        _repo.UpdateOrderAsync(Arg.Any<Order>()).ThrowsAsync(new InvalidOperationException());
+        var order = OrderBuilder.Order(OrderBuilder.Item());
+        _repo.GetOrderForUpdateAsync(order.Id).Returns(order);
 
-        (await _controller.UpdateOrder(Guid.NewGuid(), OrderBuilder.UpdateDto("x")))
+        var body = (
+            await _controller.UpdateOrder(order.Id, OrderBuilder.UpdateDto(customerId: _customerId))
+        )
+            .Result.ShouldBeOfType<OkObjectResult>()
+            .Value.ShouldBeOfType<OrderReadDto>();
+
+        body.CustomerId.ShouldBe(_customerId);
+        body.Customer.ShouldBe(_customer.ToReadDto());
+        order.Customer.ShouldBeSameAs(_customer);
+        await _customers.Received(1).GetCustomerAsync(_customerId);
+        _published.ShouldHaveSingleItem().CustomerId.ShouldBe(_customerId);
+    }
+
+    [Fact]
+    public async Task UpdateOrder_UnknownNewCustomer_Returns400AndDoesNotSave()
+    {
+        var order = ExistingOrder();
+        var snapshot = order.Customer;
+        var unknown = TestData.Faker.Random.Guid();
+
+        var problem = ShouldBeProblem(
+            await _controller.UpdateOrder(order.Id, OrderBuilder.UpdateDto(customerId: unknown)),
+            400
+        );
+
+        problem.Title.ShouldBe("Unknown customer");
+        problem.Detail.ShouldBe($"Customer {unknown} does not exist.");
+        order.CustomerId.ShouldBe(_customerId);
+        order.Customer.ShouldBeSameAs(snapshot);
+        await _repo.DidNotReceive().SaveChangesAsync();
+        _published.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task UpdateOrder_OnlyExistingProductsAndBatches_DoesNotAskInventory()
+    {
+        var order = ExistingOrder();
+        var item = order.Items[0];
+        var kept = item.Batches[0];
+        var quantity = kept.Quantity + TestData.Faker.Random.Int(1, 10);
+        var price = TestData.Faker.Finance.Amount(1, 100);
+
+        var body = (
+            await _controller.UpdateOrder(
+                order.Id,
+                OrderBuilder.UpdateDto(
+                    items: OrderBuilder.ItemDto(item.ProductId, (kept.BatchId, quantity)) with
+                    {
+                        UnitPrice = price,
+                    }
+                )
+            )
+        )
+            .Result.ShouldBeOfType<OkObjectResult>()
+            .Value.ShouldBeOfType<OrderReadDto>();
+
+        await _inventory.DidNotReceiveWithAnyArgs().GetOrderSnapshotAsync(default!, default!);
+        var dtoItem = body.Items.ShouldHaveSingleItem();
+        dtoItem.UnitPrice.ShouldBe(price);
+        dtoItem.Name.ShouldBe(item.Name);
+        dtoItem.Batches.ShouldHaveSingleItem().Quantity.ShouldBe(quantity);
+        order.UpdatedAt.ShouldNotBeNull();
+        await _repo.Received(1).SaveChangesAsync();
+        Payload(_published.ShouldHaveSingleItem().Items)
+            .ShouldBe([(item.ProductId, kept.BatchId, quantity)]);
+    }
+
+    [Fact]
+    public async Task UpdateOrder_NewProduct_SnapshotsOnlyWhatIsNew()
+    {
+        var order = ExistingOrder();
+        var existing = order.Items[0];
+
+        var body = (
+            await _controller.UpdateOrder(
+                order.Id,
+                OrderBuilder.UpdateDto(
+                    null,
+                    null,
+                    existing.ToWriteDto(),
+                    OrderBuilder.ItemDto(_product.Id, (_batches[1].Id, 4))
+                )
+            )
+        )
+            .Result.ShouldBeOfType<OkObjectResult>()
+            .Value.ShouldBeOfType<OrderReadDto>();
+
+        await _inventory
+            .Received(1)
+            .GetOrderSnapshotAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { _product.Id })),
+                Arg.Is<IReadOnlyCollection<Guid>>(ids =>
+                    ids.SequenceEqual(new[] { _batches[1].Id })
+                )
+            );
+        body.Items.Select(l => (l.ProductId, l.Name))
+            .ShouldBe(
+                [(existing.ProductId, existing.Name), (_product.Id, _product.Name)],
+                ignoreOrder: true
+            );
+        Payload(_published.ShouldHaveSingleItem().Items)
+            .ShouldBe([.. Payload([existing]), (_product.Id, _batches[1].Id, 4)]);
+    }
+
+    [Fact]
+    public async Task UpdateOrder_ItemsReplaceTheOrdersItems()
+    {
+        var order = ExistingOrder();
+
+        (
+            await _controller.UpdateOrder(
+                order.Id,
+                OrderBuilder.UpdateDto(
+                    items: OrderBuilder.ItemDto(_product.Id, (_batches[0].Id, 2))
+                )
+            )
+        ).Result.ShouldBeOfType<OkObjectResult>();
+
+        order.Items.ShouldHaveSingleItem().ProductId.ShouldBe(_product.Id);
+        Payload(_published.ShouldHaveSingleItem().Items)
+            .ShouldBe([(_product.Id, _batches[0].Id, 2)]);
+    }
+
+    [Fact]
+    public async Task UpdateOrder_InvalidItems_Returns400AndDoesNotSave()
+    {
+        var order = ExistingOrder();
+        var before = Payload(order.Items);
+        var unknown = TestData.Faker.Random.Guid();
+
+        var problem = ShouldBeProblem(
+            await _controller.UpdateOrder(
+                order.Id,
+                OrderBuilder.UpdateDto(
+                    OrderBuilder.Status(),
+                    null,
+                    OrderBuilder.ItemDto(unknown, (_batches[0].Id, 1))
+                )
+            ),
+            400
+        );
+
+        problem.Title.ShouldBe("Invalid order items");
+        problem.Detail.ShouldBe($"Product {unknown} does not exist.");
+        Payload(order.Items).ShouldBe(before);
+        await _repo.DidNotReceive().SaveChangesAsync();
+        _published.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData("CustomerService")]
+    [InlineData("InventoryService")]
+    public async Task UpdateOrder_ServiceUnavailable_Returns503AndDoesNotSave(string service)
+    {
+        var order = OrderBuilder.Order(OrderBuilder.Item());
+        _repo.GetOrderForUpdateAsync(order.Id).Returns(order);
+        _customers.GetCustomerAsync(_customerId).ThrowsAsync(Unavailable("CustomerService"));
+        _inventory
+            .GetOrderSnapshotAsync(default!, default!)
+            .ThrowsAsyncForAnyArgs(Unavailable("InventoryService"));
+        var dto =
+            service == "CustomerService"
+                ? OrderBuilder.UpdateDto(customerId: _customerId)
+                : OrderBuilder.UpdateDto(
+                    items: OrderBuilder.ItemDto(_product.Id, (_batches[0].Id, 1))
+                );
+
+        var problem = ShouldBeProblem(await _controller.UpdateOrder(order.Id, dto), 503);
+
+        problem.Title.ShouldBe($"{service} unavailable");
+        await _repo.DidNotReceive().SaveChangesAsync();
+        _published.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task UpdateOrder_SaveThrows_Returns500()
+    {
+        var order = ExistingOrder();
+        _repo.SaveChangesAsync().ThrowsAsync(new InvalidOperationException());
+
+        (await _controller.UpdateOrder(order.Id, OrderBuilder.UpdateDto(OrderBuilder.Status())))
             .Result.ShouldBeOfType<ObjectResult>()
             .StatusCode.ShouldBe(500);
+        _published.ShouldBeEmpty();
     }
 
     [Fact]
     public async Task DeleteOrder_Missing_ReturnsNotFound()
     {
-        (await _controller.DeleteOrder(Guid.NewGuid())).ShouldBeOfType<NotFoundResult>();
+        _repo.DeleteOrderAsync(Arg.Any<Guid>()).Returns((DeleteOrderStatus.NotFound, (Order?)null));
+
+        (
+            await _controller.DeleteOrder(TestData.Faker.Random.Guid())
+        ).ShouldBeOfType<NotFoundResult>();
         _published.ShouldBeEmpty();
     }
 
     [Fact]
     public async Task DeleteOrder_Existing_PublishesOrderDeletedWithItems()
     {
-        var item = OrderBuilder.Item();
-        var order = OrderBuilder.Order(OrderBuilder.Customer(), (item, 4));
+        var order = OrderBuilder.Order(OrderBuilder.Item(batchCount: 2), OrderBuilder.Item());
         _repo.DeleteOrderAsync(order.Id).Returns((DeleteOrderStatus.Deleted, order));
 
         (await _controller.DeleteOrder(order.Id)).ShouldBeOfType<NoContentResult>();
+
         var published = _published.ShouldHaveSingleItem();
         published.Event.ShouldBe("Order_Deleted");
         published.OrderId.ShouldBe(order.Id);
         published.CustomerId.ShouldBe(order.CustomerId!.Value);
-        published.OrderItems.ShouldBe([new OrderItemPublishedDto(item.ExternalBatchId, 4)]);
+        Payload(published.Items).ShouldBe(Payload(order.Items));
     }
 
     [Fact]
     public async Task DeleteOrder_HasInvoice_Returns409WithMessageAndDoesNotPublish()
     {
-        var order = OrderBuilder.Order(OrderBuilder.Customer());
+        var order = OrderBuilder.Order(OrderBuilder.Item());
         _repo.DeleteOrderAsync(order.Id).Returns((DeleteOrderStatus.HasInvoice, order));
 
         var result = (await _controller.DeleteOrder(order.Id)).ShouldBeOfType<ObjectResult>();
@@ -242,9 +588,20 @@ public class OrdersControllerTests
     }
 
     [Fact]
+    public async Task DeleteOrder_RepoThrows_Returns500()
+    {
+        _repo.DeleteOrderAsync(Arg.Any<Guid>()).ThrowsAsync(new InvalidOperationException());
+
+        (await _controller.DeleteOrder(TestData.Faker.Random.Guid()))
+            .ShouldBeOfType<ObjectResult>()
+            .StatusCode.ShouldBe(500);
+        _published.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task DeleteOrder_PublishFails_StillReturnsNoContent()
     {
-        var order = OrderBuilder.Order(OrderBuilder.Customer());
+        var order = OrderBuilder.Order(OrderBuilder.Item());
         _repo.DeleteOrderAsync(order.Id).Returns((DeleteOrderStatus.Deleted, order));
         _bus.PublishNewOrderAsync(Arg.Any<OrderPublishedEvent>())
             .ThrowsAsync(new InvalidOperationException());

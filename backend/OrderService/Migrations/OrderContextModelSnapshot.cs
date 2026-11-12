@@ -19,65 +19,6 @@ namespace OrderService.Migrations
                 .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
-            modelBuilder.Entity("OrderService.Models.Customer", b =>
-                {
-                    b.Property<Guid>("ExternalId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Address")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
-
-                    b.Property<string>("BIC")
-                        .HasMaxLength(15)
-                        .HasColumnType("varchar(15)");
-
-                    b.Property<string>("BankName")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("City")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("CompanyName")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<string>("Country")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("IBAN")
-                        .HasMaxLength(35)
-                        .HasColumnType("varchar(35)");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("PhoneNumber")
-                        .HasMaxLength(15)
-                        .HasColumnType("varchar(15)");
-
-                    b.Property<string>("UIC")
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<string>("VATNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.HasKey("ExternalId");
-
-                    b.ToTable("Customers");
-                });
-
             modelBuilder.Entity("OrderService.Models.Invoice", b =>
                 {
                     b.Property<int>("Id")
@@ -119,34 +60,6 @@ namespace OrderService.Migrations
                     b.ToTable("Invoices");
                 });
 
-            modelBuilder.Entity("OrderService.Models.Item", b =>
-                {
-                    b.Property<Guid>("ExternalBatchId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("ExpirationDate")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("ExternalProductId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Lot")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<decimal?>("Price")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("ExternalBatchId");
-
-                    b.ToTable("Items");
-                });
-
             modelBuilder.Entity("OrderService.Models.Order", b =>
                 {
                     b.Property<Guid>("Id")
@@ -185,27 +98,85 @@ namespace OrderService.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CustomerId");
-
                     b.ToTable("Orders");
                 });
 
             modelBuilder.Entity("OrderService.Models.OrderItem", b =>
                 {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal?>("Cost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("ListPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
                     b.Property<Guid>("OrderId")
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid>("ItemId")
+                    b.Property<Guid>("ProductId")
                         .HasColumnType("char(36)");
 
-                    b.Property<int>("OrderItemQuantity")
-                        .HasColumnType("int");
+                    b.Property<string>("SKU")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
-                    b.HasKey("OrderId", "ItemId");
+                    b.Property<string>("UnitOfMeasure")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
-                    b.HasIndex("ItemId");
+                    b.Property<decimal?>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("VatRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId", "ProductId")
+                        .IsUnique();
 
                     b.ToTable("OrderItems");
+                });
+
+            modelBuilder.Entity("OrderService.Models.OrderItemBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("ExpirationDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Lot")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<Guid>("OrderItemId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderItemId", "BatchId")
+                        .IsUnique();
+
+                    b.ToTable("OrderItemBatches");
                 });
 
             modelBuilder.Entity("OrderService.Models.Invoice", b =>
@@ -221,48 +192,103 @@ namespace OrderService.Migrations
 
             modelBuilder.Entity("OrderService.Models.Order", b =>
                 {
-                    b.HasOne("OrderService.Models.Customer", "Customer")
-                        .WithMany("Orders")
-                        .HasForeignKey("CustomerId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                    b.OwnsOne("OrderService.Models.CustomerSnapshot", "Customer", b1 =>
+                        {
+                            b1.Property<Guid>("OrderId")
+                                .HasColumnType("char(36)");
 
-                    b.Navigation("Customer");
+                            b1.Property<string>("Address")
+                                .HasMaxLength(500)
+                                .HasColumnType("varchar(500)");
+
+                            b1.Property<string>("BIC")
+                                .HasMaxLength(15)
+                                .HasColumnType("varchar(15)");
+
+                            b1.Property<string>("BankName")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("City")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("CompanyName")
+                                .HasMaxLength(200)
+                                .HasColumnType("varchar(200)");
+
+                            b1.Property<string>("Country")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("Email")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("IBAN")
+                                .HasMaxLength(35)
+                                .HasColumnType("varchar(35)");
+
+                            b1.Property<string>("Name")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("PhoneNumber")
+                                .HasMaxLength(15)
+                                .HasColumnType("varchar(15)");
+
+                            b1.Property<string>("UIC")
+                                .HasMaxLength(20)
+                                .HasColumnType("varchar(20)");
+
+                            b1.Property<string>("VATNumber")
+                                .HasMaxLength(20)
+                                .HasColumnType("varchar(20)");
+
+                            b1.HasKey("OrderId");
+
+                            b1.ToTable("Orders");
+
+                            b1.WithOwner()
+                                .HasForeignKey("OrderId");
+                        });
+
+                    b.Navigation("Customer")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("OrderService.Models.OrderItem", b =>
                 {
-                    b.HasOne("OrderService.Models.Item", "Item")
-                        .WithMany("ItemOrders")
-                        .HasForeignKey("ItemId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("OrderService.Models.Order", "Order")
-                        .WithMany("OrderItems")
+                        .WithMany("Items")
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Item");
-
                     b.Navigation("Order");
                 });
 
-            modelBuilder.Entity("OrderService.Models.Customer", b =>
+            modelBuilder.Entity("OrderService.Models.OrderItemBatch", b =>
                 {
-                    b.Navigation("Orders");
-                });
+                    b.HasOne("OrderService.Models.OrderItem", "Item")
+                        .WithMany("Batches")
+                        .HasForeignKey("OrderItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-            modelBuilder.Entity("OrderService.Models.Item", b =>
-                {
-                    b.Navigation("ItemOrders");
+                    b.Navigation("Item");
                 });
 
             modelBuilder.Entity("OrderService.Models.Order", b =>
                 {
                     b.Navigation("Invoice");
 
-                    b.Navigation("OrderItems");
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("OrderService.Models.OrderItem", b =>
+                {
+                    b.Navigation("Batches");
                 });
 #pragma warning restore 612, 618
         }

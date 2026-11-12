@@ -19,18 +19,18 @@ public class AllocationsController(
     TimeProvider timeProvider
 ) : ControllerBase
 {
-    // Read-only: suggests batches per line and reports shortages. Saving an order is up to
+    // Read-only: suggests batches per item and reports shortages. Saving an order is up to
     // OrderService, which accepts any batches and quantities.
     [HttpPost("suggest")]
-    [ProducesResponseType<IEnumerable<LineAllocationSuggestionDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<IEnumerable<ItemAllocationSuggestionDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<IEnumerable<LineAllocationSuggestionDto>>> Suggest(
+    public async Task<ActionResult<IEnumerable<ItemAllocationSuggestionDto>>> Suggest(
         AllocationSuggestRequestDto request
     )
     {
         try
         {
-            var productIds = request.Lines!.Select(l => l.ProductId!.Value).ToList();
+            var productIds = request.Items!.Select(l => l.ProductId!.Value).ToList();
             var products = (await productRepo.GetProductsByIdsAsync(productIds)).ToDictionary(p =>
                 p.Id
             );
@@ -51,7 +51,7 @@ public class AllocationsController(
 
             return Ok(
                 request
-                    .Lines!.Select(l =>
+                    .Items!.Select(l =>
                         FefoAllocator.Suggest(
                             products[l.ProductId!.Value],
                             l.Quantity!.Value,

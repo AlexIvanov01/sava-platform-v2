@@ -8,8 +8,13 @@
     "CustomerId": "bfe2437f-73bb-5948-bff8-a8c166d1b859",
     "Items": [
       {
-        "ItemId": "9358ed16-052a-545f-b204-df21e516dba9",
-        "Quantity": 20
+        "ProductId": "3d899c80-0501-5a2a-a23d-c8afc450b43c",
+        "Batches": [
+          {
+            "BatchId": "9358ed16-052a-545f-b204-df21e516dba9",
+            "Quantity": 20
+          }
+        ]
       }
     ],
     "Invoice": null
@@ -23,16 +28,31 @@
     "CustomerId": "b1820f53-b182-57e0-af7b-8a1fe6664a54",
     "Items": [
       {
-        "ItemId": "8788c512-34eb-5684-9528-eed64a82f2fd",
-        "Quantity": 40
+        "ProductId": "22b3c6b2-7a32-5152-815e-0eb9d1539778",
+        "Batches": [
+          {
+            "BatchId": "8788c512-34eb-5684-9528-eed64a82f2fd",
+            "Quantity": 40
+          }
+        ]
       },
       {
-        "ItemId": "73138469-49ce-543d-890a-bb0f6478076e",
-        "Quantity": 12
+        "ProductId": "a63f4e41-fb29-5658-9354-2cb4e65df8c1",
+        "Batches": [
+          {
+            "BatchId": "73138469-49ce-543d-890a-bb0f6478076e",
+            "Quantity": 12
+          }
+        ]
       },
       {
-        "ItemId": "164a2241-fd71-58a8-8016-ec1dbc9ecb4f",
-        "Quantity": 6
+        "ProductId": "6695a5a1-8bcc-509d-804d-35283a8ac0a0",
+        "Batches": [
+          {
+            "BatchId": "164a2241-fd71-58a8-8016-ec1dbc9ecb4f",
+            "Quantity": 6
+          }
+        ]
       }
     ],
     "Invoice": {
@@ -49,12 +69,22 @@
     "CustomerId": "f44d86bd-1e53-508f-9024-9040ceb288bb",
     "Items": [
       {
-        "ItemId": "cc17bc7e-8f17-5f1d-b652-dc45283a78e3",
-        "Quantity": 24
+        "ProductId": "fb5c6e39-8e7b-53b6-8f89-1c8d4eed7cb4",
+        "Batches": [
+          {
+            "BatchId": "cc17bc7e-8f17-5f1d-b652-dc45283a78e3",
+            "Quantity": 24
+          }
+        ]
       },
       {
-        "ItemId": "807e144d-d289-59e3-a15d-2deab99ddf24",
-        "Quantity": 10
+        "ProductId": "d9706ec3-7aa8-51fc-b86b-f1cb267e9ac1",
+        "Batches": [
+          {
+            "BatchId": "807e144d-d289-59e3-a15d-2deab99ddf24",
+            "Quantity": 10
+          }
+        ]
       }
     ],
     "Invoice": {
@@ -71,12 +101,22 @@
     "CustomerId": "77362615-c440-5fac-b99c-b22bec3b9659",
     "Items": [
       {
-        "ItemId": "6d660448-fe86-5bab-9b7b-31eb97a8fc3d",
-        "Quantity": 15
+        "ProductId": "baf21f57-2ccb-5e2a-ba5c-0859d4b23365",
+        "Batches": [
+          {
+            "BatchId": "6d660448-fe86-5bab-9b7b-31eb97a8fc3d",
+            "Quantity": 15
+          }
+        ]
       },
       {
-        "ItemId": "7f8925a1-b5cb-5824-b17e-ea18f1a3d808",
-        "Quantity": 10
+        "ProductId": "8789030e-d0ae-54c7-b096-b9324118581c",
+        "Batches": [
+          {
+            "BatchId": "7f8925a1-b5cb-5824-b17e-ea18f1a3d808",
+            "Quantity": 10
+          }
+        ]
       }
     ],
     "Invoice": {
@@ -93,16 +133,31 @@
     "CustomerId": "d13d4439-d135-5623-928b-160617e7697c",
     "Items": [
       {
-        "ItemId": "4e1d9e90-45c5-51ef-ab83-e15a7013e7ea",
-        "Quantity": 20
+        "ProductId": "aeec8d0a-6222-5a09-896a-039e5f3d364f",
+        "Batches": [
+          {
+            "BatchId": "4e1d9e90-45c5-51ef-ab83-e15a7013e7ea",
+            "Quantity": 20
+          }
+        ]
       },
       {
-        "ItemId": "88be836c-b6e3-535e-a644-b4fab8b24015",
-        "Quantity": 30
+        "ProductId": "f75cfd61-335d-5c92-abe4-ae5e4ec86f5f",
+        "Batches": [
+          {
+            "BatchId": "88be836c-b6e3-535e-a644-b4fab8b24015",
+            "Quantity": 30
+          }
+        ]
       },
       {
-        "ItemId": "ed200e5b-bf37-5fd3-8a15-8d3c0ad3d287",
-        "Quantity": 25
+        "ProductId": "649f30a0-fc58-5214-a11c-1ece4172d42b",
+        "Batches": [
+          {
+            "BatchId": "ed200e5b-bf37-5fd3-8a15-8d3c0ad3d287",
+            "Quantity": 25
+          }
+        ]
       }
     ],
     "Invoice": {
@@ -119,16 +174,31 @@
     "CustomerId": "6cc7a9cd-a576-5f08-9e1c-bb13b745caaa",
     "Items": [
       {
-        "ItemId": "bcc345f5-36bf-538b-9601-63981a6f635d",
-        "Quantity": 8
+        "ProductId": "945a47bd-21f1-5cde-aeeb-99c2beef01d4",
+        "Batches": [
+          {
+            "BatchId": "bcc345f5-36bf-538b-9601-63981a6f635d",
+            "Quantity": 8
+          }
+        ]
       },
       {
-        "ItemId": "c552ff6f-8bd4-5a75-9de8-b85925c3b46f",
-        "Quantity": 15
+        "ProductId": "3d899c80-0501-5a2a-a23d-c8afc450b43c",
+        "Batches": [
+          {
+            "BatchId": "c552ff6f-8bd4-5a75-9de8-b85925c3b46f",
+            "Quantity": 15
+          }
+        ]
       },
       {
-        "ItemId": "f62f650f-1bab-5aa7-9ed2-d0a01808d865",
-        "Quantity": 5
+        "ProductId": "dd052b2a-1970-569b-83c0-596f7cc16950",
+        "Batches": [
+          {
+            "BatchId": "f62f650f-1bab-5aa7-9ed2-d0a01808d865",
+            "Quantity": 5
+          }
+        ]
       }
     ],
     "Invoice": {
@@ -145,8 +215,13 @@
     "CustomerId": "ce4051bf-b347-5c88-9648-e645ae0825b8",
     "Items": [
       {
-        "ItemId": "8788c512-34eb-5684-9528-eed64a82f2fd",
-        "Quantity": 30
+        "ProductId": "22b3c6b2-7a32-5152-815e-0eb9d1539778",
+        "Batches": [
+          {
+            "BatchId": "8788c512-34eb-5684-9528-eed64a82f2fd",
+            "Quantity": 30
+          }
+        ]
       }
     ],
     "Invoice": null
@@ -160,16 +235,31 @@
     "CustomerId": "23d8dda5-e534-5a5c-b0df-04993315fb0e",
     "Items": [
       {
-        "ItemId": "f62f650f-1bab-5aa7-9ed2-d0a01808d865",
-        "Quantity": 10
+        "ProductId": "dd052b2a-1970-569b-83c0-596f7cc16950",
+        "Batches": [
+          {
+            "BatchId": "f62f650f-1bab-5aa7-9ed2-d0a01808d865",
+            "Quantity": 10
+          }
+        ]
       },
       {
-        "ItemId": "25995618-296a-5b42-8295-9027216184a4",
-        "Quantity": 6
+        "ProductId": "a63f4e41-fb29-5658-9354-2cb4e65df8c1",
+        "Batches": [
+          {
+            "BatchId": "25995618-296a-5b42-8295-9027216184a4",
+            "Quantity": 6
+          }
+        ]
       },
       {
-        "ItemId": "d733476f-8f08-5d33-8a54-4ecb9359e2df",
-        "Quantity": 40
+        "ProductId": "8000e54c-8ced-5c2a-a54a-7c8b9b984d40",
+        "Batches": [
+          {
+            "BatchId": "d733476f-8f08-5d33-8a54-4ecb9359e2df",
+            "Quantity": 40
+          }
+        ]
       }
     ],
     "Invoice": null
@@ -183,8 +273,13 @@
     "CustomerId": "37192374-d554-5d3e-9da1-ef357f972169",
     "Items": [
       {
-        "ItemId": "ed200e5b-bf37-5fd3-8a15-8d3c0ad3d287",
-        "Quantity": 60
+        "ProductId": "649f30a0-fc58-5214-a11c-1ece4172d42b",
+        "Batches": [
+          {
+            "BatchId": "ed200e5b-bf37-5fd3-8a15-8d3c0ad3d287",
+            "Quantity": 60
+          }
+        ]
       }
     ],
     "Invoice": null
@@ -198,16 +293,31 @@
     "CustomerId": "47fa9616-c090-5666-bf8e-594146d08f33",
     "Items": [
       {
-        "ItemId": "d733476f-8f08-5d33-8a54-4ecb9359e2df",
-        "Quantity": 80
+        "ProductId": "8000e54c-8ced-5c2a-a54a-7c8b9b984d40",
+        "Batches": [
+          {
+            "BatchId": "d733476f-8f08-5d33-8a54-4ecb9359e2df",
+            "Quantity": 80
+          }
+        ]
       },
       {
-        "ItemId": "807e144d-d289-59e3-a15d-2deab99ddf24",
-        "Quantity": 12
+        "ProductId": "d9706ec3-7aa8-51fc-b86b-f1cb267e9ac1",
+        "Batches": [
+          {
+            "BatchId": "807e144d-d289-59e3-a15d-2deab99ddf24",
+            "Quantity": 12
+          }
+        ]
       },
       {
-        "ItemId": "cc17bc7e-8f17-5f1d-b652-dc45283a78e3",
-        "Quantity": 20
+        "ProductId": "fb5c6e39-8e7b-53b6-8f89-1c8d4eed7cb4",
+        "Batches": [
+          {
+            "BatchId": "cc17bc7e-8f17-5f1d-b652-dc45283a78e3",
+            "Quantity": 20
+          }
+        ]
       }
     ],
     "Invoice": null

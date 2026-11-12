@@ -9,7 +9,6 @@ using Microsoft.Extensions.Hosting;
 using OrderService.AsyncDataServices;
 using OrderService.Auditing;
 using OrderService.DataAccess;
-using OrderService.EventProcessing;
 using OrderService.SyncDataServices.Grpc;
 using Serilog;
 
@@ -34,18 +33,9 @@ builder.Services.AddScoped<IOrderRepo, OrderRepo>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 builder.Services.AddScoped<IInvoiceRepo, InvoiceRepo>();
-builder.Services.AddScoped<ICustomerRepo, CustomerRepo>();
-builder.Services.AddScoped<IItemRepo, ItemRepo>();
-builder.Services.AddScoped<IInventoryDataClient, InventoryDataClient>();
-builder.Services.AddScoped<ICustomerDataClient, CustomerDataClient>();
+builder.Services.AddSingleton<IInventoryDataClient, InventoryDataClient>();
+builder.Services.AddSingleton<ICustomerDataClient, CustomerDataClient>();
 builder.Services.AddSingleton<IMessageBusClient, MessageBusClient>();
-builder.Services.AddSingleton<IEventProcessor, EventProcessor>();
-
-if (!isOpenApiGeneration)
-{
-    builder.Services.AddHostedService<MessageBusSubscriber>();
-    builder.Services.AddHostedService<GrpcSyncService>();
-}
 
 Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration).CreateLogger();
 

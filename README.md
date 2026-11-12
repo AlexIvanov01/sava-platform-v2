@@ -5,7 +5,7 @@ A scalable and modern platform designed for distribution companies, built using 
 ## Features
 
 - **Inventory Service**: Manages product and batch information.
-- **Order Service**: Handles customer orders and associated order items.
+- **Order Service**: Handles customer orders (with snapshots of their products, batches and customer) and invoices.
 - **Customer Service**: Maintains customer data and interactions.
 - **Authentication Service**: Secures the platform with user authentication and authorization.
 - **Centralized Logging**: Uses Serilog for structured and asynchronous logging.
@@ -127,9 +127,9 @@ Running locally uses `appsettings.Development.json`, which points at MySQL and R
    - **Inventory:** 8 categories and 15 products with 21 batches, including expired, near-expiry, low-stock, inactive and unpublished cases.
    - **Orders:** 10 orders in several statuses; 5 have invoices.
 
-   Other environments only migrate and never seed. Orders reference the seeded customers and batches, so Order seeds them only after it has synced from Customer and Inventory. If either was down, start it and restart Order.
+   Other environments only migrate and never seed. Orders reference the seeded customers, products and batches, so Order snapshots them from Customer and Inventory over gRPC when it seeds. If either was down, start it and restart Order.
 
-2. Run each service in its own terminal with `dotnet run`. Start Inventory and Customer before Order, because Order syncs items and customers from them over gRPC.
+2. Run each service in its own terminal with `dotnet run`. Start Inventory and Customer before Order, because Order seeds its sample orders from them over gRPC, and saving an order needs both.
 
    | Service | REST and Swagger UI | gRPC |
    |---|---|---|

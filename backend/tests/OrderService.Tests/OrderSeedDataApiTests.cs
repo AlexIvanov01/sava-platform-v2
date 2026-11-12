@@ -6,15 +6,18 @@ using Sava.Tests.Shared;
 
 namespace OrderService.Tests;
 
-// The gRPC substitutes return the Customer and Inventory seed data, so the startup sync makes
-// every reference in the order seed file resolvable.
+// The gRPC substitutes answer from the Customer and Inventory seed data, so every reference in
+// the order seed file can be snapshotted at startup.
 public abstract class SeedDataOrderApiFactory : OrderApiFactory
 {
     protected SeedDataOrderApiFactory(MySqlFixture mySql)
         : base(mySql)
     {
-        InventoryClient.ReturnAllItems().Returns(_ => SeedData.Items());
-        CustomerClient.ReturnAllCustomers().Returns(_ => SeedData.Customers());
+        InventoryClient.Serves(SeedData.Catalog());
+        foreach (var (id, customer) in SeedData.Customers())
+        {
+            CustomerClient.GetCustomerAsync(id).Returns(customer);
+        }
     }
 }
 
@@ -41,10 +44,13 @@ public class DevelopmentOrderSeedDataTests(DevelopmentSeedDataOrderApiFactory fa
             TestContext.Current.CancellationToken
         );
 
-        var (expectedOrders, expectedInvoices) = SeedData.OrderCounts();
-        var orders = page.ShouldNotBeNull().OrderFullReadDtos.ToList();
-        orders.Count.ShouldBe(expectedOrders);
-        orders.Count(o => o.Invoice != null).ShouldBe(expectedInvoices);
+        var seeds = SeedData.Orders();
+        var orders = page.ShouldNotBeNull().Orders.ToList();
+        orders.Select(o => o.Id).ShouldBe(seeds.Select(s => s.Id), ignoreOrder: true);
+        orders.ShouldAllBe(o => o.Customer != null && o.Items.Count > 0);
+        var invoiced = orders.Where(o => o.Invoice != null).ToList();
+        invoiced.Count.ShouldBe(seeds.Count(s => s.Invoice != null));
+        invoiced.ShouldAllBe(o => o.Invoice!.TotalAmount == o.Totals.Gross);
     }
 }
 

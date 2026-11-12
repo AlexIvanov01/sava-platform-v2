@@ -140,11 +140,19 @@ public record CategoryUpdateDto(
 );
 
 // OrderId is required; EventProcessor rejects messages without it.
+// OrderService's OrderPublishedEvent: the order's current items with their batch quantities.
 public record OrderPublishedDto(
     Guid? OrderId,
-    IEnumerable<OrderItemPublishedDto> OrderItems,
+    IEnumerable<OrderItemPublishedDto>? Items,
     string Event
 );
+
+public record OrderItemPublishedDto(
+    Guid ProductId,
+    IEnumerable<OrderItemBatchPublishedDto> Batches
+);
+
+public record OrderItemBatchPublishedDto(Guid BatchId, int Quantity);
 
 public record StockMovementReadDto(
     Guid Id,
@@ -189,5 +197,3 @@ public record StockAdjustmentCreateDto(
         }
     }
 }
-
-public record OrderItemPublishedDto(Guid ItemId, int OrderItemQuantity);

@@ -15,8 +15,13 @@ public interface IOrderRepo
         Guid? cursor,
         int pageSize
     );
-    Task<Order?> CreateOrderAsync(Order order);
-    Task<(Order Order, List<OrderItem> PreviousItems)?> UpdateOrderAsync(Order order);
+
+    // Assigns the order a new Id and saves it with its items.
+    Task CreateOrderAsync(Order order);
+
+    // Tracked, with items, batches and invoice; change it, then call SaveChangesAsync.
+    Task<Order?> GetOrderForUpdateAsync(Guid id);
+    Task SaveChangesAsync();
     Task<(DeleteOrderStatus Status, Order? Order)> DeleteOrderAsync(Guid id);
 }
 
