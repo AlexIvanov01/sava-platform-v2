@@ -18,11 +18,4 @@ public record InvoiceReadDto(
     AuditReadDto Audit
 );
 
-public record InvoiceCreateDto(
-    int? ID,
-    DateTime? InvoiceDate,
-    string InvoiceStatus,
-    decimal? TotalAmount
-);
-
 public record InvoiceUpdateDto(DateTime? InvoiceDate, string? InvoiceStatus, decimal? TotalAmount);

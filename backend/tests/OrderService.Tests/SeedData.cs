@@ -94,9 +94,10 @@ internal static class SeedData
 internal sealed record OrderSeed(
     Guid Id,
     DateTime? OrderDate,
-    DateTime? ShippedDate,
     string? ShippingAddress,
-    string? OrderStatus,
+    OrderStatus Status,
+    DateTime? CompletedDate,
+    DateTime? CancelledDate,
     Guid CustomerId,
     List<OrderItemWriteDto> Items,
     InvoiceSeed? Invoice

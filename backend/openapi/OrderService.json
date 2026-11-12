@@ -275,86 +275,6 @@
         }
       }
     },
-    "/api/Invoices/{orderId}": {
-      "post": {
-        "tags": [
-          "Invoices"
-        ],
-        "parameters": [
-          {
-            "name": "orderId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/InvoiceCreateDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/InvoiceCreateDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/InvoiceCreateDto"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/InvoiceReadDto"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InvoiceReadDto"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InvoiceReadDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/Orders": {
       "get": {
         "tags": [
@@ -375,6 +295,29 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/OrderStatus"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
             }
           },
           {
@@ -663,6 +606,26 @@
               }
             }
           },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Service Unavailable"
           }
@@ -686,6 +649,126 @@
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Orders/{id}/status": {
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderStatusChangeDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderStatusChangeDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderStatusChangeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderReadDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderReadDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderReadDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "404": {
             "description": "Not Found",
@@ -861,45 +944,6 @@
           }
         }
       },
-      "InvoiceCreateDto": {
-        "required": [
-          "id",
-          "invoiceDate",
-          "invoiceStatus",
-          "totalAmount"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "null",
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "invoiceDate": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          },
-          "invoiceStatus": {
-            "type": "string"
-          },
-          "totalAmount": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "null",
-              "number",
-              "string"
-            ],
-            "format": "double"
-          }
-        }
-      },
       "InvoicePageReadDto": {
         "type": "object",
         "properties": {
@@ -1011,9 +1055,7 @@
       "OrderCreateDto": {
         "required": [
           "orderDate",
-          "shippedDate",
           "shippingAddress",
-          "orderStatus",
           "customerId",
           "items"
         ],
@@ -1026,20 +1068,7 @@
             ],
             "format": "date-time"
           },
-          "shippedDate": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          },
           "shippingAddress": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "orderStatus": {
             "type": [
               "null",
               "string"
@@ -1322,9 +1351,10 @@
         "required": [
           "id",
           "orderDate",
-          "shippedDate",
+          "status",
+          "completedDate",
+          "cancelledDate",
           "shippingAddress",
-          "orderStatus",
           "customerId",
           "customer",
           "invoice",
@@ -1345,7 +1375,17 @@
             ],
             "format": "date-time"
           },
-          "shippedDate": {
+          "status": {
+            "$ref": "#/components/schemas/OrderStatus"
+          },
+          "completedDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "cancelledDate": {
             "type": [
               "null",
               "string"
@@ -1353,12 +1393,6 @@
             "format": "date-time"
           },
           "shippingAddress": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "orderStatus": {
             "type": [
               "null",
               "string"
@@ -1402,6 +1436,32 @@
           },
           "audit": {
             "$ref": "#/components/schemas/AuditReadDto"
+          }
+        }
+      },
+      "OrderStatus": {
+        "enum": [
+          "InProcess",
+          "Pending",
+          "Completed",
+          "Cancelled"
+        ]
+      },
+      "OrderStatusChangeDto": {
+        "required": [
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderStatus"
+              }
+            ]
           }
         }
       },
@@ -1472,9 +1532,7 @@
       "OrderUpdateDto": {
         "required": [
           "orderDate",
-          "shippedDate",
           "shippingAddress",
-          "orderStatus",
           "customerId",
           "items"
         ],
@@ -1487,20 +1545,7 @@
             ],
             "format": "date-time"
           },
-          "shippedDate": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          },
           "shippingAddress": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "orderStatus": {
             "type": [
               "null",
               "string"

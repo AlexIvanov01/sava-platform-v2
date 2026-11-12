@@ -12,6 +12,9 @@ public class OrderMappingsTests
     {
         var items = new[] { OrderBuilder.Item(batchCount: 2), OrderBuilder.Item() };
         var order = OrderBuilder.Order(items);
+        order.Status = OrderStatus.Completed;
+        order.CompletedDate = TestData.Date(2025, 2026);
+        order.CancelledDate = TestData.Date(2025, 2026);
         order.CreatedBy = TestData.Faker.Internet.UserName();
         order.CreatedAt = TestData.Date(2024, 2025);
         order.Invoice = new Invoice
@@ -26,9 +29,10 @@ public class OrderMappingsTests
 
         dto.Id.ShouldBe(order.Id);
         dto.OrderDate.ShouldBe(order.OrderDate);
-        dto.ShippedDate.ShouldBe(order.ShippedDate);
+        dto.Status.ShouldBe(OrderStatus.Completed);
+        dto.CompletedDate.ShouldBe(order.CompletedDate);
+        dto.CancelledDate.ShouldBe(order.CancelledDate);
         dto.ShippingAddress.ShouldBe(order.ShippingAddress);
-        dto.OrderStatus.ShouldBe(order.OrderStatus);
         dto.CustomerId.ShouldBe(order.CustomerId);
         dto.Customer.ShouldBe(order.Customer!.ToReadDto());
         dto.Invoice.ShouldNotBeNull().Id.ShouldBe(order.Invoice.Id);
@@ -166,25 +170,20 @@ public class OrderMappingsTests
 
         order.CustomerId.ShouldBe(customerId);
         order.OrderDate.ShouldBe(dto.OrderDate);
-        order.ShippedDate.ShouldBe(dto.ShippedDate);
         order.ShippingAddress.ShouldBe(dto.ShippingAddress);
-        order.OrderStatus.ShouldBe(dto.OrderStatus);
+        order.Status.ShouldBe(OrderStatus.InProcess);
+        order.CompletedDate.ShouldBeNull();
+        order.CancelledDate.ShouldBeNull();
         order.Customer.ShouldBeNull();
         order.Items.ShouldBeEmpty();
     }
 
     [Fact]
-    public void ToEntity_InvoiceDtos()
+    public void ToEntity_InvoiceUpdateDto()
     {
-        var date = TestData.Date(2024, 2026);
-        var total = TestData.Faker.Finance.Amount(1, 1000);
-        var created = new InvoiceCreateDto(null, date, "Draft", total).ToEntity();
         var updated = new InvoiceUpdateDto(null, "Paid", null).ToEntity(9);
 
-        created.Id.ShouldBe(0);
-        created.InvoiceDate.ShouldBe(date);
-        created.InvoiceStatus.ShouldBe("Draft");
-        created.TotalAmount.ShouldBe(total);
+        updated.InvoiceDate.ShouldBeNull();
         updated.Id.ShouldBe(9);
         updated.InvoiceStatus.ShouldBe("Paid");
         updated.TotalAmount.ShouldBeNull();

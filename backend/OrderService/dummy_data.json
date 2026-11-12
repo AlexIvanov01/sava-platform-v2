@@ -2,9 +2,10 @@
   {
     "Id": "5fdf0a70-7727-5e1b-a418-e817cb144101",
     "OrderDate": "2026-07-14T09:20:00",
-    "ShippedDate": "2026-07-15T14:00:00",
     "ShippingAddress": "12 Vitosha Blvd, Sofia",
-    "OrderStatus": "Delivered",
+    "Status": "Pending",
+    "CompletedDate": null,
+    "CancelledDate": null,
     "CustomerId": "bfe2437f-73bb-5948-bff8-a8c166d1b859",
     "Items": [
       {
@@ -22,9 +23,10 @@
   {
     "Id": "bfdd6aa6-cea3-534f-be47-2c03495c8d40",
     "OrderDate": "2026-08-03T11:05:00",
-    "ShippedDate": "2026-08-05T10:30:00",
     "ShippingAddress": "3 Primorski Blvd, Varna",
-    "OrderStatus": "Delivered",
+    "Status": "Completed",
+    "CompletedDate": "2026-08-05T10:30:00",
+    "CancelledDate": null,
     "CustomerId": "b1820f53-b182-57e0-af7b-8a1fe6664a54",
     "Items": [
       {
@@ -63,9 +65,10 @@
   {
     "Id": "3d559675-4cdf-513d-a4b8-fcbc421647a1",
     "OrderDate": "2026-08-21T15:40:00",
-    "ShippedDate": "2026-08-22T09:15:00",
     "ShippingAddress": "45 Tsar Boris III Obedinitel Blvd, Plovdiv",
-    "OrderStatus": "Delivered",
+    "Status": "Completed",
+    "CompletedDate": "2026-08-22T09:15:00",
+    "CancelledDate": null,
     "CustomerId": "f44d86bd-1e53-508f-9024-9040ceb288bb",
     "Items": [
       {
@@ -95,9 +98,10 @@
   {
     "Id": "3417f272-235a-5e5c-b186-3da0e1460d4c",
     "OrderDate": "2026-09-02T08:45:00",
-    "ShippedDate": "2026-09-03T16:20:00",
     "ShippingAddress": "5 Vasil Levski St, Pleven",
-    "OrderStatus": "Delivered",
+    "Status": "Completed",
+    "CompletedDate": "2026-09-03T16:20:00",
+    "CancelledDate": null,
     "CustomerId": "77362615-c440-5fac-b99c-b22bec3b9659",
     "Items": [
       {
@@ -127,9 +131,10 @@
   {
     "Id": "bf8d534e-4b83-52b8-bcd4-96ad59a98625",
     "OrderDate": "2026-09-18T13:10:00",
-    "ShippedDate": "2026-09-19T11:00:00",
     "ShippingAddress": "8 Aleksandrovska St, Ruse",
-    "OrderStatus": "Shipped",
+    "Status": "Completed",
+    "CompletedDate": "2026-09-19T11:00:00",
+    "CancelledDate": null,
     "CustomerId": "d13d4439-d135-5623-928b-160617e7697c",
     "Items": [
       {
@@ -168,9 +173,10 @@
   {
     "Id": "183a6281-652f-5dc1-9474-802a1b24fd5f",
     "OrderDate": "2026-10-01T10:00:00",
-    "ShippedDate": "2026-10-02T08:30:00",
     "ShippingAddress": "17 Tsar Simeon Veliki Blvd, Stara Zagora",
-    "OrderStatus": "Shipped",
+    "Status": "Completed",
+    "CompletedDate": "2026-10-02T08:30:00",
+    "CancelledDate": null,
     "CustomerId": "6cc7a9cd-a576-5f08-9e1c-bb13b745caaa",
     "Items": [
       {
@@ -209,9 +215,10 @@
   {
     "Id": "c4aac457-c7d2-546f-a05f-2f70904a5432",
     "OrderDate": "2026-10-08T12:25:00",
-    "ShippedDate": null,
     "ShippingAddress": "21 Aleksandrovska St, Burgas",
-    "OrderStatus": "Cancelled",
+    "Status": "Cancelled",
+    "CompletedDate": null,
+    "CancelledDate": "2026-10-09T14:25:00",
     "CustomerId": "ce4051bf-b347-5c88-9648-e645ae0825b8",
     "Items": [
       {
@@ -229,9 +236,10 @@
   {
     "Id": "52f67704-04d2-500c-a698-c01572912505",
     "OrderDate": "2026-10-12T09:50:00",
-    "ShippedDate": null,
     "ShippingAddress": "34 Gurko St, Veliko Tarnovo",
-    "OrderStatus": "Confirmed",
+    "Status": "InProcess",
+    "CompletedDate": null,
+    "CancelledDate": null,
     "CustomerId": "23d8dda5-e534-5a5c-b0df-04993315fb0e",
     "Items": [
       {
@@ -267,9 +275,10 @@
   {
     "Id": "6cf9ca2d-dc52-5a63-9dc3-c795d09765d5",
     "OrderDate": "2026-10-15T14:35:00",
-    "ShippedDate": null,
     "ShippingAddress": "9 Todor Aleksandrov St, Blagoevgrad",
-    "OrderStatus": "New",
+    "Status": "InProcess",
+    "CompletedDate": null,
+    "CancelledDate": null,
     "CustomerId": "37192374-d554-5d3e-9da1-ef357f972169",
     "Items": [
       {
@@ -287,9 +296,10 @@
   {
     "Id": "076790dd-0e8d-5422-a740-463138eb0913",
     "OrderDate": "2026-10-17T07:55:00",
-    "ShippedDate": null,
     "ShippingAddress": "22 Slavyanski Blvd, Shumen",
-    "OrderStatus": "New",
+    "Status": "InProcess",
+    "CompletedDate": null,
+    "CancelledDate": null,
     "CustomerId": "47fa9616-c090-5666-bf8e-594146d08f33",
     "Items": [
       {

@@ -96,9 +96,10 @@ public static class PrepDB
                 {
                     Id = seed.Id,
                     OrderDate = seed.OrderDate,
-                    ShippedDate = seed.ShippedDate,
                     ShippingAddress = seed.ShippingAddress,
-                    OrderStatus = seed.OrderStatus,
+                    Status = seed.Status,
+                    CompletedDate = seed.CompletedDate,
+                    CancelledDate = seed.CancelledDate,
                     CustomerId = seed.CustomerId,
                     Customer = snapshots[seed.CustomerId],
                 };
@@ -163,9 +164,10 @@ public static class PrepDB
     private sealed record OrderSeed(
         Guid Id,
         DateTime? OrderDate,
-        DateTime? ShippedDate,
         string? ShippingAddress,
-        string? OrderStatus,
+        OrderStatus Status,
+        DateTime? CompletedDate,
+        DateTime? CancelledDate,
         Guid CustomerId,
         List<OrderItemWriteDto> Items,
         InvoiceSeed? Invoice

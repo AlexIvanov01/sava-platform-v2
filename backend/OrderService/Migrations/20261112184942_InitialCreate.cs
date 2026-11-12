@@ -21,15 +21,16 @@ namespace OrderService.Migrations
                     {
                         Id = table.Column<Guid>(type: "char(36)", nullable: false),
                         OrderDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                        ShippedDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                        Status = table.Column<string>(
+                            type: "varchar(20)",
+                            maxLength: 20,
+                            nullable: false
+                        ),
+                        CompletedDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                        CancelledDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                         ShippingAddress = table.Column<string>(
                             type: "varchar(500)",
                             maxLength: 500,
-                            nullable: true
-                        ),
-                        OrderStatus = table.Column<string>(
-                            type: "varchar(50)",
-                            maxLength: 50,
                             nullable: true
                         ),
                         CustomerId = table.Column<Guid>(type: "char(36)", nullable: true),

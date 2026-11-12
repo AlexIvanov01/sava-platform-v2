@@ -29,6 +29,7 @@ public class OrderContext(DbContextOptions options, ICurrentUser? currentUser = 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Order>().Property(o => o.Status).HasConversion<string>();
         modelBuilder.Entity<Order>().OwnsOne(o => o.Customer);
         // Every order has a customer snapshot, even if all its fields are empty.
         modelBuilder.Entity<Order>().Navigation(o => o.Customer).IsRequired();

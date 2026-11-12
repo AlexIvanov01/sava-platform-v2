@@ -82,33 +82,6 @@ public class InvoicesControllerTests
     }
 
     [Fact]
-    public async Task CreateInvoice_RepoRejects_ReturnsNotFound()
-    {
-        var result = await _controller.CreateInvoice(
-            new InvoiceCreateDto(null, null, "Draft", 1m),
-            TestData.Faker.Random.Guid()
-        );
-
-        result.Result.ShouldBeOfType<NotFoundResult>();
-    }
-
-    [Fact]
-    public async Task CreateInvoice_Valid_ReturnsCreated()
-    {
-        var orderId = TestData.Faker.Random.Guid();
-        _repo.CreateInvoiceAsync(Arg.Any<Invoice>(), orderId).Returns(ci => ci.Arg<Invoice>());
-
-        var result = await _controller.CreateInvoice(
-            new InvoiceCreateDto(null, null, "Draft", 1m),
-            orderId
-        );
-
-        var created = result.Result.ShouldBeOfType<CreatedAtRouteResult>();
-        created.RouteName.ShouldBe(nameof(InvoicesController.GetInvoiceById));
-        created.Value.ShouldBeOfType<InvoiceReadDto>().InvoiceStatus.ShouldBe("Draft");
-    }
-
-    [Fact]
     public async Task UpdateInvoice_MissingAndExisting_ReturnsSavedInvoice()
     {
         var saved = new Invoice

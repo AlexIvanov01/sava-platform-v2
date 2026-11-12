@@ -24,57 +24,47 @@ public class OrdersController : ControllerBase
     private readonly IMessageBusClient _messageBusClient;
     private readonly IInventoryDataClient _inventory;
     private readonly ICustomerDataClient _customers;
+    private readonly TimeProvider _timeProvider;
 
     public OrdersController(
         IOrderRepo orderRepo,
         IMessageBusClient messageBusClient,
         IInventoryDataClient inventory,
-        ICustomerDataClient customers
+        ICustomerDataClient customers,
+        TimeProvider timeProvider
     )
     {
+        _timeProvider = timeProvider;
         _repository = orderRepo;
         _messageBusClient = messageBusClient;
         _inventory = inventory;
         _customers = customers;
     }
 
+    // Filters combine with AND and apply to Pages too; from/to are inclusive days of OrderDate.
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<OrderPageReadDto>> GetAllOrdersAsync(
         Guid? cursor,
         Guid? customerId,
+        OrderStatus? status,
+        DateOnly? from,
+        DateOnly? to,
         [Range(1, 50)] int pageSize = 10
     )
     {
         try
         {
-            IEnumerable<Order> orderPageItems;
+            var filter = new OrderFilter(status, customerId, from, to);
+            Log.Information(
+                "--> Getting {PageSize} orders after cursor {Cursor} matching {@Filter}",
+                pageSize,
+                cursor,
+                filter
+            );
 
-            if (customerId == null)
-            {
-                Log.Information(
-                    "--> Getting {PageSize} amount of orders after cursor {Cursor}",
-                    pageSize,
-                    cursor
-                );
-                orderPageItems = await _repository.GetAllOrdersAsync(cursor, pageSize);
-            }
-            else
-            {
-                Log.Information(
-                    "--> Getting {PageSize} amount of orders made by customer {Customer} after cursor {Cursor}",
-                    pageSize,
-                    customerId,
-                    cursor
-                );
-
-                orderPageItems = await _repository.GetAllOrdersByCustomerIdAsync(
-                    customerId,
-                    cursor,
-                    pageSize
-                );
-            }
+            var orderPageItems = await _repository.GetOrdersAsync(filter, cursor, pageSize);
 
             if (!orderPageItems.Any())
             {
@@ -82,7 +72,9 @@ public class OrdersController : ControllerBase
                 return NotFound();
             }
 
-            var pageCount = Math.Ceiling(await _repository.GetOrderCountAsync() / (float)pageSize);
+            var pageCount = Math.Ceiling(
+                await _repository.GetOrderCountAsync(filter) / (float)pageSize
+            );
 
             var dtos = orderPageItems.Select(o => o.ToReadDto()).ToList();
 
@@ -182,6 +174,7 @@ public class OrdersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<ActionResult<OrderReadDto>> UpdateOrder(
         Guid id,
@@ -200,6 +193,16 @@ public class OrdersController : ControllerBase
                 return NotFound();
             }
             order = found;
+
+            if (!order.IsEditable())
+            {
+                Log.Warning("--> Order {Id} is {Status} and can't be edited.", id, order.Status);
+                return Problem(
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Order is locked",
+                    detail: $"Order {id} is {order.Status}; only InProcess and Pending orders can be edited."
+                );
+            }
 
             if (orderUpdateDto.CustomerId is { } customerId && customerId != order.CustomerId)
             {
@@ -225,9 +228,7 @@ public class OrdersController : ControllerBase
             }
 
             order.OrderDate = orderUpdateDto.OrderDate ?? order.OrderDate;
-            order.ShippedDate = orderUpdateDto.ShippedDate ?? order.ShippedDate;
             order.ShippingAddress = orderUpdateDto.ShippingAddress ?? order.ShippingAddress;
-            order.OrderStatus = orderUpdateDto.OrderStatus ?? order.OrderStatus;
 
             await _repository.SaveChangesAsync();
 
@@ -246,6 +247,97 @@ public class OrdersController : ControllerBase
         // Always the full current state: subscribers apply only what changed (Inventory moves
         // stock for changed batches, CustomerService follows a change of customer).
         await PublishAsync(order, "Order_Published");
+
+        return Ok(order.ToReadDto());
+    }
+
+    // See Ordering/OrderLifecycle for the allowed changes; others are 409. Completing creates the
+    // invoice (gross total); cancelling releases the stock (Order_Deleted) and keeps any invoice;
+    // reopening a cancelled order takes the stock again (Order_Published). Setting the current
+    // status again changes nothing.
+    [HttpPost("{id}/status")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<OrderReadDto>> ChangeStatus(Guid id, OrderStatusChangeDto dto)
+    {
+        Order order;
+        OrderStatus previous;
+        try
+        {
+            var found = await _repository.GetOrderForUpdateAsync(id);
+            if (found == null)
+            {
+                Log.Warning("--> Order with id {Id} not found for a status change.", id);
+                return NotFound();
+            }
+            order = found;
+            previous = order.Status;
+            var target = dto.Status!.Value;
+
+            if (previous == target)
+            {
+                return Ok(order.ToReadDto());
+            }
+
+            var refusal = OrderLifecycle.CheckTransition(order, target);
+            if (refusal != null)
+            {
+                Log.Warning(
+                    "--> Order {Id} can't go from {From} to {To}: {Reason}",
+                    id,
+                    previous,
+                    target,
+                    refusal
+                );
+                return Problem(
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Status change not allowed",
+                    detail: refusal
+                );
+            }
+
+            var now = _timeProvider.GetUtcNow().UtcDateTime;
+            switch (target)
+            {
+                case OrderStatus.Completed:
+                    order.CompletedDate = now;
+                    order.Invoice = new Invoice
+                    {
+                        Order = order,
+                        OrderId = order.Id,
+                        InvoiceDate = now,
+                        InvoiceStatus = "Unpaid",
+                        TotalAmount = order.Items.Gross(),
+                    };
+                    break;
+                case OrderStatus.Cancelled:
+                    order.CancelledDate = now;
+                    break;
+                case OrderStatus.Pending when previous == OrderStatus.Cancelled:
+                    order.CancelledDate = null;
+                    break;
+            }
+            order.Status = target;
+
+            await _repository.SaveChangesAsync();
+            Log.Information("--> Order {Id} went from {From} to {To}.", id, previous, target);
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
+            return StatusCode(500, "An internal server error occurred.");
+        }
+
+        if (order.Status == OrderStatus.Cancelled)
+        {
+            await PublishAsync(order, "Order_Deleted");
+        }
+        else if (previous == OrderStatus.Cancelled)
+        {
+            await PublishAsync(order, "Order_Published");
+        }
 
         return Ok(order.ToReadDto());
     }

@@ -7,36 +7,47 @@ namespace OrderService.Tests;
 
 public class InvoiceRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
 {
-    private static Invoice NewInvoice(string status = "Draft") =>
-        new()
-        {
-            InvoiceDate = new DateTime(2025, 3, 2, 0, 0, 0, DateTimeKind.Unspecified),
-            InvoiceStatus = status,
-            TotalAmount = 25m,
-        };
-
-    private async Task<(Order Order, Invoice Invoice)> SeedInvoicedOrderAsync()
+    // A completed order with its invoice, as POST /api/Orders/{id}/status creates them.
+    private async Task<(Order Order, Invoice Invoice)> SeedInvoicedOrderAsync(
+        OrderStatus status = OrderStatus.Completed
+    )
     {
-        var order = await SeedOrderAsync(1);
-        await using var context = Db.CreateContext();
-        var invoice = (
-            await new InvoiceRepo(context).CreateInvoiceAsync(NewInvoice(), order.Id)
-        ).ShouldNotBeNull();
+        var order = OrderBuilder.Order(OrderBuilder.Item());
+        order.Status = status;
+        order.CompletedDate = TestData.Date(2025, 2026);
+        if (status == OrderStatus.Cancelled)
+        {
+            order.CancelledDate = TestData.Date(2025, 2026);
+        }
+        var invoice = new Invoice
+        {
+            Order = order,
+            OrderId = order.Id,
+            InvoiceDate = order.CompletedDate,
+            InvoiceStatus = "Unpaid",
+            TotalAmount = order.Items.Gross(),
+        };
+        order.Invoice = invoice;
+        await SeedAsync(order);
         return (order, invoice);
     }
 
     [Fact]
-    public async Task CreateInvoiceAsync_LinksToOrder_AndRejectsSecondInvoiceOrUnknownOrder()
+    public async Task SecondInvoiceForAnOrder_IsRejectedByTheDatabase()
     {
         var (order, invoice) = await SeedInvoicedOrderAsync();
 
         invoice.Id.ShouldBeGreaterThan(0);
-        invoice.OrderId.ShouldBe(order.Id);
         await using var context = Db.CreateContext();
-        var repo = new InvoiceRepo(context);
-        (await repo.CreateInvoiceAsync(NewInvoice(), order.Id)).ShouldBeNull();
-        (await repo.CreateInvoiceAsync(NewInvoice(), TestData.Faker.Random.Guid())).ShouldBeNull();
-        (await repo.GetInvoiceCountAsync()).ShouldBe(1);
+        context.Invoices.Add(
+            new Invoice
+            {
+                OrderId = order.Id,
+                Order = await context.Orders.SingleAsync(Ct),
+                InvoiceStatus = "Unpaid",
+            }
+        );
+        await Should.ThrowAsync<DbUpdateException>(context.SaveChangesAsync(Ct));
     }
 
     [Fact]
@@ -96,7 +107,7 @@ public class InvoiceRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
         await using var assert = Db.CreateContext();
         var saved = await assert.Invoices.SingleAsync(Ct);
         saved.InvoiceStatus.ShouldBe("Paid");
-        saved.TotalAmount.ShouldBe(25m);
+        saved.TotalAmount.ShouldBe(invoice.TotalAmount);
         saved.InvoiceDate.ShouldBe(invoice.InvoiceDate);
         saved.OrderId.ShouldBe(order.Id);
         (await assert.Orders.CountAsync(Ct)).ShouldBe(1);
@@ -115,19 +126,75 @@ public class InvoiceRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
     }
 
     [Fact]
-    public async Task DeleteInvoiceAsync_RemovesInvoiceOnly()
+    public async Task DeleteInvoiceAsync_CompletedOrder_RemovesInvoiceAndMovesOrderToPending()
+    {
+        var (order, invoice) = await SeedInvoicedOrderAsync();
+        var (other, otherInvoice) = await SeedInvoicedOrderAsync();
+
+        await using (var context = Db.CreateContext())
+        {
+            var repo = new InvoiceRepo(context);
+            (await repo.DeleteInvoiceAsync(invoice.Id)).ShouldNotBeNull().Id.ShouldBe(invoice.Id);
+            (await repo.DeleteInvoiceAsync(invoice.Id)).ShouldBeNull();
+        }
+
+        await using var assert = Db.CreateContext();
+        (await assert.Invoices.SingleAsync(Ct)).Id.ShouldBe(otherInvoice.Id);
+        var saved = await assert
+            .Orders.Include(o => o.Items)
+            .SingleAsync(o => o.Id == order.Id, Ct);
+        saved.Status.ShouldBe(OrderStatus.Pending);
+        saved.CompletedDate.ShouldBeNull();
+        saved.CancelledDate.ShouldBeNull();
+        saved.UpdatedAt.ShouldNotBeNull();
+        saved.Items.ShouldHaveSingleItem().ProductId.ShouldBe(order.Items[0].ProductId);
+        // Other orders are untouched.
+        var untouched = await assert.Orders.SingleAsync(o => o.Id == other.Id, Ct);
+        untouched.Status.ShouldBe(OrderStatus.Completed);
+        untouched.CompletedDate.ShouldBe(other.CompletedDate);
+    }
+
+    [Fact]
+    public async Task DeleteInvoiceAsync_CancelledOrder_StaysCancelled()
+    {
+        var (order, invoice) = await SeedInvoicedOrderAsync(OrderStatus.Cancelled);
+
+        await using (var context = Db.CreateContext())
+        {
+            (await new InvoiceRepo(context).DeleteInvoiceAsync(invoice.Id)).ShouldNotBeNull();
+        }
+
+        await using var assert = Db.CreateContext();
+        (await assert.Invoices.AnyAsync(Ct)).ShouldBeFalse();
+        var saved = await assert.Orders.SingleAsync(Ct);
+        saved.Status.ShouldBe(OrderStatus.Cancelled);
+        saved.CancelledDate.ShouldBe(order.CancelledDate);
+        saved.CompletedDate.ShouldBe(order.CompletedDate);
+    }
+
+    [Fact]
+    public async Task DeleteInvoiceAsync_Unknown_ReturnsNull()
     {
         var (order, invoice) = await SeedInvoicedOrderAsync();
 
         await using (var context = Db.CreateContext())
         {
-            var repo = new InvoiceRepo(context);
-            (await repo.DeleteInvoiceAsync(invoice.Id)).ShouldNotBeNull();
-            (await repo.DeleteInvoiceAsync(invoice.Id)).ShouldBeNull();
+            (await new InvoiceRepo(context).DeleteInvoiceAsync(invoice.Id + 1000)).ShouldBeNull();
         }
 
         await using var assert = Db.CreateContext();
-        (await assert.Invoices.AnyAsync(Ct)).ShouldBeFalse();
-        (await assert.Orders.AnyAsync(o => o.Id == order.Id, Ct)).ShouldBeTrue();
+        (await assert.Invoices.SingleAsync(Ct)).OrderId.ShouldBe(order.Id);
+        (await assert.Orders.SingleAsync(Ct)).Status.ShouldBe(OrderStatus.Completed);
+    }
+
+    [Fact]
+    public async Task GetInvoiceCountAsync_CountsInvoices()
+    {
+        await SeedInvoicedOrderAsync();
+        await SeedInvoicedOrderAsync(OrderStatus.Cancelled);
+        await SeedOrderAsync();
+
+        await using var context = Db.CreateContext();
+        (await new InvoiceRepo(context).GetInvoiceCountAsync()).ShouldBe(2);
     }
 }

@@ -36,6 +36,7 @@ builder.Services.AddScoped<IInvoiceRepo, InvoiceRepo>();
 builder.Services.AddSingleton<IInventoryDataClient, InventoryDataClient>();
 builder.Services.AddSingleton<ICustomerDataClient, CustomerDataClient>();
 builder.Services.AddSingleton<IMessageBusClient, MessageBusClient>();
+builder.Services.AddSingleton(TimeProvider.System);
 
 Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration).CreateLogger();
 

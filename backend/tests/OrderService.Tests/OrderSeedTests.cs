@@ -59,9 +59,10 @@ public class OrderSeedTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
         {
             var order = orders.Single(o => o.Id == seed.Id);
             order.OrderDate.ShouldBe(seed.OrderDate);
-            order.ShippedDate.ShouldBe(seed.ShippedDate);
             order.ShippingAddress.ShouldBe(seed.ShippingAddress);
-            order.OrderStatus.ShouldBe(seed.OrderStatus);
+            order.Status.ShouldBe(seed.Status);
+            order.CompletedDate.ShouldBe(seed.CompletedDate);
+            order.CancelledDate.ShouldBe(seed.CancelledDate);
             order.CustomerId.ShouldBe(seed.CustomerId);
             order
                 .Customer.ShouldNotBeNull()
@@ -99,6 +100,12 @@ public class OrderSeedTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
             }
         }
         orders.Count(o => o.Invoice != null).ShouldBe(seeds.Count(s => s.Invoice != null));
+        orders
+            .Where(o => o.Status == OrderStatus.Completed)
+            .ShouldAllBe(o => o.Invoice != null && o.CompletedDate != null);
+        orders
+            .Where(o => o.Status is OrderStatus.InProcess or OrderStatus.Pending)
+            .ShouldAllBe(o => o.Invoice == null);
         // The second run found orders and didn't ask the other services again.
         await _inventory.ReceivedWithAnyArgs(1).GetOrderSnapshotAsync(default!, default!);
     }
@@ -258,6 +265,58 @@ public class OrderSeedFileTests
                 .Items.SelectMany(l => l.Batches!)
                 .Select(b => b.BatchId)
                 .ShouldBeUnique($"Order {order.Id}");
+        }
+    }
+
+    // Every status is seeded, so the development data shows the whole lifecycle.
+    [Fact]
+    public void Orders_CoverEveryStatus()
+    {
+        SeedData
+            .Orders()
+            .Select(o => o.Status)
+            .Distinct()
+            .ShouldBe(Enum.GetValues<OrderStatus>(), ignoreOrder: true);
+    }
+
+    // The seed is in a state the status endpoint could have produced: Completed orders have an
+    // invoice and a CompletedDate, Cancelled ones a CancelledDate, open ones neither.
+    [Fact]
+    public void Orders_StatusDatesAndInvoicesAreConsistent()
+    {
+        foreach (var order in SeedData.Orders())
+        {
+            var because = $"Order {order.Id} is {order.Status}";
+            switch (order.Status)
+            {
+                case OrderStatus.Completed:
+                    order.Invoice.ShouldNotBeNull(because);
+                    order.CompletedDate.ShouldNotBeNull(because);
+                    order.CancelledDate.ShouldBeNull(because);
+                    break;
+                case OrderStatus.Cancelled:
+                    order.CancelledDate.ShouldNotBeNull(because);
+                    // A cancelled order may keep the invoice it got when it was completed.
+                    if (order.Invoice == null)
+                    {
+                        order.CompletedDate.ShouldBeNull(because);
+                    }
+                    break;
+                default:
+                    order.Invoice.ShouldBeNull(because);
+                    order.CompletedDate.ShouldBeNull(because);
+                    order.CancelledDate.ShouldBeNull(because);
+                    break;
+            }
+            if (order.CompletedDate is { } completed)
+            {
+                completed.ShouldBeGreaterThanOrEqualTo(order.OrderDate.ShouldNotBeNull(), because);
+            }
+            if (order.CancelledDate is { } cancelled)
+            {
+                cancelled.ShouldBeGreaterThanOrEqualTo(order.OrderDate.ShouldNotBeNull(), because);
+            }
+            order.Invoice?.InvoiceDate.ShouldBe(order.CompletedDate, because);
         }
     }
 

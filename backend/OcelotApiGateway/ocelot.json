@@ -618,7 +618,7 @@
             }
         },
         {
-            "UpstreamPathTemplate": "/api/Invoices/{orderId}",
+            "UpstreamPathTemplate": "/api/Orders/{id}/status",
             "UpstreamHttpMethod": [ "Post" ],
             "DownstreamScheme": "http",
             "DownstreamHostAndPorts": [
@@ -627,7 +627,7 @@
                     "Port": 80
                 }
             ],
-            "DownstreamPathTemplate": "/api/Invoices/{orderId}",
+            "DownstreamPathTemplate": "/api/Orders/{id}/status",
             "AuthenticationOptions": {
                 "AuthenticationProviderKeys": [ "Bearer" ],
                 "AllowedScopes": []

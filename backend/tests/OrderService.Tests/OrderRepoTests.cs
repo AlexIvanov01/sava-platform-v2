@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using OrderService.DataAccess;
+using OrderService.Dtos;
 using OrderService.Mappings;
 using OrderService.Models;
 using OrderService.Ordering;
@@ -68,7 +69,9 @@ public class OrderRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
         saved.CustomerId.ShouldBe(order.CustomerId);
         saved.OrderDate.ShouldBe(order.OrderDate);
         saved.ShippingAddress.ShouldBe(order.ShippingAddress);
-        saved.OrderStatus.ShouldBe(order.OrderStatus);
+        saved.Status.ShouldBe(OrderStatus.InProcess);
+        saved.CompletedDate.ShouldBeNull();
+        saved.CancelledDate.ShouldBeNull();
         saved.Customer.ShouldNotBeNull().ToReadDto().ShouldBe(order.Customer!.ToReadDto());
         saved.CreatedAt.ShouldNotBeNull();
         // Everything a item snapshots.
@@ -116,8 +119,27 @@ public class OrderRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
         );
     }
 
+    private static readonly OrderFilter NoFilter = new(null, null, null, null);
+
+    private static Order OrderOn(DateTime orderDate, OrderStatus status = OrderStatus.InProcess)
+    {
+        var order = OrderBuilder.Order(OrderBuilder.Item());
+        order.OrderDate = orderDate;
+        order.Status = status;
+        return order;
+    }
+
+    private async Task<List<Guid>> AllIdsAsync(OrderFilter filter)
+    {
+        await using var context = Db.CreateContext();
+        var repo = new OrderRepo(context);
+        var orders = (await repo.GetOrdersAsync(filter, null, 100)).ToList();
+        (await repo.GetOrderCountAsync(filter)).ShouldBe(orders.Count);
+        return [.. orders.Select(o => o.Id)];
+    }
+
     [Fact]
-    public async Task GetAllOrdersAsync_PagesByIdCursor()
+    public async Task GetOrdersAsync_NoFilter_PagesByIdCursor()
     {
         for (var i = 0; i < 3; i++)
         {
@@ -126,18 +148,18 @@ public class OrderRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
 
         await using var context = Db.CreateContext();
         var repo = new OrderRepo(context);
-        var first = (await repo.GetAllOrdersAsync(null, 2)).ToList();
-        var second = (await repo.GetAllOrdersAsync(first[^1].Id, 2)).ToList();
+        var first = (await repo.GetOrdersAsync(NoFilter, null, 2)).ToList();
+        var second = (await repo.GetOrdersAsync(NoFilter, first[^1].Id, 2)).ToList();
 
         first.Count.ShouldBe(2);
         first[0].Customer.ShouldNotBeNull();
         first[0].Items.ShouldHaveSingleItem().Batches.ShouldHaveSingleItem();
         first.Select(o => o.Id).ShouldNotContain(second.ShouldHaveSingleItem().Id);
-        (await repo.GetOrderCountAsync()).ShouldBe(3);
+        (await repo.GetOrderCountAsync(NoFilter)).ShouldBe(3);
     }
 
     [Fact]
-    public async Task GetAllOrdersByCustomerIdAsync_FiltersAndPages()
+    public async Task GetOrdersAsync_ByCustomer_FiltersAndPages()
     {
         var customerId = TestData.Faker.Random.Guid();
         var orders = new[]
@@ -147,18 +169,116 @@ public class OrderRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
         };
         await SeedAsync(orders[0], orders[1]);
         await SeedOrderAsync();
+        var filter = new OrderFilter(null, customerId, null, null);
 
         await using var context = Db.CreateContext();
         var repo = new OrderRepo(context);
-        var first = (
-            await repo.GetAllOrdersByCustomerIdAsync(customerId, null, 1)
-        ).ShouldHaveSingleItem();
-        var second = (
-            await repo.GetAllOrdersByCustomerIdAsync(customerId, first.Id, 10)
-        ).ShouldHaveSingleItem();
+        var first = (await repo.GetOrdersAsync(filter, null, 1)).ShouldHaveSingleItem();
+        var second = (await repo.GetOrdersAsync(filter, first.Id, 10)).ShouldHaveSingleItem();
 
         new[] { first.Id, second.Id }.ShouldBe(orders.Select(o => o.Id), ignoreOrder: true);
         second.Items.ShouldHaveSingleItem();
+        (await repo.GetOrderCountAsync(filter)).ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task GetOrdersAsync_ByStatus_ReturnsOnlyThatStatus()
+    {
+        var byStatus = Enum.GetValues<OrderStatus>()
+            .ToDictionary(
+                status => status,
+                status =>
+                    Enumerable
+                        .Range(0, TestData.Faker.Random.Int(1, 3))
+                        .Select(_ => OrderOn(TestData.Date(2024, 2026), status))
+                        .ToList()
+            );
+        await SeedAsync([.. byStatus.Values.SelectMany(o => o)]);
+
+        foreach (var (status, orders) in byStatus)
+        {
+            (await AllIdsAsync(new OrderFilter(status, null, null, null))).ShouldBe(
+                orders.Select(o => o.Id),
+                ignoreOrder: true
+            );
+        }
+        (await AllIdsAsync(NoFilter)).Count.ShouldBe(byStatus.Values.Sum(o => o.Count));
+    }
+
+    [Fact]
+    public async Task GetOrdersAsync_FromTo_AreInclusiveDays()
+    {
+        var from = DateOnly.FromDateTime(TestData.Date(2024, 2025));
+        var to = from.AddDays(TestData.Faker.Random.Int(0, 30));
+        var start = from.ToDateTime(TimeOnly.MinValue);
+        var end = to.ToDateTime(TimeOnly.MinValue);
+        var beforeFrom = OrderOn(start.AddSeconds(-1));
+        var atFrom = OrderOn(start);
+        var lastSecondOfTo = OrderOn(end.AddDays(1).AddSeconds(-1));
+        var dayAfterTo = OrderOn(end.AddDays(1));
+        await SeedAsync(beforeFrom, atFrom, lastSecondOfTo, dayAfterTo);
+
+        (await AllIdsAsync(new OrderFilter(null, null, from, to))).ShouldBe(
+            [atFrom.Id, lastSecondOfTo.Id],
+            ignoreOrder: true
+        );
+        (await AllIdsAsync(new OrderFilter(null, null, from, null))).ShouldBe(
+            [atFrom.Id, lastSecondOfTo.Id, dayAfterTo.Id],
+            ignoreOrder: true
+        );
+        (await AllIdsAsync(new OrderFilter(null, null, null, to))).ShouldBe(
+            [beforeFrom.Id, atFrom.Id, lastSecondOfTo.Id],
+            ignoreOrder: true
+        );
+        // A single day: 00:00:00 to 23:59:59.
+        (await AllIdsAsync(new OrderFilter(null, null, to, to))).ShouldBe(
+            from == to ? new[] { atFrom.Id, lastSecondOfTo.Id } : new[] { lastSecondOfTo.Id },
+            ignoreOrder: true
+        );
+    }
+
+    [Fact]
+    public async Task GetOrdersAsync_CombinedFilters_MatchAll()
+    {
+        var customerId = TestData.Faker.Random.Guid();
+        var day = DateOnly.FromDateTime(TestData.Date(2024, 2025));
+        var at = day.ToDateTime(new TimeOnly(TestData.Faker.Random.Int(0, 23), 0));
+        var match = OrderOn(at, OrderStatus.Pending);
+        match.CustomerId = customerId;
+        var otherStatus = OrderOn(at, OrderStatus.InProcess);
+        otherStatus.CustomerId = customerId;
+        var otherCustomer = OrderOn(at, OrderStatus.Pending);
+        var otherDay = OrderOn(at.AddDays(1), OrderStatus.Pending);
+        otherDay.CustomerId = customerId;
+        await SeedAsync(match, otherStatus, otherCustomer, otherDay);
+
+        var filter = new OrderFilter(OrderStatus.Pending, customerId, day, day);
+        (await AllIdsAsync(filter)).ShouldBe([match.Id]);
+        await using var context = Db.CreateContext();
+        (await new OrderRepo(context).GetOrdersAsync(filter, match.Id, 10)).ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(OrderStatus.InProcess)]
+    [InlineData(OrderStatus.Pending)]
+    [InlineData(OrderStatus.Completed)]
+    [InlineData(OrderStatus.Cancelled)]
+    public async Task Status_IsStoredAsItsName(OrderStatus status)
+    {
+        var order = OrderOn(TestData.Date(2024, 2026), status);
+        order.CompletedDate = TestData.Date(2025, 2026);
+        order.CancelledDate = TestData.Date(2025, 2026);
+        await SeedAsync(order);
+
+        await using var context = Db.CreateContext();
+        var stored = await context
+            .Database.SqlQuery<string>($"SELECT Status AS Value FROM Orders WHERE Id = {order.Id}")
+            .SingleAsync(Ct);
+        stored.ShouldBe(status.ToString());
+        var saved = (await new OrderRepo(context).GetOrderByIdAsync(order.Id)).ShouldNotBeNull();
+        saved.Status.ShouldBe(status);
+        saved.CompletedDate.ShouldBe(order.CompletedDate);
+        saved.CancelledDate.ShouldBe(order.CancelledDate);
     }
 
     [Fact]

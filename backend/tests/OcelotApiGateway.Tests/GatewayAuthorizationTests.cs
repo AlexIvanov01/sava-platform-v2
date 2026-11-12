@@ -93,6 +93,19 @@ public class GatewayAuthorizationTests(GatewayFactory factory) : IClassFixture<G
                 "User",
                 HttpStatusCode.Forbidden
             },
+            // Order status changes: Administrator only.
+            {
+                "POST",
+                "/api/Orders/00000000-0000-0000-0000-000000000001/status",
+                "User",
+                HttpStatusCode.Forbidden
+            },
+            {
+                "POST",
+                "/api/Orders/00000000-0000-0000-0000-000000000001/status",
+                "Administrator",
+                HttpStatusCode.BadGateway
+            },
             // Stock ledger: anyone can read history, only Administrator adjusts.
             {
                 "GET",

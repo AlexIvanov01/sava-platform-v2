@@ -87,7 +87,7 @@ public class InvoiceRepo : IInvoiceRepo
     public async Task<Invoice?> DeleteInvoiceAsync(int id)
     {
         var dbInvoice = await _context
-            .Invoices.AsNoTracking()
+            .Invoices.Include(i => i.Order)
             .SingleOrDefaultAsync(x => x.Id == id);
 
         if (dbInvoice == null)
@@ -95,36 +95,21 @@ public class InvoiceRepo : IInvoiceRepo
             return null;
         }
 
-        await _context.Invoices.Where(i => i.Id == id).ExecuteDeleteAsync();
-
-        return dbInvoice;
-    }
-
-    public async Task<Invoice?> CreateInvoiceAsync(Invoice invoice, Guid orderId)
-    {
-        bool invoiceCheck = await _context.Invoices.AnyAsync(i => i.OrderId == orderId);
-
-        if (invoiceCheck)
+        // A Completed order without its invoice goes back to Pending; a Cancelled one stays
+        // Cancelled.
+        var order = dbInvoice.Order;
+        if (order.Status == OrderStatus.Completed)
         {
-            Log.Error("Invoice creation validation error: Order already has an invoice");
-            return null;
+            order.Status = OrderStatus.Pending;
+            order.CompletedDate = null;
         }
+        // Touch the order so AuditStamper stamps it even when only the invoice changed.
+        order.UpdatedAt = DateTime.UtcNow;
 
-        var order = await _context.Orders.SingleOrDefaultAsync(p => p.Id == orderId);
-
-        if (order == null)
-        {
-            Log.Error("Invoice creation validation error: Order does not exist");
-            return null;
-        }
-
-        invoice.Order = order;
-
-        _context.Invoices.Add(invoice);
-
+        _context.Invoices.Remove(dbInvoice);
         await _context.SaveChangesAsync();
 
-        return invoice;
+        return dbInvoice;
     }
 
     public async Task<int> GetInvoiceCountAsync()

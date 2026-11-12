@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using OrderService.Models;
 
 namespace OrderService.Dtos;
 
@@ -20,11 +21,10 @@ public record OrderItemBatchWriteDto(
     [Required] [Range(1, int.MaxValue)] int? Quantity
 );
 
+// New orders are InProcess; the status changes through POST /api/Orders/{id}/status.
 public record OrderCreateDto(
     DateTime? OrderDate,
-    DateTime? ShippedDate,
     [MaxLength(500)] string? ShippingAddress,
-    [MaxLength(50)] string? OrderStatus,
     [Required] Guid? CustomerId,
     [Required] [MinLength(1)] List<OrderItemWriteDto>? Items
 ) : IValidatableObject
@@ -35,12 +35,10 @@ public record OrderCreateDto(
 
 // Null fields are left unchanged. Items, when given, is the order's complete new item list: items
 // for products still on the order keep their snapshot, removed products are dropped, and new ones
-// are snapshotted.
+// are snapshotted. Only InProcess and Pending orders can be updated.
 public record OrderUpdateDto(
     DateTime? OrderDate,
-    DateTime? ShippedDate,
     [MaxLength(500)] string? ShippingAddress,
-    [MaxLength(50)] string? OrderStatus,
     Guid? CustomerId,
     [MinLength(1)] List<OrderItemWriteDto>? Items
 ) : IValidatableObject
@@ -130,12 +128,19 @@ public record OrderTotalsReadDto(
     decimal? EbitPercent
 );
 
+public record OrderStatusChangeDto([Required] OrderStatus? Status);
+
+// Query-string filters for GET /api/Orders; null fields don't filter. From/To are inclusive days
+// of OrderDate.
+public record OrderFilter(OrderStatus? Status, Guid? CustomerId, DateOnly? From, DateOnly? To);
+
 public record OrderReadDto(
     Guid Id,
     DateTime? OrderDate,
-    DateTime? ShippedDate,
+    OrderStatus Status,
+    DateTime? CompletedDate,
+    DateTime? CancelledDate,
     string? ShippingAddress,
-    string? OrderStatus,
     Guid? CustomerId,
     CustomerSnapshotReadDto? Customer,
     InvoiceReadDto? Invoice,

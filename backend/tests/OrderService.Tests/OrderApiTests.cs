@@ -3,8 +3,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute.ExceptionExtensions;
+using OrderService.AsyncDataServices;
 using OrderService.Dtos;
 using OrderService.Mappings;
+using OrderService.Models;
 using OrderService.SyncDataServices.Grpc;
 using Sava.Tests.Shared;
 
@@ -36,6 +38,31 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
 
     private async Task<OrderReadDto> GetOrderAsync(Guid id) =>
         (await _client.GetFromJsonAsync<OrderReadDto>($"/api/orders/{id}", Ct)).ShouldNotBeNull();
+
+    private Task<HttpResponseMessage> ChangeStatusAsync(Guid id, OrderStatus status) =>
+        _client.PostAsJsonAsync($"/api/orders/{id}/status", OrderBuilder.StatusDto(status), Ct);
+
+    private async Task<OrderReadDto> ChangeStatusOkAsync(Guid id, OrderStatus status)
+    {
+        var response = await ChangeStatusAsync(id, status);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var order = (await response.Content.ReadFromJsonAsync<OrderReadDto>(Ct)).ShouldNotBeNull();
+        order.Status.ShouldBe(status);
+        return order;
+    }
+
+    // The events published for the order so far, oldest first.
+    private List<OrderPublishedEvent> PublishedFor(Guid orderId) =>
+        [
+            .. factory
+                .MessageBus.ReceivedCalls()
+                .Where(c =>
+                    c.GetMethodInfo().Name == nameof(IMessageBusClient.PublishNewOrderAsync)
+                )
+                .Select(c => c.GetArguments()[0])
+                .OfType<OrderPublishedEvent>()
+                .Where(e => e.OrderId == orderId),
+        ];
 
     private static async Task<ProblemDetails> ShouldBeProblemAsync(
         HttpResponseMessage response,
@@ -210,7 +237,6 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
             $"/api/orders/{order.Id}",
             OrderBuilder.UpdateDto(
                 null,
-                null,
                 OrderBuilder.ItemDto(factory.Products[0].Id, (batchId, 1), (batchId, 3))
             ),
             Ct
@@ -242,10 +268,11 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
         var problem = await ShouldBeProblemAsync(
             await _client.PutAsJsonAsync(
                 $"/api/orders/{order.Id}",
-                OrderBuilder.UpdateDto(
-                    OrderBuilder.Status(),
+                new OrderUpdateDto(
                     null,
-                    OrderBuilder.ItemDto(factory.Products[0].Id, (unknownBatch, 1))
+                    OrderBuilder.ShippingAddress(),
+                    null,
+                    [OrderBuilder.ItemDto(factory.Products[0].Id, (unknownBatch, 1))]
                 ),
                 Ct
             ),
@@ -254,7 +281,7 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
 
         problem.Detail.ShouldBe($"Batch {unknownBatch} does not exist.");
         var saved = await GetOrderAsync(order.Id);
-        saved.OrderStatus.ShouldBe(order.OrderStatus);
+        saved.ShippingAddress.ShouldBe(order.ShippingAddress);
         saved
             .Items.ShouldHaveSingleItem()
             .Batches.ShouldHaveSingleItem()
@@ -267,7 +294,7 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
         (
             await _client.PutAsJsonAsync(
                 $"/api/orders/{TestData.Faker.Random.Guid()}",
-                OrderBuilder.UpdateDto(OrderBuilder.Status()),
+                OrderBuilder.AddressUpdateDto(),
                 Ct
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NotFound);
@@ -327,6 +354,88 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
     }
 
     [Fact]
+    public async Task GetOrders_FilteredByStatus_ReturnsOnlyThatStatus()
+    {
+        var pending = await CreateOrderAsync();
+        var completed = await CreateOrderAsync();
+        var inProcess = await CreateOrderAsync();
+        await ChangeStatusOkAsync(pending.Id, OrderStatus.Pending);
+        await ChangeStatusOkAsync(completed.Id, OrderStatus.Completed);
+
+        var page = (
+            await _client.GetFromJsonAsync<OrderPageReadDto>(
+                "/api/orders?status=Completed&pageSize=50",
+                Ct
+            )
+        ).ShouldNotBeNull();
+
+        page.Orders.ShouldAllBe(o => o.Status == OrderStatus.Completed && o.Invoice != null);
+        page.Orders.Select(o => o.Id).ShouldContain(completed.Id);
+        page.Orders.Select(o => o.Id).ShouldNotContain(pending.Id);
+        page.Orders.Select(o => o.Id).ShouldNotContain(inProcess.Id);
+        page.Pages.ShouldBe(1);
+        var pendingPage = (
+            await _client.GetFromJsonAsync<OrderPageReadDto>(
+                $"/api/orders?status=Pending&customerId={factory.CustomerId}&pageSize=50",
+                Ct
+            )
+        ).ShouldNotBeNull();
+        pendingPage.Orders.ShouldAllBe(o => o.Status == OrderStatus.Pending);
+        pendingPage.Orders.Select(o => o.Id).ShouldContain(pending.Id);
+        (await _client.GetAsync("/api/orders?status=Shipped", Ct)).StatusCode.ShouldBe(
+            HttpStatusCode.BadRequest
+        );
+    }
+
+    [Fact]
+    public async Task GetOrders_FilteredByDays_IncludesTheWholeToDay()
+    {
+        // A year no other test uses, so the day filter sees only this order.
+        var day = DateOnly.FromDateTime(TestData.Date(2030, 2030));
+        var at = day.ToDateTime(new TimeOnly(23, 59, 59));
+        var dto = OrderBuilder.CreateDto(factory.CustomerId, ItemDto(0)) with { OrderDate = at };
+        var created = await _client.PostAsJsonAsync("/api/orders", dto, Ct);
+        created.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var order = (await created.Content.ReadFromJsonAsync<OrderReadDto>(Ct)).ShouldNotBeNull();
+
+        var page = (
+            await _client.GetFromJsonAsync<OrderPageReadDto>(
+                $"/api/orders?from={day:yyyy-MM-dd}&to={day:yyyy-MM-dd}",
+                Ct
+            )
+        ).ShouldNotBeNull();
+
+        page.Orders.ShouldHaveSingleItem().Id.ShouldBe(order.Id);
+        page.Pages.ShouldBe(1);
+        (
+            await _client.GetAsync($"/api/orders?from={day.AddDays(1):yyyy-MM-dd}", Ct)
+        ).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (
+            await _client.GetAsync(
+                $"/api/orders?to={day.AddDays(-1):yyyy-MM-dd}&from=2030-01-01",
+                Ct
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ChangeStatus_UnknownOrderOrMissingStatus_Returns404Or400()
+    {
+        (
+            await ChangeStatusAsync(TestData.Faker.Random.Guid(), OrderStatus.Pending)
+        ).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        var order = await CreateOrderAsync();
+        (
+            await _client.PostAsJsonAsync(
+                $"/api/orders/{order.Id}/status",
+                new OrderStatusChangeDto(null),
+                Ct
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await GetOrderAsync(order.Id)).Status.ShouldBe(OrderStatus.InProcess);
+    }
+
+    [Fact]
     public async Task OrderAndInvoiceLifecycle()
     {
         var creator = TestData.Faker.Internet.UserName();
@@ -335,6 +444,8 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
             TestTokens.Bearer(creator)
         );
         var order = await CreateOrderAsync();
+        order.Status.ShouldBe(OrderStatus.InProcess);
+        order.Invoice.ShouldBeNull();
         order.Audit.ShouldNotBeNull().CreatedBy.ShouldBe(creator);
         order.Audit.UpdatedBy.ShouldBeNull();
         var productB = factory.Products[1];
@@ -345,12 +456,12 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
         );
         var update = await _client.PutAsJsonAsync(
             $"/api/orders/{order.Id}",
-            OrderBuilder.UpdateDto("Confirmed", null, ItemDto(1, 5)),
+            OrderBuilder.UpdateDto(null, ItemDto(1, 5)),
             Ct
         );
         update.StatusCode.ShouldBe(HttpStatusCode.OK);
         var updated = await GetOrderAsync(order.Id);
-        updated.OrderStatus.ShouldBe("Confirmed");
+        updated.Status.ShouldBe(OrderStatus.InProcess);
         updated.ShippingAddress.ShouldBe(order.ShippingAddress);
         var item = updated.Items.ShouldHaveSingleItem();
         item.ProductId.ShouldBe(productB.Id);
@@ -360,26 +471,46 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
         updated.Audit.UpdatedBy.ShouldBe(editor);
         updated.Audit.UpdatedAt.ShouldNotBeNull();
 
-        var invoiceDto = new InvoiceCreateDto(
-            null,
-            TestData.Date(2025, 2026),
-            "Draft",
-            updated.Totals.Gross
-        );
-        var createInvoice = await _client.PostAsJsonAsync(
-            $"/api/invoices/{order.Id}",
-            invoiceDto,
-            Ct
-        );
-        createInvoice.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var invoice = (
-            await createInvoice.Content.ReadFromJsonAsync<InvoiceReadDto>(Ct)
-        ).ShouldNotBeNull();
+        // InProcess <-> Pending changes nothing else and publishes nothing.
+        (await ChangeStatusOkAsync(order.Id, OrderStatus.Pending)).Invoice.ShouldBeNull();
+        (await GetOrderAsync(order.Id)).Status.ShouldBe(OrderStatus.Pending);
+        await ChangeStatusOkAsync(order.Id, OrderStatus.InProcess);
+        PublishedFor(order.Id).Count.ShouldBe(2);
+
+        // Completing creates the invoice and locks the order.
+        var completed = await ChangeStatusOkAsync(order.Id, OrderStatus.Completed);
+        var completedDate = completed.CompletedDate.ShouldNotBeNull();
+        completed.CancelledDate.ShouldBeNull();
+        var invoice = completed.Invoice.ShouldNotBeNull();
         invoice.OrderId.ShouldBe(order.Id);
+        invoice.InvoiceStatus.ShouldBe("Unpaid");
+        invoice.InvoiceDate.ShouldBe(completedDate);
+        invoice.TotalAmount.ShouldBe(updated.Totals.Gross);
         invoice.Audit.CreatedBy.ShouldBe(editor);
-        (
-            await _client.PostAsJsonAsync($"/api/invoices/{order.Id}", invoiceDto, Ct)
-        ).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        PublishedFor(order.Id).Count.ShouldBe(2);
+        var saved = await GetOrderAsync(order.Id);
+        saved.Status.ShouldBe(OrderStatus.Completed);
+        saved.Invoice.ShouldNotBeNull().Id.ShouldBe(invoice.Id);
+        // The same status again is a no-op; going back to InProcess isn't allowed.
+        (await ChangeStatusOkAsync(order.Id, OrderStatus.Completed))
+            .Invoice.ShouldNotBeNull()
+            .Id.ShouldBe(invoice.Id);
+        var refused = await ShouldBeProblemAsync(
+            await ChangeStatusAsync(order.Id, OrderStatus.InProcess),
+            HttpStatusCode.Conflict
+        );
+        refused.Title.ShouldBe("Status change not allowed");
+
+        var locked = await ShouldBeProblemAsync(
+            await _client.PutAsJsonAsync(
+                $"/api/orders/{order.Id}",
+                OrderBuilder.AddressUpdateDto(),
+                Ct
+            ),
+            HttpStatusCode.Conflict
+        );
+        locked.Title.ShouldBe("Order is locked");
+        (await GetOrderAsync(order.Id)).ShippingAddress.ShouldBe(order.ShippingAddress);
 
         var paid = await _client.PutAsJsonAsync(
             $"/api/invoices/{invoice.Id}",
@@ -394,7 +525,6 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
         paidInvoice.TotalAmount.ShouldBe(updated.Totals.Gross);
         paidInvoice.OrderId.ShouldBe(order.Id);
         paidInvoice.Audit.UpdatedBy.ShouldBe(editor);
-        _client.DefaultRequestHeaders.Authorization = null;
         var invoiced = (
             await _client.GetFromJsonAsync<OrderReadDto>($"/api/invoices/{invoice.Id}", Ct)
         ).ShouldNotBeNull();
@@ -420,37 +550,59 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
         );
         (await GetOrderAsync(order.Id)).Items.ShouldHaveSingleItem();
 
+        // Deleting the invoice reopens the order as Pending.
         (await _client.DeleteAsync($"/api/invoices/{invoice.Id}", Ct)).StatusCode.ShouldBe(
             HttpStatusCode.NoContent
         );
+        var reopened = await GetOrderAsync(order.Id);
+        reopened.Status.ShouldBe(OrderStatus.Pending);
+        reopened.CompletedDate.ShouldBeNull();
+        reopened.Invoice.ShouldBeNull();
+        reopened.Audit.UpdatedBy.ShouldBe(editor);
+
+        // Cancelling releases the stock; reopening takes it again.
+        var cancelled = await ChangeStatusOkAsync(order.Id, OrderStatus.Cancelled);
+        cancelled.CancelledDate.ShouldNotBeNull();
+        (
+            await _client.PutAsJsonAsync(
+                $"/api/orders/{order.Id}",
+                OrderBuilder.AddressUpdateDto(),
+                Ct
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        var pending = await ChangeStatusOkAsync(order.Id, OrderStatus.Pending);
+        pending.CancelledDate.ShouldBeNull();
+        pending.CompletedDate.ShouldBeNull();
+
+        _client.DefaultRequestHeaders.Authorization = null;
         (await _client.DeleteAsync($"/api/orders/{order.Id}", Ct)).StatusCode.ShouldBe(
             HttpStatusCode.NoContent
         );
         (await _client.GetAsync($"/api/orders/{order.Id}", Ct)).StatusCode.ShouldBe(
             HttpStatusCode.NotFound
         );
-        await factory
-            .MessageBus.Received(1)
-            .PublishNewOrderAsync(
-                Arg.Is<OrderPublishedEvent>(e =>
-                    e.Event == "Order_Deleted"
-                    && e.OrderId == order.Id
-                    && e.Items.Single().ProductId == productB.Id
-                    && e.Items.Single().Batches.Single().BatchId == batchB.Id
-                )
-            );
-        // The update published the order's complete new item list.
-        await factory
-            .MessageBus.Received(1)
-            .PublishNewOrderAsync(
-                Arg.Is<OrderPublishedEvent>(e =>
-                    e.Event == "Order_Published"
-                    && e.OrderId == order.Id
-                    && e.Items.Single().ProductId == productB.Id
-                    && e.Items.Single().Batches.Single().BatchId == batchB.Id
-                    && e.Items.Single().Batches.Single().Quantity == 5
-                )
-            );
+
+        // create, update, cancel, reopen, delete; every later event carries the updated items.
+        var events = PublishedFor(order.Id);
+        events
+            .Select(e => e.Event)
+            .ShouldBe([
+                "Order_Published",
+                "Order_Published",
+                "Order_Deleted",
+                "Order_Published",
+                "Order_Deleted",
+            ]);
+        events.ShouldAllBe(e => e.CustomerId == factory.CustomerId);
+        events[0].Items.ShouldHaveSingleItem().ProductId.ShouldBe(factory.Products[0].Id);
+        foreach (var e in events.Skip(1))
+        {
+            var published = e.Items.ShouldHaveSingleItem();
+            published.ProductId.ShouldBe(productB.Id);
+            var batch = published.Batches.ShouldHaveSingleItem();
+            batch.BatchId.ShouldBe(batchB.Id);
+            batch.Quantity.ShouldBe(5);
+        }
     }
 
     [Theory]

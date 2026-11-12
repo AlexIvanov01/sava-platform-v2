@@ -110,44 +110,6 @@ namespace OrderService.Controllers
             }
         }
 
-        [HttpPost("{orderId}")]
-        [ProducesResponseType(StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<InvoiceReadDto>> CreateInvoice(
-            InvoiceCreateDto invoiceCreateDto,
-            Guid orderId
-        )
-        {
-            try
-            {
-                Log.Information("--> Creating an invoice............");
-
-                var invoiceModel = invoiceCreateDto.ToEntity();
-
-                var nullCheck = await _repository.CreateInvoiceAsync(invoiceModel, orderId);
-
-                if (nullCheck == null)
-                {
-                    return NotFound();
-                }
-
-                Log.Information("--> Created invoice for order: {Id}", orderId);
-
-                var invoiceReadDto = invoiceModel.ToReadDto();
-
-                return CreatedAtRoute(
-                    nameof(GetInvoiceById),
-                    new { Id = invoiceReadDto.Id },
-                    invoiceReadDto
-                );
-            }
-            catch (Exception ex)
-            {
-                Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
-                return StatusCode(500, "An internal server error occurred.");
-            }
-        }
-
         [HttpPut("{id}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]

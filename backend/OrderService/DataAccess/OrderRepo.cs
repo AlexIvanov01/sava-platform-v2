@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using OrderService.Dtos;
 using OrderService.Models;
 
 namespace OrderService.DataAccess;
@@ -54,22 +55,41 @@ public class OrderRepo : IOrderRepo
         return (DeleteOrderStatus.Deleted, dbOrder);
     }
 
-    public async Task<int> GetOrderCountAsync()
-    {
-        return await _context.Orders.CountAsync();
-    }
+    public async Task<int> GetOrderCountAsync(OrderFilter filter) =>
+        await Filtered(filter).CountAsync();
 
-    public async Task<IEnumerable<Order>> GetAllOrdersAsync(Guid? cursor, int pageSize) =>
-        await Page(_context.Orders, cursor, pageSize);
-
-    public async Task<IEnumerable<Order>> GetAllOrdersByCustomerIdAsync(
-        Guid? customerId,
+    public async Task<IEnumerable<Order>> GetOrdersAsync(
+        OrderFilter filter,
         Guid? cursor,
         int pageSize
-    ) => await Page(_context.Orders.Where(o => o.CustomerId == customerId), cursor, pageSize);
+    ) => await Page(Filtered(filter), cursor, pageSize);
 
     public async Task<Order?> GetOrderByIdAsync(Guid id) =>
         await WithDetails(_context.Orders.AsNoTracking()).SingleOrDefaultAsync(o => o.Id == id);
+
+    private IQueryable<Order> Filtered(OrderFilter filter)
+    {
+        var orders = _context.Orders.AsQueryable();
+        if (filter.Status is { } status)
+        {
+            orders = orders.Where(o => o.Status == status);
+        }
+        if (filter.CustomerId is { } customerId)
+        {
+            orders = orders.Where(o => o.CustomerId == customerId);
+        }
+        if (filter.From is { } from)
+        {
+            var start = from.ToDateTime(TimeOnly.MinValue);
+            orders = orders.Where(o => o.OrderDate >= start);
+        }
+        if (filter.To is { } to)
+        {
+            var end = to.AddDays(1).ToDateTime(TimeOnly.MinValue);
+            orders = orders.Where(o => o.OrderDate < end);
+        }
+        return orders;
+    }
 
     private static async Task<List<Order>> Page(
         IQueryable<Order> orders,

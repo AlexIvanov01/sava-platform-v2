@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.Extensions.Time.Testing;
 using NSubstitute.ExceptionExtensions;
 using OrderService.AsyncDataServices;
 using OrderService.Controllers;
@@ -18,6 +19,7 @@ public class OrdersControllerTests
     private readonly IMessageBusClient _bus = Substitute.For<IMessageBusClient>();
     private readonly IInventoryDataClient _inventory = Substitute.For<IInventoryDataClient>();
     private readonly ICustomerDataClient _customers = Substitute.For<ICustomerDataClient>();
+    private readonly FakeTimeProvider _clock;
     private readonly OrdersController _controller;
     private readonly List<OrderPublishedEvent> _published = [];
 
@@ -29,7 +31,8 @@ public class OrdersControllerTests
 
     public OrdersControllerTests()
     {
-        _controller = new OrdersController(_repo, _bus, _inventory, _customers);
+        _clock = new FakeTimeProvider(new DateTimeOffset(TestData.Date(2026, 2027), TimeSpan.Zero));
+        _controller = new OrdersController(_repo, _bus, _inventory, _customers, _clock);
         _bus.PublishNewOrderAsync(Arg.Do<OrderPublishedEvent>(_published.Add));
         _batches = [OrderBuilder.Batch(_product.Id), OrderBuilder.Batch(_product.Id)];
         _customers.GetCustomerAsync(_customerId).Returns(_customer);
@@ -46,12 +49,26 @@ public class OrdersControllerTests
         return objectResult.Value.ShouldBeOfType<ProblemDetails>();
     }
 
-    private Order ExistingOrder()
+    private Order ExistingOrder(OrderStatus status = OrderStatus.InProcess)
     {
         var order = OrderBuilder.OrderFor(_customerId, OrderBuilder.Item(batchCount: 2));
+        order.Status = status;
         _repo.GetOrderForUpdateAsync(order.Id).Returns(order);
         return order;
     }
+
+    private DateTime Now => _clock.GetUtcNow().UtcDateTime;
+
+    private static Invoice InvoiceOf(Order order) =>
+        new()
+        {
+            Id = TestData.Faker.Random.Int(1, 1000),
+            OrderId = order.Id,
+            Order = order,
+            InvoiceDate = TestData.Date(2025, 2026),
+            InvoiceStatus = "Unpaid",
+            TotalAmount = order.Items.Gross(),
+        };
 
     // (product, batch, quantity) per item batch, in order.
     private static List<(Guid ProductId, Guid BatchId, int Quantity)> Payload(
@@ -62,14 +79,16 @@ public class OrdersControllerTests
         IEnumerable<OrderItem> items
     ) => [.. items.SelectMany(l => l.Batches.Select(b => (l.ProductId, b.BatchId, b.Quantity)))];
 
+    private static readonly OrderFilter NoFilter = new(null, null, null, null);
+
     [Fact]
-    public async Task GetAllOrders_NoCustomerFilter_UsesAllOrdersAndBuildsPage()
+    public async Task GetAllOrders_NoFilter_BuildsPage()
     {
         var orders = new[] { OrderBuilder.Order(OrderBuilder.Item()), OrderBuilder.Order() };
-        _repo.GetAllOrdersAsync(null, 2).Returns(orders);
-        _repo.GetOrderCountAsync().Returns(3);
+        _repo.GetOrdersAsync(NoFilter, null, 2).Returns(orders);
+        _repo.GetOrderCountAsync(NoFilter).Returns(3);
 
-        var result = await _controller.GetAllOrdersAsync(null, null, 2);
+        var result = await _controller.GetAllOrdersAsync(null, null, null, null, null, 2);
 
         var page = result
             .Result.ShouldBeOfType<OkObjectResult>()
@@ -78,46 +97,55 @@ public class OrdersControllerTests
         page.Orders.First().Items.ShouldHaveSingleItem();
         page.Cursor.ShouldBe(orders[1].Id);
         page.Pages.ShouldBe(2);
-        await _repo
-            .DidNotReceiveWithAnyArgs()
-            .GetAllOrdersByCustomerIdAsync(default, default, default);
     }
 
     [Fact]
-    public async Task GetAllOrders_WithCustomerFilter_UsesCustomerQuery()
+    public async Task GetAllOrders_WithFilters_PassesTheFilterAndCountsFilteredPages()
     {
-        var cursor = TestData.Faker.Random.Guid();
-        _repo
-            .GetAllOrdersByCustomerIdAsync(_customerId, cursor, 10)
-            .Returns([OrderBuilder.OrderFor(_customerId)]);
-        _repo.GetOrderCountAsync().Returns(1);
+        var f = TestData.Faker;
+        var cursor = f.Random.Guid();
+        var status = f.PickRandom<OrderStatus>();
+        var from = DateOnly.FromDateTime(TestData.Date(2024, 2025));
+        var to = from.AddDays(f.Random.Int(0, 60));
+        var filter = new OrderFilter(status, _customerId, from, to);
+        var order = OrderBuilder.OrderFor(_customerId);
+        order.Status = status;
+        var count = f.Random.Int(11, 95);
+        _repo.GetOrdersAsync(filter, cursor, 10).Returns([order]);
+        _repo.GetOrderCountAsync(filter).Returns(count);
 
-        var result = await _controller.GetAllOrdersAsync(cursor, _customerId);
+        var result = await _controller.GetAllOrdersAsync(cursor, _customerId, status, from, to);
 
-        result
+        var page = result
             .Result.ShouldBeOfType<OkObjectResult>()
-            .Value.ShouldBeOfType<OrderPageReadDto>()
-            .Orders.ShouldHaveSingleItem()
-            .CustomerId.ShouldBe(_customerId);
-        await _repo.DidNotReceiveWithAnyArgs().GetAllOrdersAsync(default, default);
+            .Value.ShouldBeOfType<OrderPageReadDto>();
+        var dto = page.Orders.ShouldHaveSingleItem();
+        dto.CustomerId.ShouldBe(_customerId);
+        dto.Status.ShouldBe(status);
+        page.Pages.ShouldBe((count + 9) / 10);
+        await _repo.Received(1).GetOrdersAsync(filter, cursor, 10);
+        await _repo.Received(1).GetOrderCountAsync(filter);
+        await _repo.DidNotReceive().GetOrderCountAsync(NoFilter);
     }
 
     [Fact]
     public async Task GetAllOrders_Empty_ReturnsNotFound()
     {
-        _repo.GetAllOrdersAsync(null, 10).Returns([]);
+        _repo.GetOrdersAsync(NoFilter, null, 10).Returns([]);
 
-        (await _controller.GetAllOrdersAsync(null, null)).Result.ShouldBeOfType<NotFoundResult>();
+        (
+            await _controller.GetAllOrdersAsync(null, null, null, null, null)
+        ).Result.ShouldBeOfType<NotFoundResult>();
     }
 
     [Fact]
     public async Task GetAllOrders_RepoThrows_Returns500()
     {
         _repo
-            .GetAllOrdersAsync(Arg.Any<Guid?>(), Arg.Any<int>())
+            .GetOrdersAsync(Arg.Any<OrderFilter>(), Arg.Any<Guid?>(), Arg.Any<int>())
             .ThrowsAsync(new InvalidOperationException());
 
-        (await _controller.GetAllOrdersAsync(null, null))
+        (await _controller.GetAllOrdersAsync(null, null, null, null, null))
             .Result.ShouldBeOfType<ObjectResult>()
             .StatusCode.ShouldBe(500);
     }
@@ -166,7 +194,11 @@ public class OrdersControllerTests
         body.Id.ShouldBe(orderId);
         body.CustomerId.ShouldBe(_customerId);
         body.Customer.ShouldBe(_customer.ToReadDto());
-        body.OrderStatus.ShouldBe(dto.OrderStatus);
+        body.Status.ShouldBe(OrderStatus.InProcess);
+        body.CompletedDate.ShouldBeNull();
+        body.CancelledDate.ShouldBeNull();
+        body.Invoice.ShouldBeNull();
+        body.OrderDate.ShouldBe(dto.OrderDate);
         body.ShippingAddress.ShouldBe(dto.ShippingAddress);
         var item = body.Items.ShouldHaveSingleItem();
         item.ProductId.ShouldBe(_product.Id);
@@ -176,6 +208,7 @@ public class OrdersControllerTests
         item.Batches.Select(b => b.Lot).ShouldBe(_batches.Select(b => b.Lot), ignoreOrder: true);
 
         saved.ShouldNotBeNull().Customer.ShouldBeSameAs(_customer);
+        saved.Status.ShouldBe(OrderStatus.InProcess);
         saved.Items.ShouldHaveSingleItem().Batches.Count.ShouldBe(2);
         await _inventory
             .Received(1)
@@ -303,7 +336,7 @@ public class OrdersControllerTests
         (
             await _controller.UpdateOrder(
                 TestData.Faker.Random.Guid(),
-                OrderBuilder.UpdateDto(OrderBuilder.Status())
+                OrderBuilder.AddressUpdateDto()
             )
         ).Result.ShouldBeOfType<NotFoundResult>();
         await _repo.DidNotReceive().SaveChangesAsync();
@@ -315,16 +348,17 @@ public class OrdersControllerTests
     {
         var order = ExistingOrder();
         var items = Payload(order.Items);
-        var (address, customer) = (order.ShippingAddress, order.Customer);
-        var status = TestData.Faker.Lorem.Word();
+        var (orderDate, customer) = (order.OrderDate, order.Customer);
+        var dto = OrderBuilder.AddressUpdateDto();
 
-        var result = await _controller.UpdateOrder(order.Id, OrderBuilder.UpdateDto(status));
+        var result = await _controller.UpdateOrder(order.Id, dto);
 
         var body = result
             .Result.ShouldBeOfType<OkObjectResult>()
             .Value.ShouldBeOfType<OrderReadDto>();
-        body.OrderStatus.ShouldBe(status);
-        body.ShippingAddress.ShouldBe(address);
+        body.ShippingAddress.ShouldBe(dto.ShippingAddress);
+        body.OrderDate.ShouldBe(orderDate);
+        body.Status.ShouldBe(OrderStatus.InProcess);
         order.Customer.ShouldBeSameAs(customer);
         Payload(order.Items).ShouldBe(items);
         await _repo.Received(1).SaveChangesAsync();
@@ -436,7 +470,6 @@ public class OrdersControllerTests
                 order.Id,
                 OrderBuilder.UpdateDto(
                     null,
-                    null,
                     existing.ToWriteDto(),
                     OrderBuilder.ItemDto(_product.Id, (_batches[1].Id, 4))
                 )
@@ -491,11 +524,7 @@ public class OrdersControllerTests
         var problem = ShouldBeProblem(
             await _controller.UpdateOrder(
                 order.Id,
-                OrderBuilder.UpdateDto(
-                    OrderBuilder.Status(),
-                    null,
-                    OrderBuilder.ItemDto(unknown, (_batches[0].Id, 1))
-                )
+                OrderBuilder.UpdateDto(items: OrderBuilder.ItemDto(unknown, (_batches[0].Id, 1)))
             ),
             400
         );
@@ -538,10 +567,302 @@ public class OrdersControllerTests
         var order = ExistingOrder();
         _repo.SaveChangesAsync().ThrowsAsync(new InvalidOperationException());
 
-        (await _controller.UpdateOrder(order.Id, OrderBuilder.UpdateDto(OrderBuilder.Status())))
+        (await _controller.UpdateOrder(order.Id, OrderBuilder.AddressUpdateDto()))
             .Result.ShouldBeOfType<ObjectResult>()
             .StatusCode.ShouldBe(500);
         _published.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(OrderStatus.InProcess)]
+    [InlineData(OrderStatus.Pending)]
+    public async Task UpdateOrder_EditableStatus_IsSaved(OrderStatus status)
+    {
+        var order = ExistingOrder(status);
+        var dto = OrderBuilder.AddressUpdateDto();
+
+        var body = (await _controller.UpdateOrder(order.Id, dto))
+            .Result.ShouldBeOfType<OkObjectResult>()
+            .Value.ShouldBeOfType<OrderReadDto>();
+
+        body.Status.ShouldBe(status);
+        body.ShippingAddress.ShouldBe(dto.ShippingAddress);
+        await _repo.Received(1).SaveChangesAsync();
+    }
+
+    [Theory]
+    [InlineData(OrderStatus.Completed)]
+    [InlineData(OrderStatus.Cancelled)]
+    public async Task UpdateOrder_LockedOrder_Returns409WithoutAskingServicesOrSaving(
+        OrderStatus status
+    )
+    {
+        var order = OrderBuilder.Order(OrderBuilder.Item());
+        order.Status = status;
+        _repo.GetOrderForUpdateAsync(order.Id).Returns(order);
+        var (address, items) = (order.ShippingAddress, Payload(order.Items));
+
+        var problem = ShouldBeProblem(
+            await _controller.UpdateOrder(
+                order.Id,
+                new OrderUpdateDto(
+                    TestData.Date(2024, 2026),
+                    OrderBuilder.ShippingAddress(),
+                    _customerId,
+                    [OrderBuilder.ItemDto(_product.Id, (_batches[0].Id, 1))]
+                )
+            ),
+            409
+        );
+
+        problem.Title.ShouldBe("Order is locked");
+        problem.Detail.ShouldNotBeNull().ShouldContain(status.ToString());
+        order.ShippingAddress.ShouldBe(address);
+        order.CustomerId.ShouldNotBe(_customerId);
+        Payload(order.Items).ShouldBe(items);
+        await _customers.DidNotReceiveWithAnyArgs().GetCustomerAsync(Guid.Empty);
+        await _inventory.DidNotReceiveWithAnyArgs().GetOrderSnapshotAsync(default!, default!);
+        await _repo.DidNotReceive().SaveChangesAsync();
+        _published.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task ChangeStatus_Missing_ReturnsNotFound()
+    {
+        (
+            await _controller.ChangeStatus(
+                TestData.Faker.Random.Guid(),
+                OrderBuilder.StatusDto(OrderStatus.Pending)
+            )
+        ).Result.ShouldBeOfType<NotFoundResult>();
+
+        await _repo.DidNotReceive().SaveChangesAsync();
+        _published.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(OrderStatus.InProcess)]
+    [InlineData(OrderStatus.Pending)]
+    [InlineData(OrderStatus.Completed)]
+    [InlineData(OrderStatus.Cancelled)]
+    public async Task ChangeStatus_SameStatus_ReturnsTheOrderWithoutSavingOrPublishing(
+        OrderStatus status
+    )
+    {
+        var order = ExistingOrder(status);
+
+        var body = (await _controller.ChangeStatus(order.Id, OrderBuilder.StatusDto(status)))
+            .Result.ShouldBeOfType<OkObjectResult>()
+            .Value.ShouldBeOfType<OrderReadDto>();
+
+        body.Id.ShouldBe(order.Id);
+        body.Status.ShouldBe(status);
+        order.Invoice.ShouldBeNull();
+        await _repo.DidNotReceive().SaveChangesAsync();
+        _published.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(OrderStatus.Completed, OrderStatus.InProcess)]
+    [InlineData(OrderStatus.Completed, OrderStatus.Pending)]
+    [InlineData(OrderStatus.Cancelled, OrderStatus.InProcess)]
+    [InlineData(OrderStatus.Cancelled, OrderStatus.Completed)]
+    public async Task ChangeStatus_RefusedTransition_Returns409WithTheReason(
+        OrderStatus from,
+        OrderStatus to
+    )
+    {
+        var order = ExistingOrder(from);
+
+        var problem = ShouldBeProblem(
+            await _controller.ChangeStatus(order.Id, OrderBuilder.StatusDto(to)),
+            409
+        );
+
+        problem.Title.ShouldBe("Status change not allowed");
+        problem.Detail.ShouldBe($"An order can't go from {from} to {to}.");
+        order.Status.ShouldBe(from);
+        await _repo.DidNotReceive().SaveChangesAsync();
+        _published.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(OrderStatus.InProcess, OrderStatus.Pending)]
+    [InlineData(OrderStatus.Pending, OrderStatus.InProcess)]
+    public async Task ChangeStatus_BetweenInProcessAndPending_SavesWithoutPublishing(
+        OrderStatus from,
+        OrderStatus to
+    )
+    {
+        var order = ExistingOrder(from);
+
+        var body = (await _controller.ChangeStatus(order.Id, OrderBuilder.StatusDto(to)))
+            .Result.ShouldBeOfType<OkObjectResult>()
+            .Value.ShouldBeOfType<OrderReadDto>();
+
+        body.Status.ShouldBe(to);
+        body.CompletedDate.ShouldBeNull();
+        body.CancelledDate.ShouldBeNull();
+        body.Invoice.ShouldBeNull();
+        order.Status.ShouldBe(to);
+        await _repo.Received(1).SaveChangesAsync();
+        _published.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(OrderStatus.InProcess)]
+    [InlineData(OrderStatus.Pending)]
+    public async Task ChangeStatus_ToCompleted_CreatesTheInvoiceWithoutPublishing(OrderStatus from)
+    {
+        var order = ExistingOrder(from);
+        order.Items.Add(OrderBuilder.Item());
+        var gross = order.Items.Gross();
+
+        var body = (
+            await _controller.ChangeStatus(order.Id, OrderBuilder.StatusDto(OrderStatus.Completed))
+        )
+            .Result.ShouldBeOfType<OkObjectResult>()
+            .Value.ShouldBeOfType<OrderReadDto>();
+
+        body.Status.ShouldBe(OrderStatus.Completed);
+        body.CompletedDate.ShouldBe(Now);
+        body.CancelledDate.ShouldBeNull();
+        var invoice = body.Invoice.ShouldNotBeNull();
+        invoice.InvoiceDate.ShouldBe(Now);
+        invoice.InvoiceStatus.ShouldBe("Unpaid");
+        invoice.TotalAmount.ShouldBe(gross);
+        invoice.TotalAmount.ShouldBe(body.Totals.Gross);
+        order.Invoice.ShouldNotBeNull().OrderId.ShouldBe(order.Id);
+        order.CompletedDate.ShouldBe(Now);
+        await _repo.Received(1).SaveChangesAsync();
+        _published.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(OrderStatus.InProcess)]
+    [InlineData(OrderStatus.Pending)]
+    public async Task ChangeStatus_ToCompletedWithAnInvoice_Returns409(OrderStatus from)
+    {
+        var order = ExistingOrder(from);
+        var invoice = InvoiceOf(order);
+        order.Invoice = invoice;
+
+        var problem = ShouldBeProblem(
+            await _controller.ChangeStatus(order.Id, OrderBuilder.StatusDto(OrderStatus.Completed)),
+            409
+        );
+
+        problem.Title.ShouldBe("Status change not allowed");
+        problem.Detail.ShouldBe("The order already has an invoice.");
+        order.Invoice.ShouldBeSameAs(invoice);
+        order.CompletedDate.ShouldBeNull();
+        await _repo.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Theory]
+    [InlineData(OrderStatus.InProcess, false)]
+    [InlineData(OrderStatus.Pending, false)]
+    [InlineData(OrderStatus.Completed, true)]
+    public async Task ChangeStatus_ToCancelled_SetsCancelledDateAndPublishesOrderDeleted(
+        OrderStatus from,
+        bool hasInvoice
+    )
+    {
+        var order = ExistingOrder(from);
+        order.Items.Add(OrderBuilder.Item(batchCount: 3));
+        var invoice = hasInvoice ? InvoiceOf(order) : null;
+        order.Invoice = invoice;
+        var completedDate = hasInvoice ? TestData.Date(2025, 2026) : (DateTime?)null;
+        order.CompletedDate = completedDate;
+
+        var body = (
+            await _controller.ChangeStatus(order.Id, OrderBuilder.StatusDto(OrderStatus.Cancelled))
+        )
+            .Result.ShouldBeOfType<OkObjectResult>()
+            .Value.ShouldBeOfType<OrderReadDto>();
+
+        body.Status.ShouldBe(OrderStatus.Cancelled);
+        body.CancelledDate.ShouldBe(Now);
+        body.CompletedDate.ShouldBe(completedDate);
+        // Cancelling keeps an existing invoice.
+        order.Invoice.ShouldBeSameAs(invoice);
+        await _repo.Received(1).SaveChangesAsync();
+        var published = _published.ShouldHaveSingleItem();
+        published.Event.ShouldBe("Order_Deleted");
+        published.OrderId.ShouldBe(order.Id);
+        published.CustomerId.ShouldBe(_customerId);
+        Payload(published.Items).ShouldBe(Payload(order.Items));
+    }
+
+    [Fact]
+    public async Task ChangeStatus_CancelledToPending_ClearsCancelledDateAndPublishesOrderPublished()
+    {
+        var order = ExistingOrder(OrderStatus.Cancelled);
+        order.CancelledDate = TestData.Date(2025, 2026);
+
+        var body = (
+            await _controller.ChangeStatus(order.Id, OrderBuilder.StatusDto(OrderStatus.Pending))
+        )
+            .Result.ShouldBeOfType<OkObjectResult>()
+            .Value.ShouldBeOfType<OrderReadDto>();
+
+        body.Status.ShouldBe(OrderStatus.Pending);
+        body.CancelledDate.ShouldBeNull();
+        order.CancelledDate.ShouldBeNull();
+        await _repo.Received(1).SaveChangesAsync();
+        var published = _published.ShouldHaveSingleItem();
+        published.Event.ShouldBe("Order_Published");
+        published.OrderId.ShouldBe(order.Id);
+        published.CustomerId.ShouldBe(_customerId);
+        Payload(published.Items).ShouldBe(Payload(order.Items));
+    }
+
+    [Fact]
+    public async Task ChangeStatus_CancelledWithInvoiceToPending_Returns409()
+    {
+        var order = ExistingOrder(OrderStatus.Cancelled);
+        var cancelledDate = TestData.Date(2025, 2026);
+        order.CancelledDate = cancelledDate;
+        order.Invoice = InvoiceOf(order);
+
+        var problem = ShouldBeProblem(
+            await _controller.ChangeStatus(order.Id, OrderBuilder.StatusDto(OrderStatus.Pending)),
+            409
+        );
+
+        problem.Title.ShouldBe("Status change not allowed");
+        problem.Detail.ShouldBe(
+            "A cancelled order with an invoice can't be reopened; delete the invoice first."
+        );
+        order.Status.ShouldBe(OrderStatus.Cancelled);
+        order.CancelledDate.ShouldBe(cancelledDate);
+        await _repo.DidNotReceive().SaveChangesAsync();
+        _published.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task ChangeStatus_SaveThrows_Returns500WithoutPublishing()
+    {
+        var order = ExistingOrder(OrderStatus.Pending);
+        _repo.SaveChangesAsync().ThrowsAsync(new InvalidOperationException());
+
+        (await _controller.ChangeStatus(order.Id, OrderBuilder.StatusDto(OrderStatus.Cancelled)))
+            .Result.ShouldBeOfType<ObjectResult>()
+            .StatusCode.ShouldBe(500);
+        _published.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task ChangeStatus_PublishFails_StillReturnsOk()
+    {
+        var order = ExistingOrder(OrderStatus.Pending);
+        _bus.PublishNewOrderAsync(Arg.Any<OrderPublishedEvent>())
+            .ThrowsAsync(new InvalidOperationException());
+
+        (
+            await _controller.ChangeStatus(order.Id, OrderBuilder.StatusDto(OrderStatus.Cancelled))
+        ).Result.ShouldBeOfType<OkObjectResult>();
+        order.Status.ShouldBe(OrderStatus.Cancelled);
     }
 
     [Fact]

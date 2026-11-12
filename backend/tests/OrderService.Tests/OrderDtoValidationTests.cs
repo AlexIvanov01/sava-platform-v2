@@ -58,7 +58,6 @@ public class OrderDtoValidationTests
         var batchId = NewId();
         var dto = OrderBuilder.UpdateDto(
             null,
-            null,
             OrderBuilder.ItemDto(productId, (batchId, 1), (batchId, 1)),
             OrderBuilder.ItemDto(productId, (NewId(), 1))
         );
@@ -82,7 +81,7 @@ public class OrderDtoValidationTests
                 )
             )
             .ShouldBeEmpty();
-        Validate(OrderBuilder.UpdateDto(OrderBuilder.Status())).ShouldBeEmpty();
-        Validate(new OrderUpdateDto(null, null, null, null, null, null)).ShouldBeEmpty();
+        Validate(OrderBuilder.AddressUpdateDto()).ShouldBeEmpty();
+        Validate(new OrderUpdateDto(null, null, null, null)).ShouldBeEmpty();
     }
 }

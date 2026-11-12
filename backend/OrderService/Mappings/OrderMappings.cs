@@ -21,9 +21,10 @@ public static class OrderMappings
         return new(
             order.Id,
             order.OrderDate,
-            order.ShippedDate,
+            order.Status,
+            order.CompletedDate,
+            order.CancelledDate,
             order.ShippingAddress,
-            order.OrderStatus,
             order.CustomerId,
             order.Customer?.ToReadDto(),
             invoice?.ToReadDto(),
@@ -101,19 +102,8 @@ public static class OrderMappings
         new()
         {
             OrderDate = dto.OrderDate,
-            ShippedDate = dto.ShippedDate,
             ShippingAddress = dto.ShippingAddress,
-            OrderStatus = dto.OrderStatus,
             CustomerId = dto.CustomerId,
-        };
-
-    public static Invoice ToEntity(this InvoiceCreateDto dto) =>
-        new()
-        {
-            Id = dto.ID ?? 0,
-            InvoiceDate = dto.InvoiceDate,
-            InvoiceStatus = dto.InvoiceStatus,
-            TotalAmount = dto.TotalAmount,
         };
 
     public static Invoice ToEntity(this InvoiceUpdateDto dto, int id) =>

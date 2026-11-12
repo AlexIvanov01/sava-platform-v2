@@ -9,7 +9,6 @@ namespace OrderService.Tests;
 // Fake data from Bogus; lengths are clamped to the model's [MaxLength] limits.
 internal static class OrderBuilder
 {
-    private static readonly string[] Statuses = ["New", "Confirmed", "Shipped"];
     private static readonly string[] Units = ["Piece", "Kilogram", "Liter", "Pack"];
     private static readonly decimal[] VatRates = [0m, 9m, 20m];
 
@@ -139,8 +138,7 @@ internal static class OrderBuilder
         {
             Id = f.Random.Guid(),
             OrderDate = TestData.Date(2024, 2026),
-            ShippingAddress = f.Address.FullAddress().ClampLength(max: 500),
-            OrderStatus = f.PickRandom(Statuses),
+            ShippingAddress = ShippingAddress(),
             CustomerId = customerId,
             Customer = Customer(),
             Items = [.. items],
@@ -168,18 +166,21 @@ internal static class OrderBuilder
     public static OrderCreateDto CreateDto(Guid customerId, params OrderItemWriteDto[] items) =>
         new(
             TestData.Date(2024, 2026),
-            null,
             TestData.Faker.Address.FullAddress().ClampLength(max: 500),
-            TestData.Faker.PickRandom(Statuses),
             customerId,
             [.. items]
         );
 
     public static OrderUpdateDto UpdateDto(
-        string? status = null,
         Guid? customerId = null,
         params OrderItemWriteDto[] items
-    ) => new(null, null, null, status, customerId, items.Length == 0 ? null : [.. items]);
+    ) => new(null, null, customerId, items.Length == 0 ? null : [.. items]);
 
-    public static string Status() => TestData.Faker.PickRandom(Statuses);
+    // An update that changes only the shipping address.
+    public static OrderUpdateDto AddressUpdateDto() => new(null, ShippingAddress(), null, null);
+
+    public static string ShippingAddress() =>
+        TestData.Faker.Address.FullAddress().ClampLength(max: 500);
+
+    public static OrderStatusChangeDto StatusDto(OrderStatus status) => new(status);
 }

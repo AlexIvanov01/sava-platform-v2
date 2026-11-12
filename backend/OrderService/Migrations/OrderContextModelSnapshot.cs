@@ -65,6 +65,12 @@ namespace OrderService.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("char(36)");
 
+                    b.Property<DateTime?>("CancelledDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("CompletedDate")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -78,16 +84,14 @@ namespace OrderService.Migrations
                     b.Property<DateTime?>("OrderDate")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("OrderStatus")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<DateTime?>("ShippedDate")
-                        .HasColumnType("datetime(6)");
-
                     b.Property<string>("ShippingAddress")
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
