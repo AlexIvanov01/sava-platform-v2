@@ -54,6 +54,35 @@ public class OrderContext(DbContextOptions options, ICurrentUser? currentUser = 
             .HasIndex(b => new { b.OrderItemId, b.BatchId })
             .IsUnique();
 
+        modelBuilder.Entity<Invoice>(invoice =>
+        {
+            invoice.Property(i => i.PaymentMethod).HasConversion<string>();
+            invoice.Property(i => i.PaymentStatus).HasConversion<string>();
+            invoice.OwnsOne(i => i.Supplier);
+            invoice.Navigation(i => i.Supplier).IsRequired();
+            invoice.OwnsOne(i => i.Customer);
+            invoice.Navigation(i => i.Customer).IsRequired();
+            // The owned rows' int Id alone is their key: MySQL rejects an auto-increment column
+            // that isn't the first column of a key, as in the default (InvoiceId, Id).
+            invoice.OwnsMany(
+                i => i.Items,
+                item =>
+                {
+                    item.ToTable("InvoiceItems");
+                    item.HasKey("Id");
+                }
+            );
+            invoice.OwnsMany(
+                i => i.VatTotals,
+                total =>
+                {
+                    total.ToTable("InvoiceVatTotals");
+                    total.HasKey("Id");
+                }
+            );
+            invoice.HasIndex(i => i.Number);
+        });
+
         modelBuilder
             .Entity<Order>()
             .HasOne(o => o.Invoice)

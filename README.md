@@ -126,7 +126,7 @@ Running locally uses `appsettings.Development.json`, which points at MySQL and R
    - **Customers:** 10 Bulgarian companies.
    - **Inventory:** 8 categories and 15 products with 21 batches, including expired, near-expiry, low-stock, inactive and unpublished cases.
    - **Company settings:** sample supplier details from `dummy_company.json`.
-   - **Orders:** 10 orders: 5 `Completed` (with invoices), 3 `InProcess`, 1 `Pending` and 1 `Cancelled`.
+   - **Orders:** 10 orders: 5 `Completed` (with invoices 0000000001–0000000005, paid, unpaid and overdue), 3 `InProcess`, 1 `Pending` and 1 `Cancelled`.
 
    Other environments only migrate and never seed. Orders reference the seeded customers, products and batches, so Order snapshots them from Customer and Inventory over gRPC when it seeds. If either was down, start it and restart Order.
 

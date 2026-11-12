@@ -46,4 +46,7 @@ public class CompanySettings : AuditableEntity
 
     [MaxLength(20)]
     public string? PhoneNumber { get; set; }
+
+    // Days from the invoice date to its due date; 14 when not set.
+    public int? PaymentTermsDays { get; set; }
 }

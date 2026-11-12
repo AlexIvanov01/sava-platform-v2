@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using OrderService.AsyncDataServices;
 using OrderService.DataAccess;
 using OrderService.Dtos;
+using OrderService.Invoicing;
 using OrderService.Mappings;
 using OrderService.Models;
 using OrderService.Ordering;
@@ -25,16 +26,22 @@ public class OrdersController : ControllerBase
     private readonly IInventoryDataClient _inventory;
     private readonly ICustomerDataClient _customers;
     private readonly TimeProvider _timeProvider;
+    private readonly IInvoiceRepo _invoices;
+    private readonly ICompanySettingsRepo _companySettings;
 
     public OrdersController(
         IOrderRepo orderRepo,
         IMessageBusClient messageBusClient,
         IInventoryDataClient inventory,
         ICustomerDataClient customers,
-        TimeProvider timeProvider
+        TimeProvider timeProvider,
+        IInvoiceRepo invoices,
+        ICompanySettingsRepo companySettings
     )
     {
         _timeProvider = timeProvider;
+        _invoices = invoices;
+        _companySettings = companySettings;
         _repository = orderRepo;
         _messageBusClient = messageBusClient;
         _inventory = inventory;
@@ -252,9 +259,9 @@ public class OrdersController : ControllerBase
     }
 
     // See Ordering/OrderLifecycle for the allowed changes; others are 409. Completing creates the
-    // invoice (gross total); cancelling releases the stock (Order_Deleted) and keeps any invoice;
-    // reopening a cancelled order takes the stock again (Order_Published). Setting the current
-    // status again changes nothing.
+    // invoice (Invoicing/InvoiceFactory; 409 without company settings); cancelling releases the
+    // stock (Order_Deleted) and keeps any invoice; reopening a cancelled order takes the stock
+    // again (Order_Published). Setting the current status again changes nothing.
     [HttpPost("{id}/status")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -298,19 +305,32 @@ public class OrdersController : ControllerBase
                 );
             }
 
+            CompanySettings? company = null;
+            if (target == OrderStatus.Completed)
+            {
+                company = await _companySettings.GetAsync();
+                if (company == null)
+                {
+                    Log.Warning("--> Order {Id} can't be completed without company settings.", id);
+                    return Problem(
+                        statusCode: StatusCodes.Status409Conflict,
+                        title: "Company settings are missing",
+                        detail: "Save the company settings (PUT /api/CompanySettings) before completing orders; the invoice needs the supplier's details."
+                    );
+                }
+            }
+
             var now = _timeProvider.GetUtcNow().UtcDateTime;
             switch (target)
             {
                 case OrderStatus.Completed:
                     order.CompletedDate = now;
-                    order.Invoice = new Invoice
-                    {
-                        Order = order,
-                        OrderId = order.Id,
-                        InvoiceDate = now,
-                        InvoiceStatus = "Unpaid",
-                        TotalAmount = order.Items.Gross(),
-                    };
+                    order.Invoice = InvoiceFactory.Create(
+                        order,
+                        company!,
+                        await _invoices.NextNumberAsync(),
+                        now
+                    );
                     break;
                 case OrderStatus.Cancelled:
                     order.CancelledDate = now;

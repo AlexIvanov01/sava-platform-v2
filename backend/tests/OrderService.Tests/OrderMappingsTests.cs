@@ -17,13 +17,7 @@ public class OrderMappingsTests
         order.CancelledDate = TestData.Date(2025, 2026);
         order.CreatedBy = TestData.Faker.Internet.UserName();
         order.CreatedAt = TestData.Date(2024, 2025);
-        order.Invoice = new Invoice
-        {
-            Id = TestData.Faker.Random.Int(1, 1000),
-            OrderId = order.Id,
-            InvoiceStatus = "Paid",
-            TotalAmount = order.Items.Gross(),
-        };
+        var invoice = OrderBuilder.Invoice(order);
 
         var dto = order.ToReadDto();
 
@@ -35,8 +29,8 @@ public class OrderMappingsTests
         dto.ShippingAddress.ShouldBe(order.ShippingAddress);
         dto.CustomerId.ShouldBe(order.CustomerId);
         dto.Customer.ShouldBe(order.Customer!.ToReadDto());
-        dto.Invoice.ShouldNotBeNull().Id.ShouldBe(order.Invoice.Id);
-        dto.Invoice.TotalAmount.ShouldBe(order.Invoice.TotalAmount.Value);
+        dto.Invoice.ShouldBe(invoice.ToSummaryDto());
+        dto.Invoice.ShouldNotBeNull().Gross.ShouldBe(order.Items.Gross());
         dto.Audit.ShouldBe(new AuditReadDto(order.CreatedAt, null, order.CreatedBy, null));
         dto.Items.Select(l => l.ProductId)
             .ShouldBe(items.Select(l => l.ProductId), ignoreOrder: true);
@@ -131,33 +125,6 @@ public class OrderMappingsTests
     }
 
     [Fact]
-    public void ToOrderReadDto_FromInvoice_UsesThatInvoice()
-    {
-        var order = OrderBuilder.Order(OrderBuilder.Item());
-        var invoice = new Invoice
-        {
-            Id = TestData.Faker.Random.Int(1, 1000),
-            Order = order,
-            OrderId = order.Id,
-        };
-
-        var dto = invoice.ToOrderReadDto();
-
-        dto.Id.ShouldBe(order.Id);
-        dto.Invoice.ShouldNotBeNull().Id.ShouldBe(invoice.Id);
-        dto.Items.ShouldHaveSingleItem().ProductId.ShouldBe(order.Items[0].ProductId);
-    }
-
-    [Fact]
-    public void ToReadDto_Invoice_DefaultsNulls()
-    {
-        var dto = new Invoice { Id = 1 }.ToReadDto();
-
-        dto.InvoiceDate.ShouldBe(default);
-        dto.TotalAmount.ShouldBe(0m);
-    }
-
-    [Fact]
     public void ToEntity_FromCreateDto_MapsFieldsWithoutItems()
     {
         var customerId = TestData.Faker.Random.Guid();
@@ -176,17 +143,6 @@ public class OrderMappingsTests
         order.CancelledDate.ShouldBeNull();
         order.Customer.ShouldBeNull();
         order.Items.ShouldBeEmpty();
-    }
-
-    [Fact]
-    public void ToEntity_InvoiceUpdateDto()
-    {
-        var updated = new InvoiceUpdateDto(null, "Paid", null).ToEntity(9);
-
-        updated.InvoiceDate.ShouldBeNull();
-        updated.Id.ShouldBe(9);
-        updated.InvoiceStatus.ShouldBe("Paid");
-        updated.TotalAmount.ShouldBeNull();
     }
 
     [Fact]

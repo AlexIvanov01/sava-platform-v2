@@ -10,5 +10,6 @@
   "IBAN": "BG80UNCR70001522334455",
   "BIC": "UNCRBGSF",
   "Email": "office@sava-distribution.bg",
-  "PhoneNumber": "+359 2 123 4567"
+  "PhoneNumber": "+359 2 123 4567",
+  "PaymentTermsDays": 14
 }

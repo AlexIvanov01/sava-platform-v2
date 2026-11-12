@@ -390,12 +390,7 @@ public class OrderRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
         await using (var seed = Db.CreateContext())
         {
             seed.Invoices.Add(
-                new Invoice
-                {
-                    OrderId = order.Id,
-                    Order = await seed.Orders.SingleAsync(Ct),
-                    InvoiceStatus = "Draft",
-                }
+                OrderBuilder.Invoice(await seed.Orders.Include(o => o.Items).SingleAsync(Ct))
             );
             await seed.SaveChangesAsync(Ct);
         }

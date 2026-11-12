@@ -31,6 +31,7 @@ public class CompanySettingsRepo(OrderContext context) : ICompanySettingsRepo
         settings.BIC = changes.BIC ?? settings.BIC;
         settings.Email = changes.Email ?? settings.Email;
         settings.PhoneNumber = changes.PhoneNumber ?? settings.PhoneNumber;
+        settings.PaymentTermsDays = changes.PaymentTermsDays ?? settings.PaymentTermsDays;
 
         await context.SaveChangesAsync();
         return settings;

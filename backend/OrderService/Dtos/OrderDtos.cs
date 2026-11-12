@@ -143,7 +143,7 @@ public record OrderReadDto(
     string? ShippingAddress,
     Guid? CustomerId,
     CustomerSnapshotReadDto? Customer,
-    InvoiceReadDto? Invoice,
+    InvoiceSummaryReadDto? Invoice,
     List<OrderItemReadDto> Items,
     OrderTotalsReadDto Totals,
     AuditReadDto Audit

@@ -68,6 +68,9 @@ namespace OrderService.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
+                    b.Property<int?>("PaymentTermsDays")
+                        .HasColumnType("int");
+
                     b.Property<string>("PhoneNumber")
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
@@ -94,9 +97,9 @@ namespace OrderService.Migrations
 
             modelBuilder.Entity("OrderService.Models.Invoice", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("char(36)");
 
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -105,18 +108,42 @@ namespace OrderService.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("Gross")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime?>("InvoiceDate")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("InvoiceStatus")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                    b.Property<decimal>("Net")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Number")
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
 
                     b.Property<Guid>("OrderId")
                         .HasColumnType("char(36)");
 
-                    b.Property<decimal?>("TotalAmount")
-                        .HasColumnType("decimal(18,2)");
+                    b.Property<DateTime?>("PaidDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("TaxEventDate")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -125,7 +152,17 @@ namespace OrderService.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<decimal>("Vat")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("VatExemptionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("Number");
 
                     b.HasIndex("OrderId")
                         .IsUnique();
@@ -264,7 +301,227 @@ namespace OrderService.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.OwnsOne("OrderService.Models.CustomerSnapshot", "Customer", b1 =>
+                        {
+                            b1.Property<Guid>("InvoiceId")
+                                .HasColumnType("char(36)");
+
+                            b1.Property<string>("Address")
+                                .HasMaxLength(500)
+                                .HasColumnType("varchar(500)");
+
+                            b1.Property<string>("BIC")
+                                .HasMaxLength(15)
+                                .HasColumnType("varchar(15)");
+
+                            b1.Property<string>("BankName")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("City")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("CompanyName")
+                                .HasMaxLength(200)
+                                .HasColumnType("varchar(200)");
+
+                            b1.Property<string>("Country")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("Email")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("IBAN")
+                                .HasMaxLength(35)
+                                .HasColumnType("varchar(35)");
+
+                            b1.Property<string>("Name")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("PhoneNumber")
+                                .HasMaxLength(15)
+                                .HasColumnType("varchar(15)");
+
+                            b1.Property<string>("UIC")
+                                .HasMaxLength(20)
+                                .HasColumnType("varchar(20)");
+
+                            b1.Property<string>("VATNumber")
+                                .HasMaxLength(20)
+                                .HasColumnType("varchar(20)");
+
+                            b1.HasKey("InvoiceId");
+
+                            b1.ToTable("Invoices");
+
+                            b1.WithOwner()
+                                .HasForeignKey("InvoiceId");
+                        });
+
+                    b.OwnsMany("OrderService.Models.InvoiceItem", "Items", b1 =>
+                        {
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("int");
+
+                            b1.Property<decimal>("Gross")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<Guid>("InvoiceId")
+                                .HasColumnType("char(36)");
+
+                            b1.Property<string>("Name")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<decimal>("Net")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<Guid>("ProductId")
+                                .HasColumnType("char(36)");
+
+                            b1.Property<int>("Quantity")
+                                .HasColumnType("int");
+
+                            b1.Property<string>("SKU")
+                                .HasMaxLength(50)
+                                .HasColumnType("varchar(50)");
+
+                            b1.Property<string>("UnitOfMeasure")
+                                .HasMaxLength(20)
+                                .HasColumnType("varchar(20)");
+
+                            b1.Property<decimal>("UnitPrice")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<decimal>("Vat")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<decimal>("VatRate")
+                                .HasPrecision(5, 2)
+                                .HasColumnType("decimal(5,2)");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("InvoiceId");
+
+                            b1.ToTable("InvoiceItems", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("InvoiceId");
+                        });
+
+                    b.OwnsMany("OrderService.Models.InvoiceVatTotal", "VatTotals", b1 =>
+                        {
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("int");
+
+                            b1.Property<Guid>("InvoiceId")
+                                .HasColumnType("char(36)");
+
+                            b1.Property<decimal>("Net")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<decimal>("Vat")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<decimal>("VatRate")
+                                .HasPrecision(5, 2)
+                                .HasColumnType("decimal(5,2)");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("InvoiceId");
+
+                            b1.ToTable("InvoiceVatTotals", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("InvoiceId");
+                        });
+
+                    b.OwnsOne("OrderService.Models.SupplierSnapshot", "Supplier", b1 =>
+                        {
+                            b1.Property<Guid>("InvoiceId")
+                                .HasColumnType("char(36)");
+
+                            b1.Property<string>("Address")
+                                .HasMaxLength(500)
+                                .HasColumnType("varchar(500)");
+
+                            b1.Property<string>("BIC")
+                                .HasMaxLength(15)
+                                .HasColumnType("varchar(15)");
+
+                            b1.Property<string>("BankName")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("City")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("Country")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("Email")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("IBAN")
+                                .HasMaxLength(35)
+                                .HasColumnType("varchar(35)");
+
+                            b1.Property<string>("Manager")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("Name")
+                                .HasMaxLength(200)
+                                .HasColumnType("varchar(200)");
+
+                            b1.Property<string>("PhoneNumber")
+                                .HasMaxLength(20)
+                                .HasColumnType("varchar(20)");
+
+                            b1.Property<string>("UIC")
+                                .HasMaxLength(20)
+                                .HasColumnType("varchar(20)");
+
+                            b1.Property<string>("VATNumber")
+                                .HasMaxLength(20)
+                                .HasColumnType("varchar(20)");
+
+                            b1.HasKey("InvoiceId");
+
+                            b1.ToTable("Invoices");
+
+                            b1.WithOwner()
+                                .HasForeignKey("InvoiceId");
+                        });
+
+                    b.Navigation("Customer")
+                        .IsRequired();
+
+                    b.Navigation("Items");
+
                     b.Navigation("Order");
+
+                    b.Navigation("Supplier")
+                        .IsRequired();
+
+                    b.Navigation("VatTotals");
                 });
 
             modelBuilder.Entity("OrderService.Models.Order", b =>

@@ -81,6 +81,10 @@ internal static class SeedData
         JsonSerializer.Deserialize<List<OrderSeed>>(File.ReadAllText(OrdersFile))
         ?? throw new InvalidOperationException("The order seed file is empty.");
 
+    public static CompanySettingsUpdateDto Company() =>
+        JsonSerializer.Deserialize<CompanySettingsUpdateDto>(File.ReadAllText(CompanyFile))
+        ?? throw new InvalidOperationException("The company seed file is empty.");
+
     private static decimal? Decimal(JsonElement value) =>
         value.ValueKind == JsonValueKind.Null ? null : value.GetDecimal();
 
@@ -104,4 +108,10 @@ internal sealed record OrderSeed(
     InvoiceSeed? Invoice
 );
 
-internal sealed record InvoiceSeed(DateTime? InvoiceDate, string? InvoiceStatus);
+internal sealed record InvoiceSeed(
+    string Number,
+    DateTime InvoiceDate,
+    DateTime DueDate,
+    PaymentStatus PaymentStatus,
+    DateTime? PaidDate
+);

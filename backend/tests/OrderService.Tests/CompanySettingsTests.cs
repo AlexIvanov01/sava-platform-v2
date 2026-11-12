@@ -31,9 +31,51 @@ internal static class CompanySettingsBuilder
             f.Finance.Iban().ClampLength(max: 35),
             f.Finance.Bic().ClampLength(max: 15),
             f.Internet.Email().ClampLength(max: 100),
-            f.Random.ReplaceNumbers("+359 ### ### ###")
+            f.Random.ReplaceNumbers("+359 ### ### ###"),
+            f.Random.Int(0, 365)
         );
     }
+
+    // Saved settings, as CompanySettingsRepo returns them.
+    public static CompanySettings Entity()
+    {
+        var settings = Dto().ToEntity();
+        settings.Id = TestData.Faker.Random.Guid();
+        return settings;
+    }
+
+    // What an invoice created with these settings has as its supplier.
+    public static SupplierReadDto ToSupplierDto(this CompanySettings settings) =>
+        new(
+            settings.Name,
+            settings.UIC,
+            settings.VATNumber,
+            settings.Address,
+            settings.City,
+            settings.Country,
+            settings.Manager,
+            settings.BankName,
+            settings.IBAN,
+            settings.BIC,
+            settings.Email,
+            settings.PhoneNumber
+        );
+
+    public static SupplierReadDto ToSupplierDto(this CompanySettingsReadDto settings) =>
+        new(
+            settings.Name,
+            settings.UIC,
+            settings.VATNumber,
+            settings.Address,
+            settings.City,
+            settings.Country,
+            settings.Manager,
+            settings.BankName,
+            settings.IBAN,
+            settings.BIC,
+            settings.Email,
+            settings.PhoneNumber
+        );
 
     public static void ShouldMatch(this CompanySettingsReadDto read, CompanySettingsUpdateDto dto)
     {
@@ -49,6 +91,7 @@ internal static class CompanySettingsBuilder
         read.BIC.ShouldBe(dto.BIC);
         read.Email.ShouldBe(dto.Email);
         read.PhoneNumber.ShouldBe(dto.PhoneNumber);
+        read.PaymentTermsDays.ShouldBe(dto.PaymentTermsDays);
     }
 }
 
@@ -72,11 +115,21 @@ public class CompanySettingsRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySq
             );
         }
 
+        var newTerms = first.PaymentTermsDays!.Value % 365 + 1;
+        await using (var context = Db.CreateContext())
+        {
+            await new CompanySettingsRepo(context).SaveAsync(
+                new CompanySettings { PaymentTermsDays = newTerms }
+            );
+        }
+
         await using (var context = Db.CreateContext())
         {
             (await context.CompanySettings.CountAsync(Ct)).ShouldBe(1);
             var saved = (await new CompanySettingsRepo(context).GetAsync()).ShouldNotBeNull();
-            saved.ToReadDto().ShouldMatch(first with { IBAN = newIban });
+            saved
+                .ToReadDto()
+                .ShouldMatch(first with { IBAN = newIban, PaymentTermsDays = newTerms });
             saved.CreatedAt.ShouldNotBeNull();
         }
     }
@@ -98,6 +151,7 @@ public class CompanySettingsRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySq
         saved.ToReadDto().ShouldMatch(expected);
         saved.Name.ShouldNotBeNullOrWhiteSpace();
         saved.UIC.ShouldNotBeNullOrWhiteSpace();
+        saved.PaymentTermsDays.ShouldNotBeNull();
     }
 }
 
@@ -149,7 +203,8 @@ public class CompanySettingsControllerTests
             null,
             null,
             null,
-            TestData.Faker.Random.ReplaceNumbers("+359 ### ###")
+            TestData.Faker.Random.ReplaceNumbers("+359 ### ###"),
+            TestData.Faker.Random.Int(0, 365)
         );
 
         var result = (await _controller.SaveSettings(dto)).Result.ShouldBeOfType<OkObjectResult>();
@@ -158,7 +213,11 @@ public class CompanySettingsControllerTests
         await _repo
             .Received(1)
             .SaveAsync(
-                Arg.Is<CompanySettings>(s => s.PhoneNumber == dto.PhoneNumber && s.Name == null)
+                Arg.Is<CompanySettings>(s =>
+                    s.PhoneNumber == dto.PhoneNumber
+                    && s.PaymentTermsDays == dto.PaymentTermsDays
+                    && s.Name == null
+                )
             );
     }
 
@@ -211,5 +270,32 @@ public class CompanySettingsApiTests(OrderApiFactory factory) : IClassFixture<Or
         );
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(366)]
+    public async Task Put_PaymentTermsOutOfRange_Returns400AndKeepsTheSettings(int days)
+    {
+        var before = await _client.GetFromJsonAsync<CompanySettingsReadDto>(
+            "/api/companysettings",
+            Ct
+        );
+
+        var response = await _client.PutAsJsonAsync(
+            "/api/companysettings",
+            CompanySettingsBuilder.Dto() with
+            {
+                PaymentTermsDays = days,
+            },
+            Ct
+        );
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var after = await _client.GetFromJsonAsync<CompanySettingsReadDto>(
+            "/api/companysettings",
+            Ct
+        );
+        after.ShouldNotBeNull().ShouldBe(before.ShouldNotBeNull());
     }
 }

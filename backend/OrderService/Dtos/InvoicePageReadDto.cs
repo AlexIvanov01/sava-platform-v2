@@ -1,10 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace OrderService.Dtos;
 
 public class InvoicePageReadDto
 {
-    public IEnumerable<OrderReadDto>? OrderReadDtos { get; set; }
-    public int Cursor { get; set; }
+    public IEnumerable<InvoiceReadDto> Invoices { get; set; } = [];
+    public Guid Cursor { get; set; }
     public int Pages { get; set; }
 }

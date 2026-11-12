@@ -6,6 +6,7 @@ using OrderService.AsyncDataServices;
 using OrderService.Controllers;
 using OrderService.DataAccess;
 using OrderService.Dtos;
+using OrderService.Invoicing;
 using OrderService.Mappings;
 using OrderService.Models;
 using OrderService.SyncDataServices.Grpc;
@@ -19,6 +20,8 @@ public class OrdersControllerTests
     private readonly IMessageBusClient _bus = Substitute.For<IMessageBusClient>();
     private readonly IInventoryDataClient _inventory = Substitute.For<IInventoryDataClient>();
     private readonly ICustomerDataClient _customers = Substitute.For<ICustomerDataClient>();
+    private readonly IInvoiceRepo _invoices = Substitute.For<IInvoiceRepo>();
+    private readonly ICompanySettingsRepo _companySettings = Substitute.For<ICompanySettingsRepo>();
     private readonly FakeTimeProvider _clock;
     private readonly OrdersController _controller;
     private readonly List<OrderPublishedEvent> _published = [];
@@ -29,14 +32,28 @@ public class OrdersControllerTests
     private readonly ProductSnapshot _product = OrderBuilder.Product();
     private readonly BatchSnapshot[] _batches;
 
+    // The saved company settings and the number the next invoice gets.
+    private readonly CompanySettings _company = CompanySettingsBuilder.Entity();
+    private readonly string _nextNumber = OrderBuilder.InvoiceNumber();
+
     public OrdersControllerTests()
     {
         _clock = new FakeTimeProvider(new DateTimeOffset(TestData.Date(2026, 2027), TimeSpan.Zero));
-        _controller = new OrdersController(_repo, _bus, _inventory, _customers, _clock);
+        _controller = new OrdersController(
+            _repo,
+            _bus,
+            _inventory,
+            _customers,
+            _clock,
+            _invoices,
+            _companySettings
+        );
         _bus.PublishNewOrderAsync(Arg.Do<OrderPublishedEvent>(_published.Add));
         _batches = [OrderBuilder.Batch(_product.Id), OrderBuilder.Batch(_product.Id)];
         _customers.GetCustomerAsync(_customerId).Returns(_customer);
         _inventory.Serves(OrderBuilder.Catalog([_product], _batches));
+        _companySettings.GetAsync().Returns(_company);
+        _invoices.NextNumberAsync().Returns(_nextNumber);
     }
 
     private static UpstreamUnavailableException Unavailable(string service) =>
@@ -59,16 +76,7 @@ public class OrdersControllerTests
 
     private DateTime Now => _clock.GetUtcNow().UtcDateTime;
 
-    private static Invoice InvoiceOf(Order order) =>
-        new()
-        {
-            Id = TestData.Faker.Random.Int(1, 1000),
-            OrderId = order.Id,
-            Order = order,
-            InvoiceDate = TestData.Date(2025, 2026),
-            InvoiceStatus = "Unpaid",
-            TotalAmount = order.Items.Gross(),
-        };
+    private static Invoice InvoiceOf(Order order) => OrderBuilder.Invoice(order);
 
     // (product, batch, quantity) per item batch, in order.
     private static List<(Guid ProductId, Guid BatchId, int Quantity)> Payload(
@@ -727,15 +735,80 @@ public class OrdersControllerTests
         body.Status.ShouldBe(OrderStatus.Completed);
         body.CompletedDate.ShouldBe(Now);
         body.CancelledDate.ShouldBeNull();
-        var invoice = body.Invoice.ShouldNotBeNull();
-        invoice.InvoiceDate.ShouldBe(Now);
-        invoice.InvoiceStatus.ShouldBe("Unpaid");
-        invoice.TotalAmount.ShouldBe(gross);
-        invoice.TotalAmount.ShouldBe(body.Totals.Gross);
-        order.Invoice.ShouldNotBeNull().OrderId.ShouldBe(order.Id);
+        var summary = body.Invoice.ShouldNotBeNull();
+        summary.Number.ShouldBe(_nextNumber);
+        summary.InvoiceDate.ShouldBe(Now);
+        summary.DueDate.ShouldBe(Now.Date.AddDays(_company.PaymentTermsDays!.Value));
+        summary.PaymentStatus.ShouldBe(PaymentStatus.Unpaid);
+        summary.Gross.ShouldBe(gross);
+        summary.Gross.ShouldBe(body.Totals.Gross);
         order.CompletedDate.ShouldBe(Now);
         await _repo.Received(1).SaveChangesAsync();
+        await _invoices.Received(1).NextNumberAsync();
         _published.ShouldBeEmpty();
+
+        // The saved order's invoice is what InvoiceFactory builds from the order and settings.
+        var invoice = order.Invoice.ShouldNotBeNull();
+        var expected = InvoiceFactory.Create(order, _company, _nextNumber, Now);
+        invoice.OrderId.ShouldBe(order.Id);
+        invoice.Order.ShouldBeSameAs(order);
+        (invoice.Number, invoice.InvoiceDate, invoice.TaxEventDate, invoice.DueDate).ShouldBe(
+            (_nextNumber, Now, Now, expected.DueDate)
+        );
+        (invoice.PaymentMethod, invoice.PaymentStatus, invoice.PaidDate).ShouldBe(
+            (PaymentMethod.BankTransfer, PaymentStatus.Unpaid, (DateTime?)null)
+        );
+        invoice.Supplier.ToReadDto().ShouldBe(_company.ToSupplierDto());
+        invoice.Customer.ToReadDto().ShouldBe(order.Customer!.ToReadDto());
+        invoice.Customer.ShouldNotBeSameAs(order.Customer);
+        invoice
+            .ToReadDto(DateOnly.FromDateTime(Now))
+            .Items.ShouldBe(expected.ToReadDto(DateOnly.FromDateTime(Now)).Items);
+        invoice.Items.Count.ShouldBe(2);
+        invoice
+            .VatTotals.Select(t => (t.VatRate, t.Net, t.Vat))
+            .ShouldBe(expected.VatTotals.Select(t => (t.VatRate, t.Net, t.Vat)));
+        (invoice.Net, invoice.Vat, invoice.Gross).ShouldBe(
+            (order.Items.Net(), order.Items.Vat(), gross)
+        );
+    }
+
+    [Theory]
+    [InlineData(OrderStatus.InProcess)]
+    [InlineData(OrderStatus.Pending)]
+    public async Task ChangeStatus_ToCompletedWithoutCompanySettings_Returns409AndSavesNothing(
+        OrderStatus from
+    )
+    {
+        var order = ExistingOrder(from);
+        _companySettings.GetAsync().Returns((CompanySettings?)null);
+
+        var problem = ShouldBeProblem(
+            await _controller.ChangeStatus(order.Id, OrderBuilder.StatusDto(OrderStatus.Completed)),
+            409
+        );
+
+        problem.Title.ShouldBe("Company settings are missing");
+        problem.Detail.ShouldNotBeNull().ShouldContain("/api/CompanySettings");
+        order.Status.ShouldBe(from);
+        order.Invoice.ShouldBeNull();
+        order.CompletedDate.ShouldBeNull();
+        await _invoices.DidNotReceive().NextNumberAsync();
+        await _repo.DidNotReceive().SaveChangesAsync();
+        _published.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task ChangeStatus_ToCompletedWhenSettingsFail_Returns500AndSavesNothing()
+    {
+        var order = ExistingOrder();
+        _companySettings.GetAsync().ThrowsAsync(new InvalidOperationException());
+
+        (await _controller.ChangeStatus(order.Id, OrderBuilder.StatusDto(OrderStatus.Completed)))
+            .Result.ShouldBeOfType<ObjectResult>()
+            .StatusCode.ShouldBe(500);
+        order.Invoice.ShouldBeNull();
+        await _repo.DidNotReceive().SaveChangesAsync();
     }
 
     [Theory]
@@ -784,8 +857,9 @@ public class OrdersControllerTests
         body.Status.ShouldBe(OrderStatus.Cancelled);
         body.CancelledDate.ShouldBe(Now);
         body.CompletedDate.ShouldBe(completedDate);
-        // Cancelling keeps an existing invoice.
+        // Cancelling keeps an existing invoice and doesn't need the company settings.
         order.Invoice.ShouldBeSameAs(invoice);
+        await _companySettings.DidNotReceive().GetAsync();
         await _repo.Received(1).SaveChangesAsync();
         var published = _published.ShouldHaveSingleItem();
         published.Event.ShouldBe("Order_Deleted");

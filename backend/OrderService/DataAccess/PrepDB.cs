@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OrderService.Dtos;
+using OrderService.Invoicing;
 using OrderService.Models;
 using OrderService.Ordering;
 using OrderService.SyncDataServices.Grpc;
@@ -57,8 +58,9 @@ public static class PrepDB
 
     // Seeds orders that reference the customers, products and batches seeded by the Customer and
     // Inventory services, snapshotting them over gRPC the same way saving an order does. Skipped
-    // (with a warning) when either service is down or doesn't have the seeded data. Invoice
-    // totals are the orders' gross totals.
+    // (with a warning) when either service is down or doesn't have the seeded data, or when the
+    // company settings (the invoices' supplier) are missing. Invoices are built like on completion
+    // (Invoicing/InvoiceFactory), with the number, dates and payment fields from the file.
     public static async Task SeedOrdersAsync(
         OrderContext context,
         IInventoryDataClient inventory,
@@ -74,6 +76,13 @@ public static class PrepDB
 
         string file = await File.ReadAllTextAsync(seedFile);
         var seeds = JsonSerializer.Deserialize<List<OrderSeed>>(file) ?? [];
+
+        var company = await context.CompanySettings.AsNoTracking().FirstOrDefaultAsync();
+        if (company == null && seeds.Exists(s => s.Invoice != null))
+        {
+            SkipSeed("the company settings are missing");
+            return;
+        }
 
         var orders = new List<Order>();
         try
@@ -106,7 +115,7 @@ public static class PrepDB
                     CompletedDate = seed.CompletedDate,
                     CancelledDate = seed.CancelledDate,
                     CustomerId = seed.CustomerId,
-                    Customer = snapshots[seed.CustomerId],
+                    Customer = snapshots[seed.CustomerId].Copy(),
                 };
                 var errors = OrderItems.Apply(order, seed.Items, catalog);
                 if (errors.Count > 0)
@@ -114,16 +123,17 @@ public static class PrepDB
                     SkipSeed(string.Join(" ", errors));
                     return;
                 }
-                if (seed.Invoice != null)
+                if (seed.Invoice is { } invoice)
                 {
-                    order.Invoice = new Invoice
-                    {
-                        Order = order,
-                        OrderId = order.Id,
-                        InvoiceDate = seed.Invoice.InvoiceDate,
-                        InvoiceStatus = seed.Invoice.InvoiceStatus,
-                        TotalAmount = order.Items.Gross(),
-                    };
+                    order.Invoice = InvoiceFactory.Create(
+                        order,
+                        company!,
+                        invoice.Number,
+                        invoice.InvoiceDate
+                    );
+                    order.Invoice.DueDate = invoice.DueDate;
+                    order.Invoice.PaymentStatus = invoice.PaymentStatus;
+                    order.Invoice.PaidDate = invoice.PaidDate;
                 }
                 orders.Add(order);
             }
@@ -196,5 +206,11 @@ public static class PrepDB
         InvoiceSeed? Invoice
     );
 
-    private sealed record InvoiceSeed(DateTime? InvoiceDate, string? InvoiceStatus);
+    private sealed record InvoiceSeed(
+        string Number,
+        DateTime InvoiceDate,
+        DateTime DueDate,
+        PaymentStatus PaymentStatus,
+        DateTime? PaidDate
+    );
 }

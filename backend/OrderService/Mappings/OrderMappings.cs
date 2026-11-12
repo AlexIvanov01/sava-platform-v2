@@ -7,14 +7,7 @@ namespace OrderService.Mappings;
 
 public static class OrderMappings
 {
-    public static OrderReadDto ToReadDto(this Order order) => order.ToReadDto(order.Invoice);
-
-    // An invoice with its order; the invoice is passed in because untracked queries don't always
-    // set the order's back-reference.
-    public static OrderReadDto ToOrderReadDto(this Invoice invoice) =>
-        invoice.Order.ToReadDto(invoice);
-
-    private static OrderReadDto ToReadDto(this Order order, Invoice? invoice)
+    public static OrderReadDto ToReadDto(this Order order)
     {
         var cost = order.Items.TotalCost();
         var net = order.Items.Net();
@@ -27,7 +20,7 @@ public static class OrderMappings
             order.ShippingAddress,
             order.CustomerId,
             order.Customer?.ToReadDto(),
-            invoice?.ToReadDto(),
+            order.Invoice?.ToSummaryDto(),
             order.Items.OrderBy(l => l.Name).ThenBy(l => l.ProductId).Select(ToReadDto).ToList(),
             new OrderTotalsReadDto(
                 net,
@@ -84,16 +77,6 @@ public static class OrderMappings
             customer.UIC
         );
 
-    public static InvoiceReadDto ToReadDto(this Invoice invoice) =>
-        new(
-            invoice.Id,
-            invoice.InvoiceDate.GetValueOrDefault(),
-            invoice.OrderId,
-            invoice.InvoiceStatus,
-            invoice.TotalAmount.GetValueOrDefault(),
-            invoice.ToAuditDto()
-        );
-
     public static AuditReadDto ToAuditDto(this AuditableEntity entity) =>
         new(entity.CreatedAt, entity.UpdatedAt, entity.CreatedBy, entity.UpdatedBy);
 
@@ -104,15 +87,6 @@ public static class OrderMappings
             OrderDate = dto.OrderDate,
             ShippingAddress = dto.ShippingAddress,
             CustomerId = dto.CustomerId,
-        };
-
-    public static Invoice ToEntity(this InvoiceUpdateDto dto, int id) =>
-        new()
-        {
-            Id = id,
-            InvoiceDate = dto.InvoiceDate,
-            InvoiceStatus = dto.InvoiceStatus,
-            TotalAmount = dto.TotalAmount,
         };
 
     public static List<OrderItemPublishedDto> ToPublishedDtos(this IEnumerable<OrderItem> items) =>

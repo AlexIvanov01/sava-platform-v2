@@ -15,6 +15,7 @@ public record CompanySettingsReadDto(
     string? BIC,
     string? Email,
     string? PhoneNumber,
+    int? PaymentTermsDays,
     AuditReadDto Audit
 );
 
@@ -32,5 +33,7 @@ public record CompanySettingsUpdateDto(
     [MaxLength(35)] string? IBAN,
     [MaxLength(15)] string? BIC,
     [MaxLength(100)] [EmailAddress] string? Email,
-    [MaxLength(20)] string? PhoneNumber
+    [MaxLength(20)] string? PhoneNumber,
+    // Days from the invoice date to its due date; 14 when not set.
+    [Range(0, 365)] int? PaymentTermsDays
 );

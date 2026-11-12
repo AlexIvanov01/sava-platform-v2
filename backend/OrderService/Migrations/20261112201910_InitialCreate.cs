@@ -80,6 +80,7 @@ namespace OrderService.Migrations
                             maxLength: 20,
                             nullable: true
                         ),
+                        PaymentTermsDays = table.Column<int>(type: "int", nullable: true),
                         CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                         UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                         CreatedBy = table.Column<string>(
@@ -205,20 +206,170 @@ namespace OrderService.Migrations
                     name: "Invoices",
                     columns: table => new
                     {
-                        Id = table
-                            .Column<int>(type: "int", nullable: false)
-                            .Annotation(
-                                "MySQL:ValueGenerationStrategy",
-                                MySQLValueGenerationStrategy.IdentityColumn
-                            ),
-                        InvoiceDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                        Id = table.Column<Guid>(type: "char(36)", nullable: false),
                         OrderId = table.Column<Guid>(type: "char(36)", nullable: false),
-                        InvoiceStatus = table.Column<string>(
-                            type: "varchar(50)",
-                            maxLength: 50,
+                        Number = table.Column<string>(
+                            type: "varchar(10)",
+                            maxLength: 10,
                             nullable: true
                         ),
-                        TotalAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
+                        InvoiceDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                        TaxEventDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                        DueDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                        PaymentMethod = table.Column<string>(
+                            type: "varchar(20)",
+                            maxLength: 20,
+                            nullable: false
+                        ),
+                        PaymentStatus = table.Column<string>(
+                            type: "varchar(20)",
+                            maxLength: 20,
+                            nullable: false
+                        ),
+                        PaidDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                        VatExemptionReason = table.Column<string>(
+                            type: "varchar(500)",
+                            maxLength: 500,
+                            nullable: true
+                        ),
+                        Supplier_Name = table.Column<string>(
+                            type: "varchar(200)",
+                            maxLength: 200,
+                            nullable: true
+                        ),
+                        Supplier_UIC = table.Column<string>(
+                            type: "varchar(20)",
+                            maxLength: 20,
+                            nullable: true
+                        ),
+                        Supplier_VATNumber = table.Column<string>(
+                            type: "varchar(20)",
+                            maxLength: 20,
+                            nullable: true
+                        ),
+                        Supplier_Address = table.Column<string>(
+                            type: "varchar(500)",
+                            maxLength: 500,
+                            nullable: true
+                        ),
+                        Supplier_City = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        Supplier_Country = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        Supplier_Manager = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        Supplier_BankName = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        Supplier_IBAN = table.Column<string>(
+                            type: "varchar(35)",
+                            maxLength: 35,
+                            nullable: true
+                        ),
+                        Supplier_BIC = table.Column<string>(
+                            type: "varchar(15)",
+                            maxLength: 15,
+                            nullable: true
+                        ),
+                        Supplier_Email = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        Supplier_PhoneNumber = table.Column<string>(
+                            type: "varchar(20)",
+                            maxLength: 20,
+                            nullable: true
+                        ),
+                        Customer_Name = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        Customer_CompanyName = table.Column<string>(
+                            type: "varchar(200)",
+                            maxLength: 200,
+                            nullable: true
+                        ),
+                        Customer_Email = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        Customer_PhoneNumber = table.Column<string>(
+                            type: "varchar(15)",
+                            maxLength: 15,
+                            nullable: true
+                        ),
+                        Customer_Address = table.Column<string>(
+                            type: "varchar(500)",
+                            maxLength: 500,
+                            nullable: true
+                        ),
+                        Customer_City = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        Customer_Country = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        Customer_BankName = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        Customer_IBAN = table.Column<string>(
+                            type: "varchar(35)",
+                            maxLength: 35,
+                            nullable: true
+                        ),
+                        Customer_BIC = table.Column<string>(
+                            type: "varchar(15)",
+                            maxLength: 15,
+                            nullable: true
+                        ),
+                        Customer_VATNumber = table.Column<string>(
+                            type: "varchar(20)",
+                            maxLength: 20,
+                            nullable: true
+                        ),
+                        Customer_UIC = table.Column<string>(
+                            type: "varchar(20)",
+                            maxLength: 20,
+                            nullable: true
+                        ),
+                        Net = table.Column<decimal>(
+                            type: "decimal(18,2)",
+                            precision: 18,
+                            scale: 2,
+                            nullable: false
+                        ),
+                        Vat = table.Column<decimal>(
+                            type: "decimal(18,2)",
+                            precision: 18,
+                            scale: 2,
+                            nullable: false
+                        ),
+                        Gross = table.Column<decimal>(
+                            type: "decimal(18,2)",
+                            precision: 18,
+                            scale: 2,
+                            nullable: false
+                        ),
                         CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                         UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                         CreatedBy = table.Column<string>(
@@ -310,6 +461,125 @@ namespace OrderService.Migrations
 
             migrationBuilder
                 .CreateTable(
+                    name: "InvoiceItems",
+                    columns: table => new
+                    {
+                        Id = table
+                            .Column<int>(type: "int", nullable: false)
+                            .Annotation(
+                                "MySQL:ValueGenerationStrategy",
+                                MySQLValueGenerationStrategy.IdentityColumn
+                            ),
+                        ProductId = table.Column<Guid>(type: "char(36)", nullable: false),
+                        SKU = table.Column<string>(
+                            type: "varchar(50)",
+                            maxLength: 50,
+                            nullable: true
+                        ),
+                        Name = table.Column<string>(
+                            type: "varchar(100)",
+                            maxLength: 100,
+                            nullable: true
+                        ),
+                        UnitOfMeasure = table.Column<string>(
+                            type: "varchar(20)",
+                            maxLength: 20,
+                            nullable: true
+                        ),
+                        Quantity = table.Column<int>(type: "int", nullable: false),
+                        UnitPrice = table.Column<decimal>(
+                            type: "decimal(18,2)",
+                            precision: 18,
+                            scale: 2,
+                            nullable: false
+                        ),
+                        VatRate = table.Column<decimal>(
+                            type: "decimal(5,2)",
+                            precision: 5,
+                            scale: 2,
+                            nullable: false
+                        ),
+                        Net = table.Column<decimal>(
+                            type: "decimal(18,2)",
+                            precision: 18,
+                            scale: 2,
+                            nullable: false
+                        ),
+                        Vat = table.Column<decimal>(
+                            type: "decimal(18,2)",
+                            precision: 18,
+                            scale: 2,
+                            nullable: false
+                        ),
+                        Gross = table.Column<decimal>(
+                            type: "decimal(18,2)",
+                            precision: 18,
+                            scale: 2,
+                            nullable: false
+                        ),
+                        InvoiceId = table.Column<Guid>(type: "char(36)", nullable: false),
+                    },
+                    constraints: table =>
+                    {
+                        table.PrimaryKey("PK_InvoiceItems", x => x.Id);
+                        table.ForeignKey(
+                            name: "FK_InvoiceItems_Invoices_InvoiceId",
+                            column: x => x.InvoiceId,
+                            principalTable: "Invoices",
+                            principalColumn: "Id",
+                            onDelete: ReferentialAction.Cascade
+                        );
+                    }
+                )
+                .Annotation("MySQL:Charset", "utf8mb4");
+
+            migrationBuilder
+                .CreateTable(
+                    name: "InvoiceVatTotals",
+                    columns: table => new
+                    {
+                        Id = table
+                            .Column<int>(type: "int", nullable: false)
+                            .Annotation(
+                                "MySQL:ValueGenerationStrategy",
+                                MySQLValueGenerationStrategy.IdentityColumn
+                            ),
+                        VatRate = table.Column<decimal>(
+                            type: "decimal(5,2)",
+                            precision: 5,
+                            scale: 2,
+                            nullable: false
+                        ),
+                        Net = table.Column<decimal>(
+                            type: "decimal(18,2)",
+                            precision: 18,
+                            scale: 2,
+                            nullable: false
+                        ),
+                        Vat = table.Column<decimal>(
+                            type: "decimal(18,2)",
+                            precision: 18,
+                            scale: 2,
+                            nullable: false
+                        ),
+                        InvoiceId = table.Column<Guid>(type: "char(36)", nullable: false),
+                    },
+                    constraints: table =>
+                    {
+                        table.PrimaryKey("PK_InvoiceVatTotals", x => x.Id);
+                        table.ForeignKey(
+                            name: "FK_InvoiceVatTotals_Invoices_InvoiceId",
+                            column: x => x.InvoiceId,
+                            principalTable: "Invoices",
+                            principalColumn: "Id",
+                            onDelete: ReferentialAction.Cascade
+                        );
+                    }
+                )
+                .Annotation("MySQL:Charset", "utf8mb4");
+
+            migrationBuilder
+                .CreateTable(
                     name: "OrderItemBatches",
                     columns: table => new
                     {
@@ -342,10 +612,28 @@ namespace OrderService.Migrations
                 .Annotation("MySQL:Charset", "utf8mb4");
 
             migrationBuilder.CreateIndex(
+                name: "IX_InvoiceItems_InvoiceId",
+                table: "InvoiceItems",
+                column: "InvoiceId"
+            );
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Invoices_Number",
+                table: "Invoices",
+                column: "Number"
+            );
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Invoices_OrderId",
                 table: "Invoices",
                 column: "OrderId",
                 unique: true
+            );
+
+            migrationBuilder.CreateIndex(
+                name: "IX_InvoiceVatTotals_InvoiceId",
+                table: "InvoiceVatTotals",
+                column: "InvoiceId"
             );
 
             migrationBuilder.CreateIndex(
@@ -368,9 +656,13 @@ namespace OrderService.Migrations
         {
             migrationBuilder.DropTable(name: "CompanySettings");
 
-            migrationBuilder.DropTable(name: "Invoices");
+            migrationBuilder.DropTable(name: "InvoiceItems");
+
+            migrationBuilder.DropTable(name: "InvoiceVatTotals");
 
             migrationBuilder.DropTable(name: "OrderItemBatches");
+
+            migrationBuilder.DropTable(name: "Invoices");
 
             migrationBuilder.DropTable(name: "OrderItems");
 

@@ -1,6 +1,5 @@
 using OrderService.Models;
 using OrderService.Ordering;
-using Sava.Tests.Shared;
 
 namespace OrderService.Tests;
 
@@ -16,14 +15,7 @@ public class OrderLifecycleTests
         order.Status = status;
         if (withInvoice)
         {
-            order.Invoice = new Invoice
-            {
-                OrderId = order.Id,
-                Order = order,
-                InvoiceDate = TestData.Date(2025, 2026),
-                InvoiceStatus = "Unpaid",
-                TotalAmount = order.Items.Gross(),
-            };
+            OrderBuilder.Invoice(order);
         }
         return order;
     }

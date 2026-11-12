@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using OrderService.Dtos;
+using OrderService.Invoicing;
 using OrderService.Models;
-using Serilog;
 
 namespace OrderService.DataAccess;
 
@@ -17,74 +18,41 @@ public class InvoiceRepo : IInvoiceRepo
         _context = context;
     }
 
-    public async Task<Invoice?> UpdateInvoiceAsync(Invoice invoice)
+    public async Task<IEnumerable<Invoice>> GetInvoicesAsync(
+        InvoiceFilter filter,
+        DateOnly today,
+        Guid? cursor,
+        int pageSize
+    )
     {
-        var dbInvoice = await _context.Invoices.SingleOrDefaultAsync(p => p.Id == invoice.Id);
-
-        if (dbInvoice == null)
-        {
-            return null;
-        }
-
-        // Null fields in the update are left unchanged; the linked order cannot be changed.
-        dbInvoice.InvoiceDate = invoice.InvoiceDate ?? dbInvoice.InvoiceDate;
-        dbInvoice.InvoiceStatus = invoice.InvoiceStatus ?? dbInvoice.InvoiceStatus;
-        dbInvoice.TotalAmount = invoice.TotalAmount ?? dbInvoice.TotalAmount;
-
-        await _context.SaveChangesAsync();
-
-        return dbInvoice;
-    }
-
-    public async Task<Invoice?> GetInvoiceByOrderIdAsync(Guid orderId)
-    {
-        var invoice = await _context
-            .Invoices.AsNoTracking()
-            .Where(i => i.OrderId == orderId)
-            .Include(i => i.Order)
-                .ThenInclude(o => o.Items)
-                    .ThenInclude(l => l.Batches)
-            .SingleOrDefaultAsync();
-
-        return invoice;
-    }
-
-    public async Task<Invoice?> GetInvoiceByIdAsync(int id)
-    {
-        return await _context
-            .Invoices.AsNoTracking()
-            .Where(i => i.Id == id)
-            .Include(i => i.Order)
-                .ThenInclude(o => o.Items)
-                    .ThenInclude(l => l.Batches)
-            .SingleOrDefaultAsync();
-    }
-
-    public async Task<IEnumerable<Invoice>> GetAllInvoicesAsync(int? cursor, int pageSize)
-    {
+        var invoices = Filtered(filter, today);
         if (cursor != null)
         {
-            return await _context
-                .Invoices.AsNoTracking()
-                .Where(i => i.Id > cursor)
-                .Include(i => i.Order)
-                    .ThenInclude(o => o.Items)
-                        .ThenInclude(l => l.Batches)
-                .OrderBy(i => i.Id)
-                .Take(pageSize)
-                .ToArrayAsync();
+            invoices = invoices.Where(i => i.Id > cursor);
         }
-        return await _context
-            .Invoices.AsNoTracking()
+        return await invoices
+            .AsNoTracking()
             .Include(i => i.Order)
-                .ThenInclude(o => o.Items)
-                    .ThenInclude(l => l.Batches)
             .OrderBy(i => i.Id)
             .Take(pageSize)
-            .ToArrayAsync();
+            .ToListAsync();
     }
 
-    public async Task<Invoice?> DeleteInvoiceAsync(int id)
+    public async Task<int> GetInvoiceCountAsync(InvoiceFilter filter, DateOnly today) =>
+        await Filtered(filter, today).CountAsync();
+
+    public async Task<Invoice?> GetInvoiceByIdAsync(Guid id) =>
+        await _context
+            .Invoices.AsNoTracking()
+            .Include(i => i.Order)
+            .SingleOrDefaultAsync(i => i.Id == id);
+
+    public async Task<Invoice?> GetInvoiceForUpdateAsync(Guid id) =>
+        await _context.Invoices.Include(i => i.Order).SingleOrDefaultAsync(i => i.Id == id);
+
+    public async Task SaveChangesAsync() => await _context.SaveChangesAsync();
+
+    public async Task<Invoice?> DeleteInvoiceAsync(Guid id)
     {
         var dbInvoice = await _context
             .Invoices.Include(i => i.Order)
@@ -97,7 +65,7 @@ public class InvoiceRepo : IInvoiceRepo
 
         // A Completed order without its invoice goes back to Pending; a Cancelled one stays
         // Cancelled.
-        var order = dbInvoice.Order;
+        var order = dbInvoice.Order!;
         if (order.Status == OrderStatus.Completed)
         {
             order.Status = OrderStatus.Pending;
@@ -112,8 +80,50 @@ public class InvoiceRepo : IInvoiceRepo
         return dbInvoice;
     }
 
-    public async Task<int> GetInvoiceCountAsync()
+    public async Task<bool> NumberExistsAsync(string number) =>
+        await _context.Invoices.AnyAsync(i => i.Number == number);
+
+    public async Task<string> NextNumberAsync() =>
+        InvoiceFactory.NextNumber(await _context.Invoices.MaxAsync(i => i.Number));
+
+    private IQueryable<Invoice> Filtered(InvoiceFilter filter, DateOnly today)
     {
-        return await _context.Invoices.CountAsync();
+        var invoices = _context.Invoices.AsQueryable();
+        if (filter.From is { } from)
+        {
+            var start = from.ToDateTime(TimeOnly.MinValue);
+            invoices = invoices.Where(i => i.InvoiceDate >= start);
+        }
+        if (filter.To is { } to)
+        {
+            var end = to.AddDays(1).ToDateTime(TimeOnly.MinValue);
+            invoices = invoices.Where(i => i.InvoiceDate < end);
+        }
+        if (filter.CustomerId is { } customerId)
+        {
+            invoices = invoices.Where(i => i.Order!.CustomerId == customerId);
+        }
+        if (!string.IsNullOrEmpty(filter.Number))
+        {
+            invoices = invoices.Where(i => i.Number!.Contains(filter.Number));
+        }
+        if (filter.PaymentStatus is { } status)
+        {
+            invoices = invoices.Where(i => i.PaymentStatus == status);
+        }
+        if (filter.Overdue is { } overdue)
+        {
+            var startOfToday = today.ToDateTime(TimeOnly.MinValue);
+            invoices = overdue
+                ? invoices.Where(i =>
+                    i.PaymentStatus == PaymentStatus.Unpaid && i.DueDate < startOfToday
+                )
+                : invoices.Where(i =>
+                    i.PaymentStatus != PaymentStatus.Unpaid
+                    || i.DueDate == null
+                    || i.DueDate >= startOfToday
+                );
+        }
+        return invoices;
     }
 }

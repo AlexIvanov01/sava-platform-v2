@@ -1,5 +1,6 @@
 using Bogus.Extensions;
 using OrderService.Dtos;
+using OrderService.Invoicing;
 using OrderService.Models;
 using OrderService.SyncDataServices.Grpc;
 using Sava.Tests.Shared;
@@ -183,4 +184,25 @@ internal static class OrderBuilder
         TestData.Faker.Address.FullAddress().ClampLength(max: 500);
 
     public static OrderStatusChangeDto StatusDto(OrderStatus status) => new(status);
+
+    public static string InvoiceNumber() => TestData.Faker.Random.ReplaceNumbers("##########");
+
+    // The order's invoice as completing it creates one (Invoicing/InvoiceFactory), attached to it.
+    public static Invoice Invoice(
+        Order order,
+        CompanySettings? company = null,
+        string? number = null,
+        DateTime? date = null
+    )
+    {
+        var invoice = InvoiceFactory.Create(
+            order,
+            company ?? CompanySettingsBuilder.Entity(),
+            number ?? InvoiceNumber(),
+            date ?? TestData.Date(2025, 2026)
+        );
+        invoice.Id = TestData.Faker.Random.Guid();
+        order.Invoice = invoice;
+        return invoice;
+    }
 }

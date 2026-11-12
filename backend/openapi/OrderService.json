@@ -131,12 +131,53 @@
             "name": "cursor",
             "in": "query",
             "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "customerId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "number",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "paymentStatus",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/PaymentStatus"
+            }
+          },
+          {
+            "name": "overdue",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           },
           {
@@ -199,6 +240,66 @@
         }
       }
     },
+    "/api/Invoices/numbering": {
+      "get": {
+        "tags": [
+          "Invoices"
+        ],
+        "parameters": [
+          {
+            "name": "number",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{10}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceNumberCheckDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceNumberCheckDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceNumberCheckDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Invoices/{id}": {
       "get": {
         "tags": [
@@ -211,12 +312,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
+              "type": "string",
+              "format": "uuid"
             }
           }
         ],
@@ -226,17 +323,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderReadDto"
+                  "$ref": "#/components/schemas/InvoiceReadDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderReadDto"
+                  "$ref": "#/components/schemas/InvoiceReadDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderReadDto"
+                  "$ref": "#/components/schemas/InvoiceReadDto"
                 }
               }
             }
@@ -273,12 +370,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
+              "type": "string",
+              "format": "uuid"
             }
           }
         ],
@@ -323,6 +416,26 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -355,12 +468,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
+              "type": "string",
+              "format": "uuid"
             }
           }
         ],
@@ -983,6 +1092,7 @@
           "bic",
           "email",
           "phoneNumber",
+          "paymentTermsDays",
           "audit"
         ],
         "type": "object",
@@ -1059,6 +1169,15 @@
               "string"
             ]
           },
+          "paymentTermsDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
           "audit": {
             "$ref": "#/components/schemas/AuditReadDto"
           }
@@ -1077,7 +1196,8 @@
           "iban",
           "bic",
           "email",
-          "phoneNumber"
+          "phoneNumber",
+          "paymentTermsDays"
         ],
         "type": "object",
         "properties": {
@@ -1152,6 +1272,15 @@
               "null",
               "string"
             ]
+          },
+          "paymentTermsDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -1246,25 +1375,124 @@
           }
         }
       },
-      "InvoicePageReadDto": {
+      "InvoiceItemReadDto": {
+        "required": [
+          "productId",
+          "sku",
+          "name",
+          "unitOfMeasure",
+          "quantity",
+          "unitPrice",
+          "vatRate",
+          "net",
+          "vat",
+          "gross"
+        ],
         "type": "object",
         "properties": {
-          "orderReadDtos": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sku": {
             "type": [
               "null",
-              "array"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/OrderReadDto"
-            }
+              "string"
+            ]
           },
-          "cursor": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "unitOfMeasure": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "quantity": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
               "string"
             ],
             "format": "int32"
+          },
+          "unitPrice": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "vatRate": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "net": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "vat": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "gross": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "InvoiceNumberCheckDto": {
+        "required": [
+          "number",
+          "taken",
+          "nextNumber"
+        ],
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "string"
+          },
+          "taken": {
+            "type": "boolean"
+          },
+          "nextNumber": {
+            "type": "string"
+          }
+        }
+      },
+      "InvoicePageReadDto": {
+        "type": "object",
+        "properties": {
+          "invoices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceReadDto"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "format": "uuid"
           },
           "pages": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -1279,37 +1507,130 @@
       "InvoiceReadDto": {
         "required": [
           "id",
-          "invoiceDate",
           "orderId",
-          "invoiceStatus",
-          "totalAmount",
+          "orderStatus",
+          "number",
+          "invoiceDate",
+          "taxEventDate",
+          "dueDate",
+          "paymentMethod",
+          "paymentStatus",
+          "paidDate",
+          "isOverdue",
+          "vatExemptionReason",
+          "supplier",
+          "customer",
+          "items",
+          "vatTotals",
+          "net",
+          "vat",
+          "gross",
           "audit"
         ],
         "type": "object",
         "properties": {
           "id": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "invoiceDate": {
             "type": "string",
-            "format": "date-time"
+            "format": "uuid"
           },
           "orderId": {
             "type": "string",
             "format": "uuid"
           },
-          "invoiceStatus": {
+          "orderStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderStatus"
+              }
+            ]
+          },
+          "number": {
             "type": [
               "null",
               "string"
             ]
           },
-          "totalAmount": {
+          "invoiceDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "taxEventDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "dueDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "paymentMethod": {
+            "$ref": "#/components/schemas/PaymentMethod"
+          },
+          "paymentStatus": {
+            "$ref": "#/components/schemas/PaymentStatus"
+          },
+          "paidDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "isOverdue": {
+            "type": "boolean"
+          },
+          "vatExemptionReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "supplier": {
+            "$ref": "#/components/schemas/SupplierReadDto"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/CustomerSnapshotReadDto"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceItemReadDto"
+            }
+          },
+          "vatTotals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceVatTotalReadDto"
+            }
+          },
+          "net": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "vat": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "gross": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
               "number",
@@ -1322,14 +1643,27 @@
           }
         }
       },
-      "InvoiceUpdateDto": {
+      "InvoiceSummaryReadDto": {
         "required": [
+          "id",
+          "number",
           "invoiceDate",
-          "invoiceStatus",
-          "totalAmount"
+          "dueDate",
+          "paymentStatus",
+          "gross"
         ],
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "number": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "invoiceDate": {
             "type": [
               "null",
@@ -1337,16 +1671,128 @@
             ],
             "format": "date-time"
           },
-          "invoiceStatus": {
+          "dueDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "paymentStatus": {
+            "$ref": "#/components/schemas/PaymentStatus"
+          },
+          "gross": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "InvoiceUpdateDto": {
+        "required": [
+          "number",
+          "invoiceDate",
+          "taxEventDate",
+          "dueDate",
+          "paymentMethod",
+          "paymentStatus",
+          "paidDate",
+          "vatExemptionReason"
+        ],
+        "type": "object",
+        "properties": {
+          "number": {
             "type": [
               "null",
               "string"
             ]
           },
-          "totalAmount": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+          "invoiceDate": {
             "type": [
               "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "taxEventDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "dueDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "paymentMethod": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PaymentMethod"
+              }
+            ]
+          },
+          "paymentStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PaymentStatus"
+              }
+            ]
+          },
+          "paidDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "vatExemptionReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "InvoiceVatTotalReadDto": {
+        "required": [
+          "vatRate",
+          "net",
+          "vat"
+        ],
+        "type": "object",
+        "properties": {
+          "vatRate": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "net": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "vat": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
               "number",
               "string"
             ],
@@ -1723,7 +2169,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/InvoiceReadDto"
+                "$ref": "#/components/schemas/InvoiceSummaryReadDto"
               }
             ]
           },
@@ -1746,7 +2192,8 @@
           "InProcess",
           "Pending",
           "Completed",
-          "Cancelled"
+          "Cancelled",
+          null
         ]
       },
       "OrderStatusChangeDto": {
@@ -1871,6 +2318,19 @@
           }
         }
       },
+      "PaymentMethod": {
+        "enum": [
+          "BankTransfer",
+          "Cash",
+          "Card"
+        ]
+      },
+      "PaymentStatus": {
+        "enum": [
+          "Unpaid",
+          "Paid"
+        ]
+      },
       "ProblemDetails": {
         "type": "object",
         "properties": {
@@ -1902,6 +2362,97 @@
             ]
           },
           "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SupplierReadDto": {
+        "required": [
+          "name",
+          "uic",
+          "vatNumber",
+          "address",
+          "city",
+          "country",
+          "manager",
+          "bankName",
+          "iban",
+          "bic",
+          "email",
+          "phoneNumber"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "uic": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vatNumber": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "address": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "city": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "country": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "manager": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bankName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "iban": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bic": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "phoneNumber": {
             "type": [
               "null",
               "string"

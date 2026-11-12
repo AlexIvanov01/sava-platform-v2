@@ -42,4 +42,7 @@ public class CustomerSnapshot
 
     [MaxLength(20)]
     public string? UIC { get; set; }
+
+    // An owned instance belongs to a single owner, so every order and invoice gets its own copy.
+    public CustomerSnapshot Copy() => (CustomerSnapshot)MemberwiseClone();
 }

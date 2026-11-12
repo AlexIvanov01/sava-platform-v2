@@ -19,6 +19,7 @@ public static class CompanySettingsMappings
             settings.BIC,
             settings.Email,
             settings.PhoneNumber,
+            settings.PaymentTermsDays,
             settings.ToAuditDto()
         );
 
@@ -37,5 +38,6 @@ public static class CompanySettingsMappings
             BIC = dto.BIC,
             Email = dto.Email,
             PhoneNumber = dto.PhoneNumber,
+            PaymentTermsDays = dto.PaymentTermsDays,
         };
 }

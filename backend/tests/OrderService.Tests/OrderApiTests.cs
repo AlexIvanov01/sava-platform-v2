@@ -482,11 +482,11 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
         var completedDate = completed.CompletedDate.ShouldNotBeNull();
         completed.CancelledDate.ShouldBeNull();
         var invoice = completed.Invoice.ShouldNotBeNull();
-        invoice.OrderId.ShouldBe(order.Id);
-        invoice.InvoiceStatus.ShouldBe("Unpaid");
+        invoice.Number.ShouldNotBeNull().ShouldMatch(@"^\d{10}$");
         invoice.InvoiceDate.ShouldBe(completedDate);
-        invoice.TotalAmount.ShouldBe(updated.Totals.Gross);
-        invoice.Audit.CreatedBy.ShouldBe(editor);
+        invoice.DueDate.ShouldNotBeNull().ShouldBeGreaterThanOrEqualTo(completedDate.Date);
+        invoice.PaymentStatus.ShouldBe(PaymentStatus.Unpaid);
+        invoice.Gross.ShouldBe(updated.Totals.Gross);
         PublishedFor(order.Id).Count.ShouldBe(2);
         var saved = await GetOrderAsync(order.Id);
         saved.Status.ShouldBe(OrderStatus.Completed);
@@ -514,29 +514,31 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
 
         var paid = await _client.PutAsJsonAsync(
             $"/api/invoices/{invoice.Id}",
-            new InvoiceUpdateDto(null, "Paid", null),
+            new InvoiceUpdateDto(null, null, null, null, null, PaymentStatus.Paid, null, null),
             Ct
         );
         paid.StatusCode.ShouldBe(HttpStatusCode.OK);
         var paidInvoice = (
             await paid.Content.ReadFromJsonAsync<InvoiceReadDto>(Ct)
         ).ShouldNotBeNull();
-        paidInvoice.InvoiceStatus.ShouldBe("Paid");
-        paidInvoice.TotalAmount.ShouldBe(updated.Totals.Gross);
+        paidInvoice.PaymentStatus.ShouldBe(PaymentStatus.Paid);
+        paidInvoice.PaidDate.ShouldNotBeNull();
+        paidInvoice.Gross.ShouldBe(updated.Totals.Gross);
         paidInvoice.OrderId.ShouldBe(order.Id);
+        paidInvoice.OrderStatus.ShouldBe(OrderStatus.Completed);
+        paidInvoice.Audit.CreatedBy.ShouldBe(editor);
         paidInvoice.Audit.UpdatedBy.ShouldBe(editor);
-        var invoiced = (
-            await _client.GetFromJsonAsync<OrderReadDto>($"/api/invoices/{invoice.Id}", Ct)
+        var fetched = (
+            await _client.GetFromJsonAsync<InvoiceReadDto>($"/api/invoices/{invoice.Id}", Ct)
         ).ShouldNotBeNull();
-        invoiced.Id.ShouldBe(order.Id);
-        invoiced.Invoice.ShouldNotBeNull().InvoiceStatus.ShouldBe("Paid");
-        invoiced.Items.ShouldHaveSingleItem().ProductId.ShouldBe(productB.Id);
-        invoiced.Customer.ShouldBe(factory.Customer.ToReadDto());
+        fetched.PaymentStatus.ShouldBe(PaymentStatus.Paid);
+        fetched.Items.ShouldHaveSingleItem().ProductId.ShouldBe(productB.Id);
+        fetched.Customer.ShouldBe(factory.Customer.ToReadDto());
+        (await GetOrderAsync(order.Id))
+            .Invoice.ShouldNotBeNull()
+            .PaymentStatus.ShouldBe(PaymentStatus.Paid);
         var invoices = await _client.GetFromJsonAsync<InvoicePageReadDto>("/api/invoices", Ct);
-        invoices
-            .ShouldNotBeNull()
-            .OrderReadDtos.ShouldNotBeNull()
-            .ShouldContain(o => o.Id == order.Id);
+        invoices.ShouldNotBeNull().Invoices.ShouldContain(i => i.Id == invoice.Id);
 
         // An invoiced order cannot be deleted; the rejected attempt leaves it intact.
         var problem = await ShouldBeProblemAsync(
