@@ -6,6 +6,9 @@ namespace InventoryService.Mappings;
 public static class StockMappings
 {
     // Lot is filled when the movement's Batch is loaded.
+    public static BatchOrderReadDto ToReadDto(this OrderHolding holding) =>
+        new(holding.OrderId, holding.BatchId, holding.Quantity);
+
     public static StockMovementReadDto ToReadDto(this StockMovement movement) =>
         new(
             movement.Id,

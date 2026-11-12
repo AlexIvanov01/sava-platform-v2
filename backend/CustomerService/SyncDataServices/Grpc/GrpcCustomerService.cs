@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using CustomerService.DataAccess;
 using CustomerService.Mappings;
 using Grpc.Core;
@@ -28,5 +29,24 @@ public class GrpcCustomerService : GrpcCustomer.GrpcCustomerBase
             response.Customers.Add(customer.ToGrpcModel());
         }
         return response;
+    }
+
+    public override async Task<GrpcCustomerModel> GetCustomer(
+        GetCustomerRequest request,
+        ServerCallContext context
+    )
+    {
+        if (!Guid.TryParse(request.Id, out var id))
+        {
+            throw new RpcException(
+                new Status(StatusCode.InvalidArgument, $"Invalid customer id '{request.Id}'.")
+            );
+        }
+
+        var customer =
+            await _repository.GetCustomerAsync(id)
+            ?? throw new RpcException(new Status(StatusCode.NotFound, $"Customer {id} not found."));
+
+        return customer.ToGrpcModel();
     }
 }

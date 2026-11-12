@@ -29,6 +29,12 @@ public interface IProductRepo
     // For reports: every product (optionally of one category) with its category and batches.
     Task<List<Product>> GetProductsWithBatchesAsync(Guid? categoryId = null);
 
+    // Untracked products with their batches; ids that don't exist are left out.
+    Task<List<Product>> GetProductsByIdsAsync(IReadOnlyCollection<Guid> ids);
+
+    // Untracked; ids that don't exist are left out.
+    Task<List<ProductBatch>> GetBatchesByIdsAsync(IReadOnlyCollection<Guid> ids);
+
     // For reports: batches with stock expiring on or before `until`, with their products.
     Task<List<ProductBatch>> GetBatchesInStockExpiringByAsync(DateTime until);
 }

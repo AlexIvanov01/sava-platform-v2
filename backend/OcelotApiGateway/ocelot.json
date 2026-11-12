@@ -307,6 +307,57 @@
             }
         },
         {
+            "UpstreamPathTemplate": "/api/Products/{id}/orders",
+            "UpstreamHttpMethod": [ "Get" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "inventory-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Products/{id}/orders",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            }
+        },
+        {
+            "UpstreamPathTemplate": "/api/Batches/{id}/orders",
+            "UpstreamHttpMethod": [ "Get" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "inventory-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Batches/{id}/orders",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            }
+        },
+        {
+            "UpstreamPathTemplate": "/api/Allocations/suggest",
+            "UpstreamHttpMethod": [ "Post" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "inventory-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Allocations/suggest",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            },
+            "RouteClaimsRequirement": {
+                "Role": "Administrator"
+            }
+        },
+        {
             "UpstreamPathTemplate": "/api/Batches/{id}/adjustments",
             "UpstreamHttpMethod": [ "Post" ],
             "DownstreamScheme": "http",

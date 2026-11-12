@@ -56,6 +56,56 @@ public class StockMovementsController(IStockRepo repository) : ControllerBase
         }
     }
 
+    // Orders that currently hold stock from the batch, with how many units each holds.
+    [HttpGet("Batches/{id}/orders")]
+    [ProducesResponseType<IEnumerable<BatchOrderReadDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IEnumerable<BatchOrderReadDto>>> GetBatchOrders(Guid id)
+    {
+        try
+        {
+            var holdings = await repository.GetBatchOrdersAsync(id);
+
+            if (holdings == null)
+            {
+                Log.Warning("--> Batch with id {Id} not found.", id);
+                return NotFound();
+            }
+
+            return Ok(holdings.Select(h => h.ToReadDto()));
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
+            return StatusCode(500, "An internal server error occurred.");
+        }
+    }
+
+    // The same across all the product's batches (one entry per order and batch).
+    [HttpGet("Products/{id}/orders")]
+    [ProducesResponseType<IEnumerable<BatchOrderReadDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IEnumerable<BatchOrderReadDto>>> GetProductOrders(Guid id)
+    {
+        try
+        {
+            var holdings = await repository.GetProductOrdersAsync(id);
+
+            if (holdings == null)
+            {
+                Log.Warning("--> Product with id {Id} not found.", id);
+                return NotFound();
+            }
+
+            return Ok(holdings.Select(h => h.ToReadDto()));
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
+            return StatusCode(500, "An internal server error occurred.");
+        }
+    }
+
     // Newest first; from/to filter on when the movement was recorded.
     [HttpGet("Batches/{id}/movements")]
     [ProducesResponseType<IEnumerable<StockMovementReadDto>>(StatusCodes.Status200OK)]

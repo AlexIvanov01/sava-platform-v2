@@ -123,6 +123,28 @@ public static class ProductMappings
             Location = dto.Location,
         };
 
+    public static GrpcProductSnapshot ToSnapshot(this Product product, DateOnly today) =>
+        new()
+        {
+            Id = product.Id.ToString(),
+            Sku = product.SKU ?? string.Empty,
+            Name = product.Name ?? string.Empty,
+            UnitOfMeasure = product.UnitOfMeasure?.ToString() ?? string.Empty,
+            ListPrice = product.ListPrice?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+            VatRate = product.VatRate?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+            Cost = product.Cost(today)?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+        };
+
+    public static GrpcBatchSnapshot ToSnapshot(this ProductBatch batch) =>
+        new()
+        {
+            Id = batch.Id.ToString(),
+            ProductId = batch.ProductId?.ToString() ?? string.Empty,
+            Lot = batch.Lot ?? string.Empty,
+            ExpirationDate =
+                batch.ExpirationDate?.ToString("O", CultureInfo.InvariantCulture) ?? string.Empty,
+        };
+
     // Expects batch.Product to be populated. Protobuf string fields reject null,
     // so missing values are sent as empty strings.
     public static GrpcInventoryModel ToGrpcModel(this ProductBatch batch) =>

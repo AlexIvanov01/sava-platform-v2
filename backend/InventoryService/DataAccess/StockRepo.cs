@@ -15,14 +15,7 @@ public class StockRepo(ProductContext context) : IStockRepo
     )
     {
         // What the ledger already counts as sold to this order, per batch.
-        var alreadySold = await context
-            .StockMovements.Where(m =>
-                m.OrderId == orderId
-                && (m.Type == StockMovementType.Sale || m.Type == StockMovementType.SaleReversal)
-            )
-            .GroupBy(m => m.BatchId)
-            .Select(g => new { BatchId = g.Key, Sold = -g.Sum(m => m.Quantity) })
-            .ToDictionaryAsync(x => x.BatchId, x => x.Sold);
+        var alreadySold = await GetOrderHoldingsAsync(orderId);
 
         var batchIds = soldPerBatch.Keys.Union(alreadySold.Keys).ToList();
         var batches = await context
@@ -109,6 +102,48 @@ public class StockRepo(ProductContext context) : IStockRepo
 
     public async Task<bool> OrderHasMovementsAsync(Guid orderId) =>
         await context.StockMovements.AnyAsync(m => m.OrderId == orderId);
+
+    public async Task<IReadOnlyDictionary<Guid, int>> GetOrderHoldingsAsync(Guid orderId) =>
+        (await Holdings(OrderSales().Where(m => m.OrderId == orderId)).ToListAsync()).ToDictionary(
+            h => h.BatchId,
+            h => h.Quantity
+        );
+
+    public async Task<IReadOnlyList<OrderHolding>?> GetBatchOrdersAsync(Guid batchId)
+    {
+        if (!await context.ProductBatches.AnyAsync(b => b.Id == batchId))
+        {
+            return null;
+        }
+
+        return await Holdings(OrderSales().Where(m => m.BatchId == batchId)).ToListAsync();
+    }
+
+    public async Task<IReadOnlyList<OrderHolding>?> GetProductOrdersAsync(Guid productId)
+    {
+        if (!await context.Products.AnyAsync(p => p.Id == productId))
+        {
+            return null;
+        }
+
+        return await Holdings(OrderSales().Where(m => m.Batch!.ProductId == productId))
+            .ToListAsync();
+    }
+
+    private IQueryable<StockMovement> OrderSales() =>
+        context.StockMovements.Where(m =>
+            m.OrderId != null
+            && (m.Type == StockMovementType.Sale || m.Type == StockMovementType.SaleReversal)
+        );
+
+    // Net units sold per (order, batch), leaving out pairs that net to zero.
+    private static IQueryable<OrderHolding> Holdings(IQueryable<StockMovement> sales) =>
+        sales
+            .GroupBy(m => new { OrderId = m.OrderId!.Value, m.BatchId })
+            .Where(g => g.Sum(m => m.Quantity) != 0)
+            .OrderBy(g => g.Key.OrderId)
+            .ThenBy(g => g.Key.BatchId)
+            .Select(g => new OrderHolding(g.Key.OrderId, g.Key.BatchId, -g.Sum(m => m.Quantity)));
 
     public async Task<StockMovement?> AdjustAsync(
         Guid batchId,

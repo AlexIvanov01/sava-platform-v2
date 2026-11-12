@@ -242,6 +242,16 @@ public class ProductRepo : IProductRepo
         return await query.Include(p => p.Category).Include(p => p.Batches).ToListAsync();
     }
 
+    public async Task<List<Product>> GetProductsByIdsAsync(IReadOnlyCollection<Guid> ids) =>
+        await _context
+            .Products.AsNoTracking()
+            .Where(p => ids.Contains(p.Id))
+            .Include(p => p.Batches)
+            .ToListAsync();
+
+    public async Task<List<ProductBatch>> GetBatchesByIdsAsync(IReadOnlyCollection<Guid> ids) =>
+        await _context.ProductBatches.AsNoTracking().Where(b => ids.Contains(b.Id)).ToListAsync();
+
     public async Task<List<ProductBatch>> GetBatchesInStockExpiringByAsync(DateTime until) =>
         await _context
             .ProductBatches.AsNoTracking()

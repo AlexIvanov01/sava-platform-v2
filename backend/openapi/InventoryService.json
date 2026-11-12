@@ -5,6 +5,84 @@
     "version": "1.0.0"
   },
   "paths": {
+    "/api/Allocations/suggest": {
+      "post": {
+        "tags": [
+          "Allocations"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllocationSuggestRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllocationSuggestRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllocationSuggestRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LineAllocationSuggestionDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LineAllocationSuggestionDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LineAllocationSuggestionDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Batches/{ProductId}": {
       "post": {
         "tags": [
@@ -1288,6 +1366,144 @@
         }
       }
     },
+    "/api/Batches/{id}/orders": {
+      "get": {
+        "tags": [
+          "StockMovements"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BatchOrderReadDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BatchOrderReadDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BatchOrderReadDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Products/{id}/orders": {
+      "get": {
+        "tags": [
+          "StockMovements"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BatchOrderReadDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BatchOrderReadDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BatchOrderReadDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Batches/{id}/movements": {
       "get": {
         "tags": [
@@ -1471,6 +1687,56 @@
           null
         ]
       },
+      "AllocationLineRequestDto": {
+        "required": [
+          "productId",
+          "quantity"
+        ],
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "quantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "AllocationSuggestRequestDto": {
+        "required": [
+          "orderId",
+          "lines"
+        ],
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "lines": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AllocationLineRequestDto"
+            }
+          }
+        }
+      },
       "AuditReadDto": {
         "required": [
           "createdAt",
@@ -1505,6 +1771,58 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "BatchAllocationSuggestionDto": {
+        "required": [
+          "batchId",
+          "lot",
+          "expirationDate",
+          "location",
+          "available",
+          "quantity"
+        ],
+        "type": "object",
+        "properties": {
+          "batchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lot": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "expirationDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "location": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "available": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "quantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -1561,6 +1879,32 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "BatchOrderReadDto": {
+        "required": [
+          "orderId",
+          "batchId",
+          "quantity"
+        ],
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "batchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -1841,6 +2185,70 @@
               "string"
             ],
             "format": "double"
+          }
+        }
+      },
+      "LineAllocationSuggestionDto": {
+        "required": [
+          "productId",
+          "sku",
+          "name",
+          "quantity",
+          "allocated",
+          "shortage",
+          "shortBy",
+          "batches"
+        ],
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sku": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "quantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "allocated": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "shortage": {
+            "type": "boolean"
+          },
+          "shortBy": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "batches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatchAllocationSuggestionDto"
+            }
           }
         }
       },
@@ -2671,6 +3079,9 @@
     }
   },
   "tags": [
+    {
+      "name": "Allocations"
+    },
     {
       "name": "Batches"
     },

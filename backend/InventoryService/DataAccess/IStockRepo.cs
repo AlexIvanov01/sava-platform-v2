@@ -19,6 +19,15 @@ public interface IStockRepo
 
     Task<bool> OrderHasMovementsAsync(Guid orderId);
 
+    // Units the order currently holds per batch (its net Sale/SaleReversal quantity); batches it
+    // holds nothing from are left out.
+    Task<IReadOnlyDictionary<Guid, int>> GetOrderHoldingsAsync(Guid orderId);
+
+    // Orders that currently hold stock from the batch, or from any batch of the product, ordered
+    // by order and batch; null when the batch or product doesn't exist.
+    Task<IReadOnlyList<OrderHolding>?> GetBatchOrdersAsync(Guid batchId);
+    Task<IReadOnlyList<OrderHolding>?> GetProductOrdersAsync(Guid productId);
+
     // Null when the batch doesn't exist.
     Task<StockMovement?> AdjustAsync(
         Guid batchId,

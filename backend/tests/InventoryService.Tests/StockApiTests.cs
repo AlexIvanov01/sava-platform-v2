@@ -213,6 +213,137 @@ public class StockApiTests(InventoryApiFactory factory) : IClassFixture<Inventor
         );
     }
 
+    [Fact]
+    public async Task SuggestAndOrders_FollowTheLedger()
+    {
+        var product = await CreateProductAsync();
+        var early = await AddBatchAsync(
+            product.Id,
+            5,
+            new DateTime(2031, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+        );
+        var late = await AddBatchAsync(
+            product.Id,
+            10,
+            new DateTime(2032, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+        );
+        var orderId = TestData.Faker.Random.Guid();
+        await factory
+            .Services.GetRequiredService<IEventProcessor>()
+            .ProcessEvent(
+                OrderEvent("Order_Published", orderId, new OrderItemPublishedDto(early.Id, 5))
+            );
+
+        var holding = new BatchOrderReadDto(orderId, early.Id, 5);
+        (
+            await _client.GetFromJsonAsync<List<BatchOrderReadDto>>(
+                $"/api/batches/{early.Id}/orders",
+                Ct
+            )
+        ).ShouldBe([holding]);
+        (
+            await _client.GetFromJsonAsync<List<BatchOrderReadDto>>(
+                $"/api/batches/{late.Id}/orders",
+                Ct
+            )
+        ).ShouldBeEmpty();
+        (
+            await _client.GetFromJsonAsync<List<BatchOrderReadDto>>(
+                $"/api/products/{product.Id}/orders",
+                Ct
+            )
+        ).ShouldBe([holding]);
+
+        // A new order: the early batch is sold out.
+        var fresh = await SuggestAsync(new(null, [new(product.Id, 12)]));
+        fresh.Batches.Select(b => (b.BatchId, b.Quantity)).ShouldBe([(late.Id, 10)]);
+        fresh.Shortage.ShouldBeTrue();
+        fresh.ShortBy.ShouldBe(2);
+
+        // Editing the same order: what it holds counts as available to it again.
+        var edit = await SuggestAsync(new(orderId, [new(product.Id, 12)]));
+        edit.Batches.Select(b => (b.BatchId, b.Available, b.Quantity))
+            .ShouldBe([(early.Id, 5, 5), (late.Id, 10, 7)]);
+        edit.Shortage.ShouldBeFalse();
+
+        // Suggesting is read-only.
+        (await _client.GetFromJsonAsync<ProductReadDto>($"/api/products/{product.Id}", Ct))
+            .ShouldNotBeNull()
+            .AvailableQuantity.ShouldBe(10);
+    }
+
+    [Fact]
+    public async Task Suggest_InvalidRequests_AreBadRequests()
+    {
+        var product = await CreateProductAsync();
+        var unknown = TestData.Faker.Random.Guid();
+
+        var unknownProduct = await _client.PostAsJsonAsync(
+            "/api/allocations/suggest",
+            new AllocationSuggestRequestDto(null, [new(unknown, 1)]),
+            Ct
+        );
+        unknownProduct.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await unknownProduct.Content.ReadFromJsonAsync<ProblemDetails>(Ct))
+            .ShouldNotBeNull()
+            .Detail.ShouldNotBeNull()
+            .ShouldContain(unknown.ToString());
+
+        AllocationSuggestRequestDto[] invalid =
+        [
+            new(null, []),
+            new(null, [new(product.Id, 0)]),
+            new(null, [new(product.Id, 1), new(product.Id, 2)]),
+        ];
+        foreach (var request in invalid)
+        {
+            (
+                await _client.PostAsJsonAsync("/api/allocations/suggest", request, Ct)
+            ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        }
+    }
+
+    [Fact]
+    public async Task Orders_UnknownBatchOrProduct_IsNotFound()
+    {
+        var id = TestData.Faker.Random.Guid();
+
+        (await _client.GetAsync($"/api/batches/{id}/orders", Ct)).StatusCode.ShouldBe(
+            HttpStatusCode.NotFound
+        );
+        (await _client.GetAsync($"/api/products/{id}/orders", Ct)).StatusCode.ShouldBe(
+            HttpStatusCode.NotFound
+        );
+    }
+
+    private async Task<LineAllocationSuggestionDto> SuggestAsync(
+        AllocationSuggestRequestDto request
+    )
+    {
+        var response = await _client.PostAsJsonAsync("/api/allocations/suggest", request, Ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        return (await response.Content.ReadFromJsonAsync<List<LineAllocationSuggestionDto>>(Ct))
+            .ShouldNotBeNull()
+            .ShouldHaveSingleItem();
+    }
+
+    private async Task<BatchReadDto> AddBatchAsync(
+        Guid productId,
+        int quantity,
+        DateTime expirationDate
+    )
+    {
+        var dto = InventoryBuilder.BatchCreateDto(quantity: quantity) with
+        {
+            ExpirationDate = expirationDate,
+        };
+        var response = await _client.PostAsJsonAsync($"/api/batches/{productId}", dto, Ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        return (await response.Content.ReadFromJsonAsync<ProductReadDto>(Ct))
+            .ShouldNotBeNull()
+            .Batches.Single(b => b.Lot == dto.Lot);
+    }
+
     private static string OrderEvent(
         string eventName,
         Guid orderId,

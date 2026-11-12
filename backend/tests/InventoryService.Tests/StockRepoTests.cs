@@ -321,6 +321,46 @@ public class StockRepoTests(MySqlFixture mySql) : IAsyncLifetime
         ).ShouldBeNull();
     }
 
+    [Fact]
+    public async Task Holdings_AreTheNetSalesPerOrderAndBatch()
+    {
+        var (a, b) = await SeedTwoBatchesAsync(10, 20);
+        var first = TestData.Faker.Random.Guid();
+        var second = TestData.Faker.Random.Guid();
+        var released = TestData.Faker.Random.Guid();
+        await SetAsync(first, (a, 4), (b, 5));
+        await SetAsync(first, (a, 3), (b, 5));
+        await SetAsync(second, (a, 2));
+        await SetAsync(released, (b, 7));
+        await SetAsync(released);
+
+        await using var context = _db.CreateContext();
+        var repo = new StockRepo(context);
+
+        (await repo.GetOrderHoldingsAsync(first)).ShouldBe(
+            new Dictionary<Guid, int> { [a] = 3, [b] = 5 },
+            ignoreOrder: true
+        );
+        (await repo.GetOrderHoldingsAsync(released)).ShouldBeEmpty();
+        (await repo.GetBatchOrdersAsync(a))
+            .ShouldNotBeNull()
+            .ShouldBe([new(first, a, 3), new(second, a, 2)], ignoreOrder: true);
+        var productId = (await FindBatchAsync(a)).ProductId!.Value;
+        (await repo.GetProductOrdersAsync(productId))
+            .ShouldNotBeNull()
+            .ShouldBe([new(first, a, 3), new(first, b, 5), new(second, a, 2)], ignoreOrder: true);
+    }
+
+    [Fact]
+    public async Task Holdings_UnknownBatchOrProduct_IsNull()
+    {
+        await using var context = _db.CreateContext();
+        var repo = new StockRepo(context);
+
+        (await repo.GetBatchOrdersAsync(TestData.Faker.Random.Guid())).ShouldBeNull();
+        (await repo.GetProductOrdersAsync(TestData.Faker.Random.Guid())).ShouldBeNull();
+    }
+
     // Stock enters through a receipt, as in the app, so the ledger starts balanced.
     private async Task<(Guid A, Guid B)> SeedTwoBatchesAsync(int quantityA, int quantityB)
     {

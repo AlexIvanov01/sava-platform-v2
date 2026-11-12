@@ -4,6 +4,8 @@ option csharp_namespace = "InventoryService";
 
 service GrpcInventory{
 	rpc GetAllItems (GetAllRequest) returns (InventoryResponse);
+	// Current product and batch data that an order line snapshots when it is added.
+	rpc GetOrderSnapshot (OrderSnapshotRequest) returns (OrderSnapshotResponse);
 }
 
 message GetAllRequest {}
@@ -19,5 +21,38 @@ message GrpcInventoryModel{
 
 message InventoryResponse {
 	repeated GrpcInventoryModel item = 1;
+}
+
+message OrderSnapshotRequest {
+	repeated string productIds = 1;
+	repeated string batchIds = 2;
+}
+
+// Decimals are invariant-culture strings; missing values are empty strings.
+message GrpcProductSnapshot {
+	string id = 1;
+	string sku = 2;
+	string name = 3;
+	string unitOfMeasure = 4;
+	string listPrice = 5;
+	string vatRate = 6;
+	// Highest purchase price among active batches; empty when there are none.
+	string cost = 7;
+}
+
+// expirationDate is ISO 8601 (round-trip format); empty when the batch doesn't expire.
+message GrpcBatchSnapshot {
+	string id = 1;
+	string productId = 2;
+	string lot = 3;
+	string expirationDate = 4;
+}
+
+// Requested ids that don't exist are listed in missing*Ids.
+message OrderSnapshotResponse {
+	repeated GrpcProductSnapshot products = 1;
+	repeated GrpcBatchSnapshot batches = 2;
+	repeated string missingProductIds = 3;
+	repeated string missingBatchIds = 4;
 }
 

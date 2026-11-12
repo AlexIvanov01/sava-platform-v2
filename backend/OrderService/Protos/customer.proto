@@ -4,9 +4,15 @@ option csharp_namespace = "CustomerService";
 
 service GrpcCustomer{
 	rpc GetAllCustomers (GetAllRequest) returns (CustomerResponse);
+	// Fails with NOT_FOUND when the customer doesn't exist.
+	rpc GetCustomer (GetCustomerRequest) returns (GrpcCustomerModel);
 }
 
 message GetAllRequest {}
+
+message GetCustomerRequest {
+    string id = 1;
+}
 
 message GrpcCustomerModel{
     string ExternalId = 1;
