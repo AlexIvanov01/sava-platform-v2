@@ -233,10 +233,16 @@ The cluster needs an ingress controller (the chart defaults to the `nginx` class
      --from-literal=auth-db="server=mysql;port=3306;database=savadb_auth;user=root;password=$DB_PASSWORD" \
      --from-literal=customer-db="server=mysql;port=3306;database=savadb_cust;user=root;password=$DB_PASSWORD" \
      --from-literal=inventory-db="server=mysql;port=3306;database=savadb_inv;user=root;password=$DB_PASSWORD" \
-     --from-literal=order-db="server=mysql;port=3306;database=savadb_order;user=root;password=$DB_PASSWORD"
+     --from-literal=order-db="server=mysql;port=3306;database=savadb_order;user=root;password=$DB_PASSWORD" \
+     --from-literal=backup-writer-key-id=<writer key id> \
+     --from-literal=backup-writer-key=<writer key> \
+     --from-literal=backup-reader-key-id=<reader key id> \
+     --from-literal=backup-reader-key=<reader key>
    ```
 
    The databases are created and migrated on startup. MySQL keeps its data on a 10Gi PersistentVolumeClaim (`data-mysql-0`) from the cluster's default StorageClass; set `mysql.storageClassName` or `mysql.storage` to change it. Helm keeps the claim on uninstall. The root password is set only when the volume is first initialized, so keep `mysql-root-password` and the connection strings unchanged afterwards.
+
+   The backup keys come from the bucket setup in [Backups](#backups). To add keys to an existing Secret, use `kubectl patch secret sava-secrets -n sava --type merge -p '{"stringData":{"<key>":"<value>"}}'`.
 
 3. Install or upgrade:
 
@@ -246,6 +252,71 @@ The cluster needs an ingress controller (the chart defaults to the `nginx` class
    ```
 
    Roll back with `helm rollback sava -n sava`. RabbitMQ runs in the cluster without persistence; Order's periodic gRPC sync repairs anything lost on a restart.
+
+#### Backups
+
+`values-prod.yaml` backs up the in-cluster MySQL to an S3-compatible bucket from another provider, so losing the cluster or the hosting account doesn't take the backups with it. Each run dumps the four schemas with `mysqldump --single-transaction`, which doesn't lock tables, into one gzipped file per schema in a folder named after the UTC time, for example `daily/2026-11-13T000012Z/savadb_order.sql.gz`.
+
+| Job | When (Europe/Sofia) | Writes to | Kept for |
+|---|---|---|---|
+| `mysql-backup` CronJob | Daily at 02:00 | `daily/`; also `monthly/` on the 1st and `yearly/` on 1 January | 30 days, 365 days, 10 years (invoices fall under the Accountancy Act) |
+| `mysql-backup-pre-deploy` Helm hook | Before every `helm upgrade`; a failed dump stops the upgrade | `pre-deploy/` | 30 days |
+| `mysql-backup-verify` CronJob | Sundays at 04:00 | Nothing | Restores the newest daily dump into a throwaway MySQL. Fails if the dump is older than 26 hours, a restore fails, or a schema has no tables or migration history |
+
+A restore can lose up to a day of data (everything since the last nightly or pre-deploy dump). The jobs only upload: the bucket deletes expired dumps and locks them against earlier deletion, and the writer key has no delete permission where the provider allows it. Nothing alerts on failures yet, so check `kubectl get jobs -n sava`. The dumps aren't encrypted by the jobs; both providers below encrypt stored data. Keep the Secret's values (MySQL root password, JWT key, bucket keys) in a password manager, not with the backups.
+
+**Set up the bucket** once, with expiry and lock periods matching the table: `daily/` and `pre-deploy/` 30 days, `monthly/` 365 days, `yearly/` 3650 days.
+
+- **Backblaze B2**
+  1. Create a private bucket with Object Lock enabled.
+  2. Add a lifecycle rule per prefix that hides files after the period and deletes hidden files after 1 day.
+  3. Create two application keys restricted to the bucket (`b2 key create --bucket <bucket> <name> <capabilities>`): the writer with `listBuckets,writeFiles,writeFileRetentions`, the reader with `listBuckets,listFiles,readFiles`.
+  4. In `values-prod.yaml`, set `backup.s3.endpoint` to `https://s3.<region>.backblazeb2.com`, `region` to the bucket's region (e.g. `eu-central-003`) and `bucket`. `backup.objectLock.mode: COMPLIANCE` makes every upload locked for its prefix's period (`backup.objectLock.retention`), and nobody, including the account owner, can delete it earlier. Use `GOVERNANCE` while testing if you may need to remove test files.
+- **Cloudflare R2**
+  1. Create a bucket.
+  2. Under its settings, add an object lifecycle rule per prefix that deletes objects after the period, and a bucket lock rule per prefix with the same period.
+  3. Create two R2 API tokens scoped to the bucket: **Object Read & Write** for the writer and **Object Read only** for the reader. R2 tokens can't exclude deletion; the bucket lock rules prevent it.
+  4. In `values-prod.yaml`, set `backup.s3.provider: Cloudflare`, `endpoint: https://<account id>.r2.cloudflarestorage.com`, `region: auto`, the `bucket`, and `backup.objectLock.mode: ""` (R2 locks by bucket rule, not per upload).
+
+Then add the key ids and secrets to `sava-secrets` (`backup-writer-key-id`, `backup-writer-key`, `backup-reader-key-id`, `backup-reader-key`) and upgrade the release.
+
+**Run a job by hand**, for example before a risky manual change, and read its output:
+
+```bash
+kubectl create job -n sava --from=cronjob/mysql-backup backup-manual-$(date +%s)
+kubectl create job -n sava --from=cronjob/mysql-backup-verify verify-manual-$(date +%s)
+kubectl logs -n sava job/<job name> --all-containers
+```
+
+**Restore.** Restore all four schemas from the same folder: the services refer to each other's data (orders hold customer and batch IDs, Inventory's stock ledger counts orders), so mixing points in time leaves them out of step. Restore a single schema only to undo damage in that schema alone.
+
+1. Configure [rclone](https://rclone.org/install/) locally with the reader key, then pick and download a dump:
+
+   ```bash
+   rclone config create backup s3 provider=<Other|Cloudflare> endpoint=<endpoint> region=<region> \
+     access_key_id=<reader key id> secret_access_key=<reader key>
+   rclone lsf backup:<bucket>/daily/            # also monthly/, yearly/, pre-deploy/
+   rclone copy backup:<bucket>/daily/<folder> ./restore
+   ```
+
+2. If the cluster is gone, install the chart first (same Secret values from the password manager) and wait for `mysql-0` to be ready.
+3. Stop the services so nothing writes during the restore:
+
+   ```bash
+   kubectl scale deploy -n sava --replicas=0 authenticationservice-depl customerservice-depl inventoryservice-depl orderservice-depl
+   ```
+
+4. Replace each schema with its dump. Dropping it first also removes tables added after the dump was taken:
+
+   ```bash
+   for f in restore/*.sql.gz; do
+     db=$(basename "$f" .sql.gz)
+     kubectl exec -n sava mysql-0 -- sh -c "mysql -uroot -p\"\$MYSQL_ROOT_PASSWORD\" -e 'DROP DATABASE IF EXISTS \`$db\`'"
+     gunzip -c "$f" | kubectl exec -i -n sava mysql-0 -- sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"'
+   done
+   ```
+
+5. Start the services again (`--replicas=1`). They apply any migrations newer than the dump on startup.
 
 ## Usage
 

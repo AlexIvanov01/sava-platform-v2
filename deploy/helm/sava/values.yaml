@@ -17,7 +17,8 @@ image:
 # One Secret holds every credential. Keys:
 #   jwt-key, admin-password (first administrator, used only when the Users table is empty),
 #   rabbitmq-user, rabbitmq-password, auth-db, customer-db, inventory-db, order-db,
-#   and mysql-root-password when mysql.enabled is true.
+#   mysql-root-password when mysql.enabled is true, and when backup.enabled is true
+#   backup-writer-key-id, backup-writer-key, backup-reader-key-id, backup-reader-key.
 secrets:
   # true: the chart creates the Secret from `values` (development only).
   # false: the Secret must already exist (kubectl create secret / External Secrets).
@@ -34,6 +35,11 @@ secrets:
     customerDb: ""
     inventoryDb: ""
     orderDb: ""
+    # S3 keys for backups: the writer only uploads (no delete), the reader lists and downloads.
+    backupWriterKeyId: ""
+    backupWriterKey: ""
+    backupReaderKeyId: ""
+    backupReaderKey: ""
 
 # In-cluster MySQL (one instance with all four databases). Disable to use an external server.
 mysql:
@@ -49,6 +55,47 @@ mysql:
     enabled: false
     port: 3307
   resources:
+    requests: { cpu: 100m, memory: 512Mi }
+    limits: { memory: 1Gi }
+
+# MySQL backups to an S3-compatible bucket (README: Backups). Needs mysql.enabled. The jobs only
+# upload; the bucket's lifecycle rules expire each prefix and its lock rules protect it.
+backup:
+  enabled: false
+  # rclone uploads and downloads; the dumps and the test restore use mysql.image.
+  image: rclone/rclone:1.76.0
+  timeZone: Europe/Sofia
+  # Nightly dump to daily/, also to monthly/ on the 1st and to yearly/ on 1 January.
+  schedule: "0 2 * * *"
+  # Test restore of the newest daily dump into a throwaway MySQL.
+  verifySchedule: "0 4 * * 0"
+  # The test restore fails when the newest daily dump is older than this.
+  maxAgeHours: 26
+  # Dump to pre-deploy/ before every helm upgrade; a failed dump stops the upgrade.
+  preDeploy: true
+  s3:
+    # rclone provider name: Other for Backblaze B2, Cloudflare for R2, AWS, Minio, ...
+    provider: Other
+    # e.g. https://s3.eu-central-003.backblazeb2.com or https://<account id>.r2.cloudflarestorage.com
+    endpoint: ""
+    # e.g. eu-central-003 for B2, auto for R2.
+    region: ""
+    bucket: ""
+  # S3 Object Lock set on every upload, for providers that support it (B2, AWS). Leave mode
+  # empty on R2 and add bucket lock rules per prefix instead. Keep the periods equal to the
+  # bucket's expiry rules.
+  objectLock:
+    mode: "" # COMPLIANCE or GOVERNANCE
+    retention:
+      daily: 30d
+      monthly: 365d
+      yearly: 3650d
+      preDeploy: 30d
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 256Mi }
+  # The test restore runs its own MySQL.
+  verifyResources:
     requests: { cpu: 100m, memory: 512Mi }
     limits: { memory: 1Gi }
 

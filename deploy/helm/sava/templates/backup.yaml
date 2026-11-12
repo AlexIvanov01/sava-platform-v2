@@ -1,0 +1,164 @@
+{{- if .Values.backup.enabled }}
+{{- if not .Values.mysql.enabled }}
+{{- fail "backup.enabled needs the in-cluster MySQL (mysql.enabled)" }}
+{{- end }}
+{{- $b := .Values.backup }}
+# Nightly dump to daily/ (and monthly/, yearly/). The bucket expires and locks each prefix.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mysql-backup
+  labels:
+    {{- include "sava.labels" . | nindent 4 }}
+    app.kubernetes.io/name: mysql-backup
+spec:
+  schedule: {{ $b.schedule | quote }}
+  timeZone: {{ $b.timeZone | quote }}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            {{- include "sava.labels" . | nindent 12 }}
+            app.kubernetes.io/name: mysql-backup
+        spec:
+          {{- include "sava.backup.dumpPod" (dict "root" . "kind" "nightly") | nindent 10 }}
+{{- if $b.preDeploy }}
+---
+# Dump to pre-deploy/ before every upgrade, because services migrate on startup. Helm stops the
+# upgrade if it fails. Failed jobs are kept for their logs until the next upgrade.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mysql-backup-pre-deploy
+  labels:
+    {{- include "sava.labels" . | nindent 4 }}
+    app.kubernetes.io/name: mysql-backup
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        {{- include "sava.labels" . | nindent 8 }}
+        app.kubernetes.io/name: mysql-backup
+    spec:
+      {{- include "sava.backup.dumpPod" (dict "root" . "kind" "pre-deploy") | nindent 6 }}
+{{- end }}
+---
+# Weekly test restore of the newest daily dump into a throwaway MySQL in the same pod. Fails if
+# the dump is older than maxAgeHours, a restore fails, or a schema has no tables or migrations.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mysql-backup-verify
+  labels:
+    {{- include "sava.labels" . | nindent 4 }}
+    app.kubernetes.io/name: mysql-backup-verify
+spec:
+  schedule: {{ $b.verifySchedule | quote }}
+  timeZone: {{ $b.timeZone | quote }}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            {{- include "sava.labels" . | nindent 12 }}
+            app.kubernetes.io/name: mysql-backup-verify
+        spec:
+          restartPolicy: Never
+          initContainers:
+            - name: download
+              image: {{ $b.image }}
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  latest=$(rclone lsf --dirs-only "backup:$BUCKET/daily/" | sort | tail -n 1)
+                  latest=${latest%/}
+                  if [ -z "$latest" ]; then echo "--> No daily backups found"; exit 1; fi
+                  # Folders are UTC timestamps such as 2026-11-13T000012Z.
+                  taken=$(date -u -d "$(echo "$latest" | sed -E 's/^(.{10})T(..)(..)(..)Z$/\1 \2:\3:\4/')" +%s)
+                  age=$(( $(date -u +%s) - taken ))
+                  echo "--> Newest daily backup: $latest ($(( age / 3600 )) h old)"
+                  if [ "$age" -gt $(( MAX_AGE_HOURS * 3600 )) ]; then
+                    echo "--> It is older than $MAX_AGE_HOURS h"
+                    exit 1
+                  fi
+                  rclone copy "backup:$BUCKET/daily/$latest" /restore
+                  ls -l /restore
+              env:
+                - name: MAX_AGE_HOURS
+                  value: {{ $b.maxAgeHours | quote }}
+                {{- include "sava.backup.rcloneEnv" (dict "root" . "role" "reader") | nindent 16 }}
+              resources:
+                {{- toYaml $b.resources | nindent 16 }}
+              volumeMounts:
+                - name: restore
+                  mountPath: /restore
+          containers:
+            - name: restore
+              image: {{ .Values.mysql.image }}
+              command:
+                - bash
+                - -c
+                - |
+                  set -euo pipefail
+                  docker-entrypoint.sh mysqld --skip-log-bin > /tmp/mysqld.log 2>&1 &
+                  # Only the final server listens on TCP, not the entrypoint's temporary one.
+                  for _ in $(seq 1 150); do
+                    mysqladmin ping -h 127.0.0.1 -u root --silent 2>/dev/null && break
+                    sleep 2
+                  done
+                  mysqladmin ping -h 127.0.0.1 -u root --silent || { cat /tmp/mysqld.log; exit 1; }
+                  query() { mysql -h 127.0.0.1 -u root -N -e "$1"; }
+                  for db in $DATABASES; do
+                    echo "--> Restoring $db"
+                    gunzip -c "/restore/$db.sql.gz" | mysql -h 127.0.0.1 -u root
+                    tables=$(query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '$db' AND table_name <> '__EFMigrationsHistory'")
+                    migrations=0
+                    if [ "$(query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '$db' AND table_name = '__EFMigrationsHistory'")" -eq 1 ]; then
+                      migrations=$(query "SELECT COUNT(*) FROM \`$db\`.__EFMigrationsHistory")
+                    fi
+                    echo "--> $db: $tables tables, $migrations migrations"
+                    if [ "$tables" -eq 0 ] || [ "$migrations" -eq 0 ]; then
+                      echo "--> $db has no tables or no migration history"
+                      exit 1
+                    fi
+                  done
+                  echo "--> Test restore passed"
+              env:
+                - name: DATABASES
+                  value: {{ include "sava.backup.databases" . | quote }}
+                # Throwaway server inside this pod only.
+                - name: MYSQL_ALLOW_EMPTY_PASSWORD
+                  value: "yes"
+              resources:
+                {{- toYaml $b.verifyResources | nindent 16 }}
+              volumeMounts:
+                - name: restore
+                  mountPath: /restore
+                - name: data
+                  mountPath: /var/lib/mysql
+          volumes:
+            - name: restore
+              emptyDir: {}
+            - name: data
+              emptyDir: {}
+{{- end }}
