@@ -74,6 +74,22 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
     }
 
     [Fact]
+    public async Task CompletingOrdersConcurrently_GivesEachInvoiceItsOwnNumber()
+    {
+        var orders = new List<OrderReadDto>();
+        for (var i = 0; i < 8; i++)
+        {
+            orders.Add(await CreateOrderAsync());
+        }
+
+        var completed = await Task.WhenAll(
+            orders.Select(o => ChangeStatusOkAsync(o.Id, OrderStatus.Completed))
+        );
+
+        completed.Select(o => o.Invoice.ShouldNotBeNull().Number).ShouldBeUnique();
+    }
+
+    [Fact]
     public async Task CreateOrder_SnapshotsCustomerAndProducts()
     {
         var product = factory.Products[0];

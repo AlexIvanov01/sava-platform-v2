@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Time.Testing;
 using NSubstitute.ExceptionExtensions;
 using OrderService.AsyncDataServices;
@@ -22,6 +23,7 @@ public class OrdersControllerTests
     private readonly ICustomerDataClient _customers = Substitute.For<ICustomerDataClient>();
     private readonly IInvoiceRepo _invoices = Substitute.For<IInvoiceRepo>();
     private readonly ICompanySettingsRepo _companySettings = Substitute.For<ICompanySettingsRepo>();
+    private readonly IDbContextTransaction _numbering = Substitute.For<IDbContextTransaction>();
     private readonly FakeTimeProvider _clock;
     private readonly OrdersController _controller;
     private readonly List<OrderPublishedEvent> _published = [];
@@ -54,6 +56,7 @@ public class OrdersControllerTests
         _inventory.Serves(OrderBuilder.Catalog([_product], _batches));
         _companySettings.GetAsync().Returns(_company);
         _invoices.NextNumberAsync().Returns(_nextNumber);
+        _invoices.BeginNumberingAsync().Returns(_numbering);
     }
 
     private static UpstreamUnavailableException Unavailable(string service) =>
@@ -746,6 +749,16 @@ public class OrdersControllerTests
         await _repo.Received(1).SaveChangesAsync();
         await _invoices.Received(1).NextNumberAsync();
         _published.ShouldBeEmpty();
+        // The number is read and the invoice saved while the numbering lock is held.
+        Received.InOrder(async () =>
+        {
+            await _invoices.BeginNumberingAsync();
+            await _companySettings.GetAsync();
+            await _invoices.NextNumberAsync();
+            await _repo.SaveChangesAsync();
+            await _numbering.CommitAsync(Arg.Any<CancellationToken>());
+            await _numbering.DisposeAsync();
+        });
 
         // The saved order's invoice is what InvoiceFactory builds from the order and settings.
         var invoice = order.Invoice.ShouldNotBeNull();
@@ -796,6 +809,9 @@ public class OrdersControllerTests
         await _invoices.DidNotReceive().NextNumberAsync();
         await _repo.DidNotReceive().SaveChangesAsync();
         _published.ShouldBeEmpty();
+        // Returning early releases the numbering lock without committing.
+        await _numbering.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
+        await _numbering.Received(1).DisposeAsync();
     }
 
     [Fact]

@@ -305,6 +305,10 @@ public class OrdersController : ControllerBase
                 );
             }
 
+            // Taken before reading the settings and the next number, held until the invoice is saved.
+            await using var numbering =
+                target == OrderStatus.Completed ? await _invoices.BeginNumberingAsync() : null;
+
             CompanySettings? company = null;
             if (target == OrderStatus.Completed)
             {
@@ -342,6 +346,10 @@ public class OrdersController : ControllerBase
             order.Status = target;
 
             await _repository.SaveChangesAsync();
+            if (numbering != null)
+            {
+                await numbering.CommitAsync();
+            }
             Log.Information("--> Order {Id} went from {From} to {To}.", id, previous, target);
         }
         catch (Exception ex)

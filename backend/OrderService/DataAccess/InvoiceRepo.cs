@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using OrderService.Dtos;
 using OrderService.Invoicing;
 using OrderService.Models;
@@ -85,6 +87,17 @@ public class InvoiceRepo : IInvoiceRepo
 
     public async Task<string> NextNumberAsync() =>
         InvoiceFactory.NextNumber(await _context.Invoices.MaxAsync(i => i.Number));
+
+    // The company settings row serves as the numbering lock: every completion needs it, and it is
+    // a single row. Read committed lets each holder see the invoices its predecessors committed.
+    public async Task<IDbContextTransaction> BeginNumberingAsync()
+    {
+        var transaction = await _context.Database.BeginTransactionAsync(
+            IsolationLevel.ReadCommitted
+        );
+        await _context.Database.ExecuteSqlAsync($"SELECT Id FROM CompanySettings FOR UPDATE");
+        return transaction;
+    }
 
     private IQueryable<Invoice> Filtered(InvoiceFilter filter, DateOnly today)
     {

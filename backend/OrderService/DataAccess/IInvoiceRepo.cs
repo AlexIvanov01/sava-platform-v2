@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore.Storage;
 using OrderService.Dtos;
 using OrderService.Models;
 
@@ -31,4 +32,9 @@ public interface IInvoiceRepo
 
     // One more than the highest number in use.
     Task<string> NextNumberAsync();
+
+    // Starts a transaction that holds the invoice numbering lock until it is committed or
+    // disposed. Call NextNumberAsync and save the new invoice inside it, so concurrent
+    // completions don't take the same number.
+    Task<IDbContextTransaction> BeginNumberingAsync();
 }
