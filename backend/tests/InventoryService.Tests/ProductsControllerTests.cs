@@ -231,7 +231,7 @@ public class ProductsControllerTests
     public async Task DeleteProduct_Existing_PublishesProductDeleted()
     {
         var product = InventoryBuilder.Product();
-        _repo.DeleteProductAsync(product.Id).Returns(product);
+        _repo.DeleteProductAsync(product.Id).Returns((DeleteStatus.Deleted, product));
 
         (await _controller.DeleteProduct(product.Id)).ShouldBeOfType<NoContentResult>();
         await _bus.Received(1)
@@ -246,10 +246,25 @@ public class ProductsControllerTests
     public async Task DeleteProduct_PublishFails_StillReturnsNoContent()
     {
         var product = InventoryBuilder.Product();
-        _repo.DeleteProductAsync(product.Id).Returns(product);
+        _repo.DeleteProductAsync(product.Id).Returns((DeleteStatus.Deleted, product));
         _bus.PublishNewItemAsync(Arg.Any<ItemPublishedDto>())
             .ThrowsAsync(new InvalidOperationException());
 
         (await _controller.DeleteProduct(product.Id)).ShouldBeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task DeleteProduct_WithOrders_Returns409WithoutPublishing()
+    {
+        var product = InventoryBuilder.Product();
+        _repo.DeleteProductAsync(product.Id).Returns((DeleteStatus.HasOrders, product));
+
+        var result = await _controller.DeleteProduct(product.Id);
+
+        result
+            .ShouldBeOfType<ObjectResult>()
+            .Value.ShouldBeOfType<ProblemDetails>()
+            .Title.ShouldBe("Product has orders");
+        await _bus.DidNotReceiveWithAnyArgs().PublishNewItemAsync(default!);
     }
 }

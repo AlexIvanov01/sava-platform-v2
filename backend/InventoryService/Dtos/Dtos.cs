@@ -21,6 +21,8 @@ public record BatchReadDto(
     decimal SellPrice,
     DateTime ExpirationDate,
     string? Location,
+    // True while an order holds stock from the batch; it can't be deleted then.
+    bool HasOrders,
     AuditReadDto Audit
 );
 
@@ -47,6 +49,8 @@ public record ProductReadDto(
     int AvailableQuantity,
     decimal? Ebit,
     decimal? EbitPercent,
+    // True while an order holds stock from any of its batches; it can't be deleted then.
+    bool HasOrders,
     List<BatchReadDto> Batches,
     AuditReadDto Audit
 );

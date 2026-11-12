@@ -17,11 +17,13 @@ public interface IProductRepo
     Task<bool> SkuExistsAsync(string sku, Guid? exceptProductId = null);
     Task<Product?> GetProductAsync(Guid id);
     Task CreateProductAsync(Product product);
-    Task<Product?> DeleteProductAsync(Guid id);
+
+    // Refused (HasOrders) while orders hold stock from the product or batch.
+    Task<(DeleteStatus Status, Product? Product)> DeleteProductAsync(Guid id);
     Task<Product?> UpdateProductAsync(Product product);
     Task<Product?> AddBatchAsync(ProductBatch batch, Guid ProductId);
     Task<ProductBatch?> UpdateBatchAsync(ProductBatch batch);
-    Task<ProductBatch?> DeleteBatchAsync(Guid id);
+    Task<(DeleteStatus Status, ProductBatch? Batch)> DeleteBatchAsync(Guid id);
     Task<IEnumerable<Product>> GetAllProductBatchesAsync();
 
     // For reports: every product (optionally of one category) with its category and batches.
@@ -29,4 +31,11 @@ public interface IProductRepo
 
     // For reports: batches with stock expiring on or before `until`, with their products.
     Task<List<ProductBatch>> GetBatchesInStockExpiringByAsync(DateTime until);
+}
+
+public enum DeleteStatus
+{
+    NotFound,
+    Deleted,
+    HasOrders,
 }

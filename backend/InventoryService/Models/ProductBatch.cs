@@ -19,6 +19,11 @@ public class ProductBatch : AuditableEntity
     // Free-text place in the warehouse, e.g. "Aisle 3, shelf B".
     [MaxLength(100)]
     public string? Location { get; set; }
+
+    // True while some order holds stock from this batch (its net Sale/SaleReversal quantity
+    // isn't zero). Maintained by StockRepo.SetOrderStockAsync; blocks deleting the batch.
+    public bool HasOrders { get; set; }
+
     public Guid? ProductId { get; set; }
     public Product Product { get; set; } = new();
     public List<StockMovement> Movements { get; set; } = [];

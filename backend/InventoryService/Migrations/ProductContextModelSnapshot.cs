@@ -83,6 +83,9 @@ namespace InventoryService.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
 
+                    b.Property<bool>("HasOrders")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("ImageURL")
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
@@ -156,6 +159,9 @@ namespace InventoryService.Migrations
 
                     b.Property<DateTime?>("ExpirationDate")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("HasOrders")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("Location")
                         .HasMaxLength(100)

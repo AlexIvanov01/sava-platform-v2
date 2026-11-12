@@ -56,6 +56,10 @@ public class Product : AuditableEntity
     public float? Weight { get; set; }
     public Guid? CategoryId { get; set; }
     public Category? Category { get; set; }
+
+    // True while any of its batches HasOrders. Maintained with them; blocks deleting the product.
+    public bool HasOrders { get; set; }
+
     public List<ProductBatch> Batches { get; set; } = [];
 
     // Highest purchase price among active batches; null when there are none (sold out or expired).

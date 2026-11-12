@@ -152,7 +152,7 @@ public class BatchesControllerTests
     public async Task DeleteBatch_MissingAndExisting()
     {
         var batch = InventoryBuilder.Batch();
-        _repo.DeleteBatchAsync(batch.Id).Returns(batch);
+        _repo.DeleteBatchAsync(batch.Id).Returns((DeleteStatus.Deleted, batch));
 
         (await _controller.DeleteBatch(Guid.NewGuid())).ShouldBeOfType<NotFoundResult>();
         (await _controller.DeleteBatch(batch.Id)).ShouldBeOfType<NoContentResult>();
@@ -173,5 +173,20 @@ public class BatchesControllerTests
         (await _controller.DeleteBatch(Guid.NewGuid()))
             .ShouldBeOfType<ObjectResult>()
             .StatusCode.ShouldBe(500);
+    }
+
+    [Fact]
+    public async Task DeleteBatch_WithOrders_Returns409WithoutPublishing()
+    {
+        var batch = InventoryBuilder.Batch();
+        _repo.DeleteBatchAsync(batch.Id).Returns((DeleteStatus.HasOrders, batch));
+
+        var result = await _controller.DeleteBatch(batch.Id);
+
+        result
+            .ShouldBeOfType<ObjectResult>()
+            .Value.ShouldBeOfType<ProblemDetails>()
+            .Title.ShouldBe("Batch has orders");
+        await _bus.DidNotReceiveWithAnyArgs().PublishNewItemAsync(default!);
     }
 }

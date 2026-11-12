@@ -238,18 +238,29 @@ public class ProductsController : ControllerBase
     [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> DeleteProduct(Guid id)
     {
         try
         {
             Log.Information("--> Deleting a product...........");
 
-            var nullCheck = await _repository.DeleteProductAsync(id);
+            var (status, _) = await _repository.DeleteProductAsync(id);
 
-            if (nullCheck == null)
+            if (status == DeleteStatus.NotFound)
             {
                 Log.Warning("Product with id {Id} not found for deleting.", id);
                 return NotFound();
+            }
+
+            if (status == DeleteStatus.HasOrders)
+            {
+                Log.Warning("--> Product with id {Id} has orders; not deleted.", id);
+                return Problem(
+                    title: "Product has orders",
+                    detail: $"Orders hold stock from product {id}, so it can't be deleted.",
+                    statusCode: StatusCodes.Status409Conflict
+                );
             }
 
             Log.Information("--> Product with id {Id} deleted", id);

@@ -151,6 +151,97 @@ public class StockRepoTests(MySqlFixture mySql) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SetOrderStock_MaintainsHasOrdersOnBatchesAndProduct()
+    {
+        var (a, b) = await SeedTwoBatchesAsync(10, 20);
+        var order = TestData.Faker.Random.Guid();
+        var other = TestData.Faker.Random.Guid();
+
+        await SetAsync(order, (a, 3));
+        (await FlagsAsync()).ShouldBe((true, false, true));
+
+        // The order moves to the other batch.
+        await SetAsync(order, (b, 2));
+        (await FlagsAsync()).ShouldBe((false, true, true));
+
+        // A second order on the same batch keeps it flagged after the first is released.
+        await SetAsync(other, (b, 1));
+        await SetAsync(order);
+        (await FlagsAsync()).ShouldBe((false, true, true));
+
+        await SetAsync(other);
+        (await FlagsAsync()).ShouldBe((false, false, false));
+        await AssertFlagsMatchLedgerAsync();
+
+        async Task<(bool A, bool B, bool Product)> FlagsAsync()
+        {
+            await using var context = _db.CreateContext();
+            var batches = await context
+                .ProductBatches.AsNoTracking()
+                .ToDictionaryAsync(x => x.Id, Ct);
+            var product = await context.Products.AsNoTracking().SingleAsync(Ct);
+            return (batches[a].HasOrders, batches[b].HasOrders, product.HasOrders);
+        }
+    }
+
+    [Fact]
+    public async Task HasOrders_StaysConsistentWithTheLedgerAcrossManyOrders()
+    {
+        var (a, b) = await SeedTwoBatchesAsync(100, 100);
+        var orders = Enumerable.Range(0, 6).Select(_ => TestData.Faker.Random.Guid()).ToList();
+
+        foreach (var order in orders)
+        {
+            var target = new List<(Guid, int)>();
+            if (TestData.Faker.Random.Bool())
+            {
+                target.Add((a, TestData.Faker.Random.Int(1, 5)));
+            }
+            if (TestData.Faker.Random.Bool())
+            {
+                target.Add((b, TestData.Faker.Random.Int(1, 5)));
+            }
+            await SetAsync(order, [.. target]);
+        }
+        foreach (var order in orders.Where(_ => TestData.Faker.Random.Bool()))
+        {
+            await SetAsync(order);
+        }
+
+        await AssertFlagsMatchLedgerAsync();
+    }
+
+    // The stored flags must equal what the ledger implies.
+    private async Task AssertFlagsMatchLedgerAsync()
+    {
+        await using var context = _db.CreateContext();
+        var heldBatches = (
+            await context
+                .StockMovements.Where(m =>
+                    m.OrderId != null
+                    && (
+                        m.Type == StockMovementType.Sale || m.Type == StockMovementType.SaleReversal
+                    )
+                )
+                .GroupBy(m => new { m.BatchId, m.OrderId })
+                .Where(g => g.Sum(m => m.Quantity) != 0)
+                .Select(g => g.Key.BatchId)
+                .ToListAsync(Ct)
+        ).ToHashSet();
+        var batches = await context.ProductBatches.AsNoTracking().ToListAsync(Ct);
+        foreach (var batch in batches)
+        {
+            batch.HasOrders.ShouldBe(heldBatches.Contains(batch.Id), $"batch {batch.Lot}");
+        }
+        foreach (var product in await context.Products.AsNoTracking().ToListAsync(Ct))
+        {
+            product.HasOrders.ShouldBe(
+                batches.Any(x => x.ProductId == product.Id && heldBatches.Contains(x.Id))
+            );
+        }
+    }
+
+    [Fact]
     public async Task AdjustAsync_RecordsReasonAndNote()
     {
         var (a, _) = await SeedTwoBatchesAsync(10, 20);

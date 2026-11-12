@@ -1,7 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using InventoryService.Dtos;
+using InventoryService.EventProcessing;
 using InventoryService.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using Sava.Tests.Shared;
 
 namespace InventoryService.Tests;
@@ -159,6 +163,61 @@ public class StockApiTests(InventoryApiFactory factory) : IClassFixture<Inventor
             HttpStatusCode.NotFound
         );
     }
+
+    [Fact]
+    public async Task OrderHoldingStock_BlocksDeletingTheBatchAndProductUntilReleased()
+    {
+        var product = await CreateProductAsync();
+        var batch = (
+            await (
+                await _client.PostAsJsonAsync(
+                    $"/api/batches/{product.Id}",
+                    InventoryBuilder.BatchCreateDto(quantity: 10),
+                    Ct
+                )
+            ).Content.ReadFromJsonAsync<ProductReadDto>(Ct)
+        )
+            .ShouldNotBeNull()
+            .Batches.Single();
+        batch.HasOrders.ShouldBeFalse();
+        var processor = factory.Services.GetRequiredService<IEventProcessor>();
+        var orderId = TestData.Faker.Random.Guid();
+
+        await processor.ProcessEvent(
+            OrderEvent("Order_Published", orderId, new OrderItemPublishedDto(batch.Id, 4))
+        );
+
+        var fetched = (
+            await _client.GetFromJsonAsync<ProductReadDto>($"/api/products/{product.Id}", Ct)
+        ).ShouldNotBeNull();
+        fetched.HasOrders.ShouldBeTrue();
+        fetched.Batches.Single().HasOrders.ShouldBeTrue();
+        var blockedBatch = await _client.DeleteAsync($"/api/batches/{batch.Id}", Ct);
+        blockedBatch.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await blockedBatch.Content.ReadFromJsonAsync<ProblemDetails>(Ct))
+            .ShouldNotBeNull()
+            .Title.ShouldBe("Batch has orders");
+        (await _client.DeleteAsync($"/api/products/{product.Id}", Ct)).StatusCode.ShouldBe(
+            HttpStatusCode.Conflict
+        );
+
+        await processor.ProcessEvent(
+            OrderEvent("Order_Deleted", orderId, new OrderItemPublishedDto(batch.Id, 4))
+        );
+
+        (await _client.DeleteAsync($"/api/batches/{batch.Id}", Ct)).StatusCode.ShouldBe(
+            HttpStatusCode.NoContent
+        );
+        (await _client.DeleteAsync($"/api/products/{product.Id}", Ct)).StatusCode.ShouldBe(
+            HttpStatusCode.NoContent
+        );
+    }
+
+    private static string OrderEvent(
+        string eventName,
+        Guid orderId,
+        params OrderItemPublishedDto[] items
+    ) => JsonSerializer.Serialize(new OrderPublishedDto(orderId, items, eventName));
 
     private async Task<ProductReadDto> CreateProductAsync()
     {

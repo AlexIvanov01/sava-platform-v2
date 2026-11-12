@@ -24,7 +24,7 @@ public class ProductRepo : IProductRepo
         await _context.Entry(product).Reference(p => p.Category).LoadAsync();
     }
 
-    public async Task<Product?> DeleteProductAsync(Guid id)
+    public async Task<(DeleteStatus Status, Product? Product)> DeleteProductAsync(Guid id)
     {
         var dbProduct = await _context
             .Products.AsNoTracking()
@@ -32,7 +32,12 @@ public class ProductRepo : IProductRepo
 
         if (dbProduct == null)
         {
-            return null;
+            return (DeleteStatus.NotFound, null);
+        }
+
+        if (dbProduct.HasOrders)
+        {
+            return (DeleteStatus.HasOrders, dbProduct);
         }
 
         _context.Products.Attach(dbProduct);
@@ -40,10 +45,10 @@ public class ProductRepo : IProductRepo
 
         await _context.SaveChangesAsync();
 
-        return dbProduct;
+        return (DeleteStatus.Deleted, dbProduct);
     }
 
-    public async Task<ProductBatch?> DeleteBatchAsync(Guid id)
+    public async Task<(DeleteStatus Status, ProductBatch? Batch)> DeleteBatchAsync(Guid id)
     {
         var dbBatch = await _context
             .ProductBatches.AsNoTracking()
@@ -51,7 +56,12 @@ public class ProductRepo : IProductRepo
 
         if (dbBatch == null)
         {
-            return null;
+            return (DeleteStatus.NotFound, null);
+        }
+
+        if (dbBatch.HasOrders)
+        {
+            return (DeleteStatus.HasOrders, dbBatch);
         }
 
         _context.ProductBatches.Attach(dbBatch);
@@ -59,7 +69,7 @@ public class ProductRepo : IProductRepo
 
         await _context.SaveChangesAsync();
 
-        return dbBatch;
+        return (DeleteStatus.Deleted, dbBatch);
     }
 
     public async Task<IEnumerable<Product>> GetAllProductsAsync(

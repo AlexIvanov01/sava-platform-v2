@@ -9,7 +9,8 @@ public interface IStockRepo
 {
     // Moves stock so that, per batch, exactly soldPerBatch[batch] units count as sold to the order
     // (batches the order no longer lists go back to zero). Only the difference to what the ledger
-    // already holds is posted, so replaying the same state is a no-op. Returns batch ids that
+    // already holds is posted, so replaying the same state is a no-op. HasOrders on the touched
+    // batches and their products is updated in the same transaction. Returns batch ids that
     // don't exist; they are skipped.
     Task<IReadOnlyList<Guid>> SetOrderStockAsync(
         Guid orderId,

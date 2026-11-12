@@ -37,6 +37,7 @@ public static class ProductMappings
             product.AvailableQuantity(today),
             Margin.Ebit(product.ListPrice, cost),
             Margin.EbitPercent(product.ListPrice, cost),
+            product.HasOrders,
             product.Batches.Select(b => b.ToReadDto()).ToList(),
             product.ToAuditDto()
         );
@@ -51,6 +52,7 @@ public static class ProductMappings
             batch.SellPrice.GetValueOrDefault(),
             batch.ExpirationDate.GetValueOrDefault(),
             batch.Location,
+            batch.HasOrders,
             batch.ToAuditDto()
         );
 

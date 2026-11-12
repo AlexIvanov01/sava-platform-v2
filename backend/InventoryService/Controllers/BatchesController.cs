@@ -158,17 +158,28 @@ namespace InventoryService.Controllers
         [HttpDelete("{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<ActionResult> DeleteBatch(Guid id)
         {
             try
             {
                 Log.Information("--> Deleting a batch...........");
 
-                var nullCHeck = await _repository.DeleteBatchAsync(id);
-                if (nullCHeck == null)
+                var (status, _) = await _repository.DeleteBatchAsync(id);
+                if (status == DeleteStatus.NotFound)
                 {
-                    Log.Warning("--> Product with id {Id} not found for deleting.", id);
+                    Log.Warning("--> Batch with id {Id} not found for deleting.", id);
                     return NotFound();
+                }
+
+                if (status == DeleteStatus.HasOrders)
+                {
+                    Log.Warning("--> Batch with id {Id} has orders; not deleted.", id);
+                    return Problem(
+                        title: "Batch has orders",
+                        detail: $"Orders hold stock from batch {id}, so it can't be deleted.",
+                        statusCode: StatusCodes.Status409Conflict
+                    );
                 }
 
                 Log.Information("--> Batch with id {Id} deleted", id);

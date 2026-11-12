@@ -202,6 +202,26 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -984,6 +1004,26 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -1533,6 +1573,7 @@
           "sellPrice",
           "expirationDate",
           "location",
+          "hasOrders",
           "audit"
         ],
         "type": "object",
@@ -1580,6 +1621,9 @@
               "null",
               "string"
             ]
+          },
+          "hasOrders": {
+            "type": "boolean"
           },
           "audit": {
             "$ref": "#/components/schemas/AuditReadDto"
@@ -2064,6 +2108,7 @@
           "availableQuantity",
           "ebit",
           "ebitPercent",
+          "hasOrders",
           "batches",
           "audit"
         ],
@@ -2207,6 +2252,9 @@
               "string"
             ],
             "format": "double"
+          },
+          "hasOrders": {
+            "type": "boolean"
           },
           "batches": {
             "type": "array",

@@ -190,8 +190,12 @@ public class ProductRepoTests(MySqlFixture mySql) : IAsyncLifetime
 
         await using (var context = _db.CreateContext())
         {
-            (await new ProductRepo(context).DeleteProductAsync(product.Id)).ShouldNotBeNull();
-            (await new ProductRepo(context).DeleteProductAsync(product.Id)).ShouldBeNull();
+            (await new ProductRepo(context).DeleteProductAsync(product.Id)).Status.ShouldBe(
+                DeleteStatus.Deleted
+            );
+            (await new ProductRepo(context).DeleteProductAsync(product.Id)).Status.ShouldBe(
+                DeleteStatus.NotFound
+            );
         }
 
         await using var assertContext = _db.CreateContext();
@@ -273,8 +277,12 @@ public class ProductRepoTests(MySqlFixture mySql) : IAsyncLifetime
 
         await using (var context = _db.CreateContext())
         {
-            (await new ProductRepo(context).DeleteBatchAsync(remove.Id)).ShouldNotBeNull();
-            (await new ProductRepo(context).DeleteBatchAsync(remove.Id)).ShouldBeNull();
+            (await new ProductRepo(context).DeleteBatchAsync(remove.Id)).Status.ShouldBe(
+                DeleteStatus.Deleted
+            );
+            (await new ProductRepo(context).DeleteBatchAsync(remove.Id)).Status.ShouldBe(
+                DeleteStatus.NotFound
+            );
         }
 
         await using var assertContext = _db.CreateContext();
@@ -329,6 +337,26 @@ public class ProductRepoTests(MySqlFixture mySql) : IAsyncLifetime
         correction.Reason.ShouldBe(AdjustmentReason.CountCorrection);
         correction.Quantity.ShouldBe(-3);
         correction.BalanceAfter.ShouldBe(7);
+    }
+
+    [Fact]
+    public async Task Delete_ProductOrBatchWithOrders_IsRefused()
+    {
+        var batch = InventoryBuilder.Batch();
+        batch.HasOrders = true;
+        var product = InventoryBuilder.Product("P", batch);
+        product.HasOrders = true;
+        await SeedAsync(product);
+
+        await using (var context = _db.CreateContext())
+        {
+            var repo = new ProductRepo(context);
+            (await repo.DeleteBatchAsync(batch.Id)).Status.ShouldBe(DeleteStatus.HasOrders);
+            (await repo.DeleteProductAsync(product.Id)).Status.ShouldBe(DeleteStatus.HasOrders);
+        }
+
+        await using var assertContext = _db.CreateContext();
+        (await assertContext.ProductBatches.CountAsync(Ct)).ShouldBe(1);
     }
 
     [Fact]

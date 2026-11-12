@@ -29,6 +29,8 @@ public class StockRepo(ProductContext context) : IStockRepo
             .ProductBatches.Where(b => batchIds.Contains(b.Id))
             .ToDictionaryAsync(b => b.Id);
 
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
         var unknown = new List<Guid>();
         foreach (var batchId in batchIds)
         {
@@ -51,8 +53,58 @@ public class StockRepo(ProductContext context) : IStockRepo
         }
 
         await context.SaveChangesAsync();
+        await RefreshHasOrdersAsync(batches.Values);
+        await transaction.CommitAsync();
 
         return unknown;
+    }
+
+    // Recomputes the stored HasOrders flags from the (already saved) ledger.
+    private async Task RefreshHasOrdersAsync(ICollection<ProductBatch> batches)
+    {
+        if (batches.Count == 0)
+        {
+            return;
+        }
+
+        var batchIds = batches.Select(b => b.Id).ToList();
+        var withOrders = (
+            await context
+                .StockMovements.Where(m =>
+                    batchIds.Contains(m.BatchId)
+                    && m.OrderId != null
+                    && (
+                        m.Type == StockMovementType.Sale || m.Type == StockMovementType.SaleReversal
+                    )
+                )
+                .GroupBy(m => new { m.BatchId, m.OrderId })
+                .Where(g => g.Sum(m => m.Quantity) != 0)
+                .Select(g => g.Key.BatchId)
+                .Distinct()
+                .ToListAsync()
+        ).ToHashSet();
+
+        foreach (var batch in batches)
+        {
+            batch.HasOrders = withOrders.Contains(batch.Id);
+        }
+        await context.SaveChangesAsync();
+
+        var productIds = batches.Select(b => b.ProductId).Distinct().ToList();
+        var products = await context.Products.Where(p => productIds.Contains(p.Id)).ToListAsync();
+        var productsWithOrders = (
+            await context
+                .ProductBatches.Where(b => productIds.Contains(b.ProductId) && b.HasOrders)
+                .Select(b => b.ProductId)
+                .Distinct()
+                .ToListAsync()
+        ).ToHashSet();
+
+        foreach (var product in products)
+        {
+            product.HasOrders = productsWithOrders.Contains(product.Id);
+        }
+        await context.SaveChangesAsync();
     }
 
     public async Task<bool> OrderHasMovementsAsync(Guid orderId) =>
