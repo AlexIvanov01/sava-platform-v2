@@ -424,6 +424,22 @@
                 "AllowedScopes": []
             }
         },
+        {
+            "UpstreamPathTemplate": "/api/Reports/sales",
+            "UpstreamHttpMethod": [ "Get" ],
+            "DownstreamScheme": "http",
+            "DownstreamHostAndPorts": [
+                {
+                    "Host": "order-clusterip-srv",
+                    "Port": 80
+                }
+            ],
+            "DownstreamPathTemplate": "/api/Reports/sales",
+            "AuthenticationOptions": {
+                "AuthenticationProviderKeys": [ "Bearer" ],
+                "AllowedScopes": []
+            }
+        },
         // Customer Service
         {
             "UpstreamPathTemplate": "/api/Customers",

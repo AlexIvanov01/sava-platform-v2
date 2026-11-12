@@ -67,6 +67,32 @@ public class OrderRepo : IOrderRepo
     public async Task<Order?> GetOrderByIdAsync(Guid id) =>
         await WithDetails(_context.Orders.AsNoTracking()).SingleOrDefaultAsync(o => o.Id == id);
 
+    public async Task<List<Order>> GetCompletedOrdersAsync(
+        DateOnly? from,
+        DateOnly? to,
+        Guid? customerId
+    )
+    {
+        var orders = _context.Orders.Where(o =>
+            o.Status == OrderStatus.Completed && o.Invoice != null
+        );
+        if (customerId != null)
+        {
+            orders = orders.Where(o => o.CustomerId == customerId);
+        }
+        if (from is { } start)
+        {
+            var startTime = start.ToDateTime(TimeOnly.MinValue);
+            orders = orders.Where(o => o.Invoice!.InvoiceDate >= startTime);
+        }
+        if (to is { } end)
+        {
+            var endTime = end.AddDays(1).ToDateTime(TimeOnly.MinValue);
+            orders = orders.Where(o => o.Invoice!.InvoiceDate < endTime);
+        }
+        return await WithDetails(orders.AsNoTracking()).ToListAsync();
+    }
+
     private IQueryable<Order> Filtered(OrderFilter filter)
     {
         var orders = _context.Orders.AsQueryable();

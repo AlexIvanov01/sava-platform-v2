@@ -12,6 +12,10 @@ public interface IOrderRepo
     Task<int> GetOrderCountAsync(OrderFilter filter);
     Task<Order?> GetOrderByIdAsync(Guid id);
 
+    // For the sales report: Completed orders whose invoice date falls in [from, to] (inclusive
+    // days), with their items and invoice.
+    Task<List<Order>> GetCompletedOrdersAsync(DateOnly? from, DateOnly? to, Guid? customerId);
+
     // Assigns the order a new Id and saves it with its items.
     Task CreateOrderAsync(Order order);
 
