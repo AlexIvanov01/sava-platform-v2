@@ -15,22 +15,6 @@ public class GrpcCustomerService : GrpcCustomer.GrpcCustomerBase
         _repository = repository;
     }
 
-    public override async Task<CustomerResponse> GetAllCustomers(
-        GetAllRequest request,
-        ServerCallContext context
-    )
-    {
-        var response = new CustomerResponse();
-
-        var customers = await _repository.GetAllCustomersAsync();
-
-        foreach (var customer in customers)
-        {
-            response.Customers.Add(customer.ToGrpcModel());
-        }
-        return response;
-    }
-
     public override async Task<GrpcCustomerModel> GetCustomer(
         GetCustomerRequest request,
         ServerCallContext context

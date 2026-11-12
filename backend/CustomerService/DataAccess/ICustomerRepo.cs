@@ -9,7 +9,6 @@ namespace CustomerService.DataAccess;
 public interface ICustomerRepo
 {
     // Every customer, for the gRPC sync to OrderService.
-    Task<IEnumerable<Customer>> GetAllCustomersAsync();
 
     // Keyset page ordered by Id, each customer with whether any order references it.
     Task<IEnumerable<(Customer Customer, bool HasOrders)>> GetCustomersAsync(

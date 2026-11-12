@@ -1,4 +1,3 @@
-using InventoryService.AsyncDataServices;
 using InventoryService.Controllers;
 using InventoryService.DataAccess;
 using InventoryService.Dtos;
@@ -13,11 +12,10 @@ public class ProductsControllerTests
 {
     private readonly IProductRepo _repo = Substitute.For<IProductRepo>();
     private readonly ICategoryRepo _categories = Substitute.For<ICategoryRepo>();
-    private readonly IMessageBusClient _bus = Substitute.For<IMessageBusClient>();
     private readonly ProductsController _controller;
 
     public ProductsControllerTests() =>
-        _controller = new ProductsController(_repo, _categories, _bus, TimeProvider.System);
+        _controller = new ProductsController(_repo, _categories, TimeProvider.System);
 
     [Fact]
     public async Task GetProducts_Empty_ReturnsNotFound()
@@ -149,14 +147,13 @@ public class ProductsControllerTests
     }
 
     [Fact]
-    public async Task CreateProduct_SavesAndReturnsCreatedWithoutPublishing()
+    public async Task CreateProduct_SavesAndReturnsCreated()
     {
         var result = await _controller.CreateProduct(InventoryBuilder.ProductCreateDto("New"));
 
         var created = result.Result.ShouldBeOfType<CreatedAtRouteResult>();
         created.RouteName.ShouldBe(nameof(ProductsController.GetProductById));
         await _repo.Received(1).CreateProductAsync(Arg.Is<Product>(p => p.Name == "New"));
-        await _bus.DidNotReceiveWithAnyArgs().PublishNewItemAsync(default!);
     }
 
     [Fact]
@@ -181,7 +178,7 @@ public class ProductsControllerTests
     }
 
     [Fact]
-    public async Task UpdateProduct_NameChanged_ReturnsSavedProductAndPublishesName()
+    public async Task UpdateProduct_Existing_ReturnsSavedProduct()
     {
         var saved = InventoryBuilder.Product("Renamed");
         var id = saved.Id;
@@ -197,64 +194,25 @@ public class ProductsControllerTests
             .Value.ShouldBeOfType<ProductReadDto>();
         body.Name.ShouldBe("Renamed");
         body.Brand.ShouldBe(saved.Brand);
-        await _bus.Received(1)
-            .PublishNewItemAsync(
-                Arg.Is<ItemPublishedDto>(p =>
-                    p.Event == "ProductName_Updated"
-                    && p.ExternalProductId == id
-                    && p.Name == "Renamed"
-                )
-            );
-    }
-
-    [Fact]
-    public async Task UpdateProduct_NameUnchanged_DoesNotPublish()
-    {
-        _repo.UpdateProductAsync(Arg.Any<Product>()).Returns(ci => ci.Arg<Product>());
-
-        await _controller.UpdateProduct(
-            Guid.NewGuid(),
-            InventoryBuilder.ProductUpdateDto(brand: "Other")
-        );
-
-        await _bus.DidNotReceiveWithAnyArgs().PublishNewItemAsync(default!);
     }
 
     [Fact]
     public async Task DeleteProduct_Missing_ReturnsNotFound()
     {
         (await _controller.DeleteProduct(Guid.NewGuid())).ShouldBeOfType<NotFoundResult>();
-        await _bus.DidNotReceiveWithAnyArgs().PublishNewItemAsync(default!);
     }
 
     [Fact]
-    public async Task DeleteProduct_Existing_PublishesProductDeleted()
+    public async Task DeleteProduct_Existing_ReturnsNoContent()
     {
         var product = InventoryBuilder.Product();
         _repo.DeleteProductAsync(product.Id).Returns((DeleteStatus.Deleted, product));
 
         (await _controller.DeleteProduct(product.Id)).ShouldBeOfType<NoContentResult>();
-        await _bus.Received(1)
-            .PublishNewItemAsync(
-                Arg.Is<ItemPublishedDto>(p =>
-                    p.Event == "Product_Deleted" && p.ExternalProductId == product.Id
-                )
-            );
     }
 
     [Fact]
-    public async Task DeleteProduct_PublishFails_StillReturnsNoContent()
-    {
-        var product = InventoryBuilder.Product();
-        _repo.DeleteProductAsync(product.Id).Returns((DeleteStatus.Deleted, product));
-        _bus.PublishNewItemAsync(Arg.Any<ItemPublishedDto>())
-            .ThrowsAsync(new InvalidOperationException());
-
-        (await _controller.DeleteProduct(product.Id)).ShouldBeOfType<NoContentResult>();
-    }
-
-    [Fact]
-    public async Task DeleteProduct_WithOrders_Returns409WithoutPublishing()
+    public async Task DeleteProduct_WithOrders_Returns409()
     {
         var product = InventoryBuilder.Product();
         _repo.DeleteProductAsync(product.Id).Returns((DeleteStatus.HasOrders, product));
@@ -265,6 +223,5 @@ public class ProductsControllerTests
             .ShouldBeOfType<ObjectResult>()
             .Value.ShouldBeOfType<ProblemDetails>()
             .Title.ShouldBe("Product has orders");
-        await _bus.DidNotReceiveWithAnyArgs().PublishNewItemAsync(default!);
     }
 }

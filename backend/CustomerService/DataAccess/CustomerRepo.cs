@@ -128,11 +128,6 @@ namespace CustomerService.DataAccess
         public Task RemoveOrderAsync(Guid orderId) =>
             _context.CustomerOrders.Where(o => o.OrderId == orderId).ExecuteDeleteAsync();
 
-        public async Task<IEnumerable<Customer>> GetAllCustomersAsync()
-        {
-            return await _context.Customers.AsNoTracking().ToListAsync();
-        }
-
         public async Task<Customer?> GetCustomerAsync(Guid id)
         {
             var customer = await _context

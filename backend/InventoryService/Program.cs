@@ -43,7 +43,6 @@ builder.Services.AddScoped<IStockRepo, StockRepo>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
-builder.Services.AddSingleton<IMessageBusClient, MessageBusClient>();
 builder.Services.AddGrpc();
 builder.Services.AddSingleton<IEventProcessor, EventProcessor>();
 

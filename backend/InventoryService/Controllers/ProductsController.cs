@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
-using InventoryService.AsyncDataServices;
 using InventoryService.DataAccess;
 using InventoryService.Dtos;
 using InventoryService.Mappings;
@@ -20,19 +19,16 @@ public class ProductsController : ControllerBase
 {
     private readonly IProductRepo _repository;
     private readonly ICategoryRepo _categories;
-    private readonly IMessageBusClient _messageBusClient;
     private readonly TimeProvider _timeProvider;
 
     public ProductsController(
         IProductRepo repository,
         ICategoryRepo categories,
-        IMessageBusClient messageBusClient,
         TimeProvider timeProvider
     )
     {
         _repository = repository;
         _categories = categories;
-        _messageBusClient = messageBusClient;
         _timeProvider = timeProvider;
     }
 
@@ -213,25 +209,6 @@ public class ProductsController : ControllerBase
             return StatusCode(500, "An internal server error occurred.");
         }
 
-        if (productUpdateDto.Name != null)
-        {
-            //Send Async Message
-            try
-            {
-                ItemPublishedDto itemPublishedDto = new()
-                {
-                    ExternalProductId = id,
-                    Name = savedProduct.Name,
-                    Event = "ProductName_Updated",
-                };
-                await _messageBusClient.PublishNewItemAsync(itemPublishedDto);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error with publishing item message: {Message}", ex.Message);
-            }
-        }
-
         return Ok(savedProduct.ToReadDto(Today));
     }
 
@@ -269,22 +246,6 @@ public class ProductsController : ControllerBase
         {
             Log.Fatal(ex, "Internal server error: {Message}", ex.Message);
             return StatusCode(500, "An internal server error occurred.");
-        }
-
-        //Send Async Message
-        try
-        {
-            ItemPublishedDto itemPublishedDto = new()
-            {
-                ExternalProductId = id,
-                Event = "Product_Deleted",
-            };
-
-            await _messageBusClient.PublishNewItemAsync(itemPublishedDto);
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Error with publishing item message: {Message}", ex.Message);
         }
 
         return NoContent();

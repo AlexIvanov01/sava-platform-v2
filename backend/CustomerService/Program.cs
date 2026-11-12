@@ -41,7 +41,6 @@ builder.Services.AddScoped<ICustomerRepo, CustomerRepo>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 builder.Services.AddGrpc();
-builder.Services.AddSingleton<IMessageBusClient, MessageBusClient>();
 builder.Services.AddSingleton<IEventProcessor, EventProcessor>();
 
 Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration).CreateLogger();

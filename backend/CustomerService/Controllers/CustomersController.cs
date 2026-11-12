@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
-using CustomerService.AsyncDataServices;
 using CustomerService.DataAccess;
 using CustomerService.Dtos;
 using CustomerService.Mappings;
@@ -19,12 +18,10 @@ namespace CustomerService.Controllers
     public class CustomersController : ControllerBase
     {
         private readonly ICustomerRepo _repository;
-        private readonly IMessageBusClient _messageBusClient;
 
-        public CustomersController(ICustomerRepo repository, IMessageBusClient messageBusClient)
+        public CustomersController(ICustomerRepo repository)
         {
             _repository = repository;
-            _messageBusClient = messageBusClient;
         }
 
         // Filters combine with AND and match substrings; name also matches the company name.
@@ -133,17 +130,6 @@ namespace CustomerService.Controllers
                 return StatusCode(500, "An internal server error occurred.");
             }
 
-            //Send Async Message
-            try
-            {
-                var customerPublishedDto = customerModel.ToPublishedDto("Customer_Published");
-                await _messageBusClient.PublishNewCustomerAsync(customerPublishedDto);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error with publishing customer message: {Message}", ex.Message);
-            }
-
             return CreatedAtRoute(
                 nameof(GetCustomerById),
                 new { Id = customerReadDto.Id },
@@ -181,17 +167,6 @@ namespace CustomerService.Controllers
             {
                 Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
                 return StatusCode(500, "An internal server error occurred.");
-            }
-
-            //Send Async Message
-            try
-            {
-                var customerPublishedDto = savedCustomer.ToPublishedDto("Customer_Updated");
-                await _messageBusClient.PublishNewCustomerAsync(customerPublishedDto);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error with publishing customer message: {Message}", ex.Message);
             }
 
             return Ok(savedCustomer.ToReadDto(await _repository.HasOrdersAsync(id)));
@@ -233,20 +208,6 @@ namespace CustomerService.Controllers
                 return StatusCode(500, "An internal server error occurred.");
             }
 
-            //Send Async Message
-            try
-            {
-                CustomerPublishedDto customerPublishedDto = new()
-                {
-                    ExternalId = id,
-                    Event = "Customer_Deleted",
-                };
-                await _messageBusClient.PublishNewCustomerAsync(customerPublishedDto);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error with publishing customer message: {Message}", ex.Message);
-            }
             return NoContent();
         }
     }

@@ -18,7 +18,6 @@ public record BatchReadDto(
     string? Lot,
     int Quantity,
     decimal PurchasePrice,
-    decimal SellPrice,
     DateTime ExpirationDate,
     string? Location,
     // True while an order holds stock from the batch; it can't be deleted then.
@@ -77,7 +76,6 @@ public record BatchCreateDto(
     [Required] string Lot,
     [Required] int? Quantity,
     [Required] decimal? PurchasePrice,
-    [Required] decimal? SellPrice,
     [Required] DateTime? ExpirationDate,
     [MaxLength(100)] string? Location
 );
@@ -104,7 +102,6 @@ public record BatchUpdateDto(
     string? Lot,
     int? Quantity,
     decimal? PurchasePrice,
-    decimal? SellPrice,
     DateTime? ExpirationDate,
     [MaxLength(100)] string? Location
 );

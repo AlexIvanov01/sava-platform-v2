@@ -24,7 +24,6 @@ public interface IProductRepo
     Task<Product?> AddBatchAsync(ProductBatch batch, Guid ProductId);
     Task<ProductBatch?> UpdateBatchAsync(ProductBatch batch);
     Task<(DeleteStatus Status, ProductBatch? Batch)> DeleteBatchAsync(Guid id);
-    Task<IEnumerable<Product>> GetAllProductBatchesAsync();
 
     // For reports: every product (optionally of one category) with its category and batches.
     Task<List<Product>> GetProductsWithBatchesAsync(Guid? categoryId = null);

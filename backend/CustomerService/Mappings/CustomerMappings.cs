@@ -63,25 +63,6 @@ public static class CustomerMappings
             UIC = dto.UIC,
         };
 
-    public static CustomerPublishedDto ToPublishedDto(this Customer customer, string eventName) =>
-        new()
-        {
-            ExternalId = customer.Id,
-            Name = customer.Name,
-            CompanyName = customer.CompanyName,
-            Email = customer.Email,
-            PhoneNumber = customer.PhoneNumber,
-            Address = customer.Address,
-            City = customer.City,
-            Country = customer.Country,
-            BankName = customer.BankName,
-            IBAN = customer.IBAN,
-            BIC = customer.BIC,
-            VATNumber = customer.VATNumber,
-            UIC = customer.UIC,
-            Event = eventName,
-        };
-
     // Protobuf string fields reject null, so missing values are sent as empty strings.
     public static GrpcCustomerModel ToGrpcModel(this Customer customer) =>
         new()

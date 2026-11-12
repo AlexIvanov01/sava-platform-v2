@@ -193,7 +193,6 @@ public class ProductRepo : IProductRepo
             );
         }
         DbBatch.PurchasePrice = batch.PurchasePrice ?? DbBatch.PurchasePrice;
-        DbBatch.SellPrice = batch.SellPrice ?? DbBatch.SellPrice;
         DbBatch.ExpirationDate = batch.ExpirationDate ?? DbBatch.ExpirationDate;
         DbBatch.Location = batch.Location ?? DbBatch.Location;
 
@@ -258,13 +257,4 @@ public class ProductRepo : IProductRepo
             .Where(b => b.Quantity > 0 && b.ExpirationDate < until.Date.AddDays(1))
             .Include(b => b.Product)
             .ToListAsync();
-
-    public async Task<IEnumerable<Product>> GetAllProductBatchesAsync()
-    {
-        return await _context
-            .Products.AsNoTracking()
-            .Include(p => p.Batches)
-            .Select(p => new Product { Name = p.Name, Batches = p.Batches })
-            .ToArrayAsync();
-    }
 }

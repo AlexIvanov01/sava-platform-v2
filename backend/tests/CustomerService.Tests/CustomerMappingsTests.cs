@@ -57,19 +57,6 @@ public class CustomerMappingsTests
     }
 
     [Fact]
-    public void ToPublishedDto_SetsExternalIdAndEvent()
-    {
-        var customer = CustomerBuilder.Customer();
-
-        var dto = customer.ToPublishedDto("Customer_Updated");
-
-        dto.ExternalId.ShouldBe(customer.Id);
-        dto.Event.ShouldBe("Customer_Updated");
-        dto.Name.ShouldBe(customer.Name);
-        dto.VATNumber.ShouldBe(customer.VATNumber);
-    }
-
-    [Fact]
     public void ToGrpcModel_ReplacesNullsWithEmptyStrings()
     {
         var customer = new Customer { Id = Guid.NewGuid(), Name = "Only name" };

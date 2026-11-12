@@ -49,7 +49,6 @@ public static class ProductMappings
             batch.Lot,
             batch.Quantity.GetValueOrDefault(),
             batch.PurchasePrice.GetValueOrDefault(),
-            batch.SellPrice.GetValueOrDefault(),
             batch.ExpirationDate.GetValueOrDefault(),
             batch.Location,
             batch.HasOrders,
@@ -106,7 +105,6 @@ public static class ProductMappings
             Lot = dto.Lot,
             Quantity = dto.Quantity,
             PurchasePrice = dto.PurchasePrice,
-            SellPrice = dto.SellPrice,
             ExpirationDate = dto.ExpirationDate,
             Location = dto.Location,
         };
@@ -118,7 +116,6 @@ public static class ProductMappings
             Lot = dto.Lot,
             Quantity = dto.Quantity,
             PurchasePrice = dto.PurchasePrice,
-            SellPrice = dto.SellPrice,
             ExpirationDate = dto.ExpirationDate,
             Location = dto.Location,
         };
@@ -143,19 +140,5 @@ public static class ProductMappings
             Lot = batch.Lot ?? string.Empty,
             ExpirationDate =
                 batch.ExpirationDate?.ToString("O", CultureInfo.InvariantCulture) ?? string.Empty,
-        };
-
-    // Expects batch.Product to be populated. Protobuf string fields reject null,
-    // so missing values are sent as empty strings.
-    public static GrpcInventoryModel ToGrpcModel(this ProductBatch batch) =>
-        new()
-        {
-            ExternalProductId = batch.ProductId.ToString(),
-            ExternalBatchId = batch.Id.ToString(),
-            Name = batch.Product.Name ?? string.Empty,
-            Price = batch.SellPrice?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
-            ExpirationDate =
-                batch.ExpirationDate?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
-            Lot = batch.Lot ?? string.Empty,
         };
 }

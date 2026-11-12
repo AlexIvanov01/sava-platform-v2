@@ -1831,7 +1831,6 @@
           "lot",
           "quantity",
           "purchasePrice",
-          "sellPrice",
           "expirationDate",
           "location"
         ],
@@ -1850,15 +1849,6 @@
             "format": "int32"
           },
           "purchasePrice": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "null",
-              "number",
-              "string"
-            ],
-            "format": "double"
-          },
-          "sellPrice": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
               "null",
@@ -1914,7 +1904,6 @@
           "lot",
           "quantity",
           "purchasePrice",
-          "sellPrice",
           "expirationDate",
           "location",
           "hasOrders",
@@ -1948,14 +1937,6 @@
             ],
             "format": "double"
           },
-          "sellPrice": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
-            "format": "double"
-          },
           "expirationDate": {
             "type": "string",
             "format": "date-time"
@@ -1979,7 +1960,6 @@
           "lot",
           "quantity",
           "purchasePrice",
-          "sellPrice",
           "expirationDate",
           "location"
         ],
@@ -2001,15 +1981,6 @@
             "format": "int32"
           },
           "purchasePrice": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "null",
-              "number",
-              "string"
-            ],
-            "format": "double"
-          },
-          "sellPrice": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
               "null",

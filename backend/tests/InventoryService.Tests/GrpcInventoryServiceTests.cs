@@ -21,25 +21,6 @@ public class GrpcInventoryServiceTests
         );
 
     [Fact]
-    public async Task GetAllItems_ReturnsOneItemPerBatchWithProductName()
-    {
-        var widget = InventoryBuilder.Product(
-            "Widget",
-            InventoryBuilder.Batch("L1"),
-            InventoryBuilder.Batch("L2")
-        );
-        var gadget = InventoryBuilder.Product("Gadget", InventoryBuilder.Batch("L3"));
-        var empty = InventoryBuilder.Product("Empty");
-        _repo.GetAllProductBatchesAsync().Returns(new List<Product> { widget, gadget, empty });
-
-        var response = await _service.GetAllItems(new GetAllRequest(), null!);
-
-        response
-            .Item.Select(i => (i.Name, i.Lot))
-            .ShouldBe([("Widget", "L1"), ("Widget", "L2"), ("Gadget", "L3")]);
-    }
-
-    [Fact]
     public async Task GetOrderSnapshot_ReturnsProductsAndBatchesAndListsMissingIds()
     {
         var cheap = InventoryBuilder.Batch(quantity: 5);

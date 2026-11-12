@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Threading.Tasks;
-using InventoryService.AsyncDataServices;
 using InventoryService.DataAccess;
 using InventoryService.Dtos;
 using InventoryService.Mappings;
@@ -16,17 +15,11 @@ namespace InventoryService.Controllers
     public class BatchesController : ControllerBase
     {
         private readonly IProductRepo _repository;
-        private readonly IMessageBusClient _messageBusClient;
         private readonly TimeProvider _timeProvider;
 
-        public BatchesController(
-            IProductRepo repository,
-            IMessageBusClient messageBusClient,
-            TimeProvider timeProvider
-        )
+        public BatchesController(IProductRepo repository, TimeProvider timeProvider)
         {
             _repository = repository;
-            _messageBusClient = messageBusClient;
             _timeProvider = timeProvider;
         }
 
@@ -68,26 +61,6 @@ namespace InventoryService.Controllers
                 return StatusCode(500, "An internal server error occurred.");
             }
 
-            //Send Async Message
-            try
-            {
-                ItemPublishedDto itemPublishedDto = new()
-                {
-                    ExternalBatchId = batchModel.Id,
-                    ExternalProductId = ProductId,
-                    Name = productItem.Name,
-                    Lot = batchCreateDto.Lot,
-                    Price = batchCreateDto.SellPrice,
-                    ExpirationDate = batchCreateDto.ExpirationDate,
-                    Event = "Item_Published",
-                };
-                await _messageBusClient.PublishNewItemAsync(itemPublishedDto);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error with publishing item message: {Message}", ex.Message);
-            }
-
             return CreatedAtRoute(
                 nameof(ProductsController.GetProductById),
                 new { Id = productReadDto.Id },
@@ -126,32 +99,6 @@ namespace InventoryService.Controllers
                 return StatusCode(500, "An internal server error occurred.");
             }
 
-            //Send Async Message
-            if (
-                productBatchDto.Lot != null
-                || productBatchDto.SellPrice != null
-                || productBatchDto.ExpirationDate != null
-            )
-            {
-                try
-                {
-                    ItemPublishedDto itemPublishedDto = new()
-                    {
-                        ExternalBatchId = savedBatch.Id,
-                        Lot = savedBatch.Lot,
-                        Price = savedBatch.SellPrice,
-                        ExpirationDate = savedBatch.ExpirationDate,
-                        Event = "Item_Updated",
-                    };
-
-                    await _messageBusClient.PublishNewItemAsync(itemPublishedDto);
-                }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, "--> Error with publishing item message: {Message}", ex.Message);
-                }
-            }
-
             return Ok(savedBatch.ToReadDto());
         }
 
@@ -188,22 +135,6 @@ namespace InventoryService.Controllers
             {
                 Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
                 return StatusCode(500, "An internal server error occurred.");
-            }
-
-            //Send Async Message
-            try
-            {
-                ItemPublishedDto itemPublishedDto = new()
-                {
-                    ExternalBatchId = id,
-                    Event = "Item_Deleted",
-                };
-
-                await _messageBusClient.PublishNewItemAsync(itemPublishedDto);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error with publishing item message: {Message}", ex.Message);
             }
 
             return NoContent();

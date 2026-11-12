@@ -1,4 +1,3 @@
-using CustomerService.AsyncDataServices;
 using CustomerService.Controllers;
 using CustomerService.DataAccess;
 using CustomerService.Dtos;
@@ -11,10 +10,9 @@ namespace CustomerService.Tests;
 public class CustomersControllerTests
 {
     private readonly ICustomerRepo _repo = Substitute.For<ICustomerRepo>();
-    private readonly IMessageBusClient _bus = Substitute.For<IMessageBusClient>();
     private readonly CustomersController _controller;
 
-    public CustomersControllerTests() => _controller = new CustomersController(_repo, _bus);
+    public CustomersControllerTests() => _controller = new CustomersController(_repo);
 
     [Fact]
     public async Task GetCustomers_NoCustomers_ReturnsNotFound()
@@ -83,7 +81,7 @@ public class CustomersControllerTests
     }
 
     [Fact]
-    public async Task CreateCustomer_SavesAndPublishesCustomerPublished()
+    public async Task CreateCustomer_SavesAndReturnsCreated()
     {
         var dto = CustomerBuilder.CreateDto();
 
@@ -93,38 +91,20 @@ public class CustomersControllerTests
         created.RouteName.ShouldBe(nameof(CustomersController.GetCustomerById));
         created.Value.ShouldBeOfType<CustomerReadDto>().Name.ShouldBe(dto.Name);
         await _repo.Received(1).CreateCustomerAsync(Arg.Is<Customer>(c => c.Name == dto.Name));
-        await _bus.Received(1)
-            .PublishNewCustomerAsync(
-                Arg.Is<CustomerPublishedDto>(p =>
-                    p.Event == "Customer_Published" && p.Name == dto.Name
-                )
-            );
     }
 
     [Fact]
-    public async Task CreateCustomer_RepoThrows_Returns500AndDoesNotPublish()
+    public async Task CreateCustomer_RepoThrows_Returns500()
     {
         _repo.CreateCustomerAsync(Arg.Any<Customer>()).ThrowsAsync(new InvalidOperationException());
 
         var result = await _controller.CreateCustomer(CustomerBuilder.CreateDto());
 
         result.Result.ShouldBeOfType<ObjectResult>().StatusCode.ShouldBe(500);
-        await _bus.DidNotReceiveWithAnyArgs().PublishNewCustomerAsync(default!);
     }
 
     [Fact]
-    public async Task CreateCustomer_PublishFails_StillReturnsCreated()
-    {
-        _bus.PublishNewCustomerAsync(Arg.Any<CustomerPublishedDto>())
-            .ThrowsAsync(new InvalidOperationException());
-
-        var result = await _controller.CreateCustomer(CustomerBuilder.CreateDto());
-
-        result.Result.ShouldBeOfType<CreatedAtRouteResult>();
-    }
-
-    [Fact]
-    public async Task UpdateCustomer_Missing_ReturnsNotFoundAndDoesNotPublish()
+    public async Task UpdateCustomer_Missing_ReturnsNotFound()
     {
         var result = await _controller.UpdateCustomer(
             Guid.NewGuid(),
@@ -132,11 +112,10 @@ public class CustomersControllerTests
         );
 
         result.Result.ShouldBeOfType<NotFoundResult>();
-        await _bus.DidNotReceiveWithAnyArgs().PublishNewCustomerAsync(default!);
     }
 
     [Fact]
-    public async Task UpdateCustomer_Existing_ReturnsSavedCustomerAndPublishesIt()
+    public async Task UpdateCustomer_Existing_ReturnsSavedCustomer()
     {
         var saved = CustomerBuilder.Customer("New name");
         var id = saved.Id;
@@ -152,12 +131,6 @@ public class CustomersControllerTests
         await _repo
             .Received(1)
             .UpdateCustomerAsync(Arg.Is<Customer>(c => c.Id == id && c.Name == "New name"));
-        await _bus.Received(1)
-            .PublishNewCustomerAsync(
-                Arg.Is<CustomerPublishedDto>(p =>
-                    p.Event == "Customer_Updated" && p.ExternalId == id && p.Email == saved.Email
-                )
-            );
     }
 
     [Fact]
@@ -168,11 +141,10 @@ public class CustomersControllerTests
         var result = await _controller.DeleteCustomer(Guid.NewGuid());
 
         result.ShouldBeOfType<NotFoundResult>();
-        await _bus.DidNotReceiveWithAnyArgs().PublishNewCustomerAsync(default!);
     }
 
     [Fact]
-    public async Task DeleteCustomer_Existing_ReturnsNoContentAndPublishesCustomerDeleted()
+    public async Task DeleteCustomer_Existing_ReturnsNoContent()
     {
         var customer = CustomerBuilder.Customer();
         _repo.DeleteCustomerAsync(customer.Id).Returns((DeleteCustomerStatus.Deleted, customer));
@@ -180,16 +152,10 @@ public class CustomersControllerTests
         var result = await _controller.DeleteCustomer(customer.Id);
 
         result.ShouldBeOfType<NoContentResult>();
-        await _bus.Received(1)
-            .PublishNewCustomerAsync(
-                Arg.Is<CustomerPublishedDto>(p =>
-                    p.Event == "Customer_Deleted" && p.ExternalId == customer.Id
-                )
-            );
     }
 
     [Fact]
-    public async Task DeleteCustomer_WithOrders_Returns409AndDoesNotPublish()
+    public async Task DeleteCustomer_WithOrders_Returns409()
     {
         var customer = CustomerBuilder.Customer();
         _repo.DeleteCustomerAsync(customer.Id).Returns((DeleteCustomerStatus.HasOrders, customer));
@@ -199,6 +165,5 @@ public class CustomersControllerTests
         var problem = result.ShouldBeOfType<ObjectResult>().Value.ShouldBeOfType<ProblemDetails>();
         problem.Status.ShouldBe(409);
         problem.Title.ShouldBe("Customer has orders");
-        await _bus.DidNotReceiveWithAnyArgs().PublishNewCustomerAsync(default!);
     }
 }

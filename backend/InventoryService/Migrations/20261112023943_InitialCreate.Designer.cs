@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace InventoryService.Migrations
 {
     [DbContext(typeof(ProductContext))]
-    [Migration("20261112001312_InitialCreate")]
+    [Migration("20261112023943_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -182,9 +182,6 @@ namespace InventoryService.Migrations
 
                     b.Property<int?>("Quantity")
                         .HasColumnType("int");
-
-                    b.Property<decimal?>("SellPrice")
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");

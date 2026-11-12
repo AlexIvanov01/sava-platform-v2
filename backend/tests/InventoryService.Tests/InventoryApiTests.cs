@@ -80,7 +80,7 @@ public class InventoryApiTests(InventoryApiFactory factory) : IClassFixture<Inve
         ).ShouldNotBeNull();
         updatedBatch.Quantity.ShouldBe(9);
         updatedBatch.Lot.ShouldBe("L1");
-        updatedBatch.SellPrice.ShouldBe(batch.SellPrice);
+        updatedBatch.PurchasePrice.ShouldBe(batch.PurchasePrice);
         updatedBatch.Audit.CreatedBy.ShouldBe(creator);
         updatedBatch.Audit.UpdatedBy.ShouldBe(editor);
         updatedBatch.Audit.UpdatedAt.ShouldNotBeNull();
@@ -119,21 +119,6 @@ public class InventoryApiTests(InventoryApiFactory factory) : IClassFixture<Inve
         (await _client.GetAsync($"/api/products/{product.Id}", Ct)).StatusCode.ShouldBe(
             HttpStatusCode.NotFound
         );
-
-        await factory
-            .MessageBus.Received(1)
-            .PublishNewItemAsync(
-                Arg.Is<ItemPublishedDto>(p =>
-                    p.Event == "Item_Published" && p.ExternalProductId == product.Id
-                )
-            );
-        await factory
-            .MessageBus.Received(1)
-            .PublishNewItemAsync(
-                Arg.Is<ItemPublishedDto>(p =>
-                    p.Event == "Product_Deleted" && p.ExternalProductId == product.Id
-                )
-            );
     }
 
     [Fact]

@@ -255,7 +255,7 @@ public class ProductRepoTests(MySqlFixture mySql) : IAsyncLifetime
         var saved = await assertContext.ProductBatches.SingleAsync(Ct);
         saved.Lot.ShouldBe("NEW");
         saved.Quantity.ShouldBe(10);
-        saved.SellPrice.ShouldBe(batch.SellPrice);
+        saved.PurchasePrice.ShouldBe(batch.PurchasePrice);
         saved.ProductId.ShouldBe(product.Id);
         saved.UpdatedAt.ShouldNotBeNull();
     }
@@ -357,21 +357,6 @@ public class ProductRepoTests(MySqlFixture mySql) : IAsyncLifetime
 
         await using var assertContext = _db.CreateContext();
         (await assertContext.ProductBatches.CountAsync(Ct)).ShouldBe(1);
-    }
-
-    [Fact]
-    public async Task GetAllProductBatchesAsync_ReturnsNamesAndBatches()
-    {
-        await SeedAsync(
-            InventoryBuilder.Product("P", InventoryBuilder.Batch("L1")),
-            InventoryBuilder.Product("Q")
-        );
-
-        await using var context = _db.CreateContext();
-        var products = (await new ProductRepo(context).GetAllProductBatchesAsync()).ToList();
-
-        products.Select(p => p.Name).ShouldBe(["P", "Q"], ignoreOrder: true);
-        products.Single(p => p.Name == "P").Batches.ShouldHaveSingleItem().Lot.ShouldBe("L1");
     }
 
     [Fact]

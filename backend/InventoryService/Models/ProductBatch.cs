@@ -13,7 +13,6 @@ public class ProductBatch : AuditableEntity
     public string? Lot { get; set; }
     public int? Quantity { get; set; }
     public decimal? PurchasePrice { get; set; }
-    public decimal? SellPrice { get; set; }
     public DateTime? ExpirationDate { get; set; }
 
     // Free-text place in the warehouse, e.g. "Aisle 3, shelf B".

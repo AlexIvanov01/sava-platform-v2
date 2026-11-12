@@ -160,7 +160,6 @@ namespace InventoryService.Migrations
                             type: "decimal(18,2)",
                             nullable: true
                         ),
-                        SellPrice = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
                         ExpirationDate = table.Column<DateTime>(
                             type: "datetime(6)",
                             nullable: true

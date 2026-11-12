@@ -40,14 +40,12 @@ internal static class InventoryBuilder
     public static ProductBatch Batch(string? lot = null, int? quantity = null)
     {
         var f = TestData.Faker;
-        var purchasePrice = f.Finance.Amount(1, 50);
         return new()
         {
             Id = f.Random.Guid(),
             Lot = lot ?? f.Random.Replace("LOT-#####"),
             Quantity = quantity ?? f.Random.Int(1, 100),
-            PurchasePrice = purchasePrice,
-            SellPrice = purchasePrice + f.Finance.Amount(1, 50),
+            PurchasePrice = f.Finance.Amount(1, 50),
             ExpirationDate = TestData.Date(2027, 2035),
             Location = $"Aisle {f.Random.Int(1, 9)}, shelf {f.Random.Char('A', 'F')}",
         };
@@ -116,14 +114,14 @@ internal static class InventoryBuilder
     public static BatchCreateDto BatchCreateDto(string? lot = null, int? quantity = null)
     {
         var b = Batch(lot, quantity);
-        return new(b.Lot!, b.Quantity, b.PurchasePrice, b.SellPrice, b.ExpirationDate, b.Location);
+        return new(b.Lot!, b.Quantity, b.PurchasePrice, b.ExpirationDate, b.Location);
     }
 
     public static BatchUpdateDto BatchUpdateDto(
         string? lot = null,
         int? quantity = null,
-        decimal? sellPrice = null,
+        decimal? purchasePrice = null,
         DateTime? expirationDate = null,
         string? location = null
-    ) => new(lot, quantity, null, sellPrice, expirationDate, location);
+    ) => new(lot, quantity, purchasePrice, expirationDate, location);
 }

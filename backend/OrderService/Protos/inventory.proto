@@ -3,24 +3,8 @@ syntax = "proto3";
 option csharp_namespace = "InventoryService";
 
 service GrpcInventory{
-	rpc GetAllItems (GetAllRequest) returns (InventoryResponse);
-	// Current product and batch data that an order line snapshots when it is added.
+	// Current product and batch data that an order item snapshots when it is added.
 	rpc GetOrderSnapshot (OrderSnapshotRequest) returns (OrderSnapshotResponse);
-}
-
-message GetAllRequest {}
-
-message GrpcInventoryModel{
-	string externalBatchId = 1; 
-	string externalProductId = 2;
-	string name = 3;
-	string price = 4;
-	string lot = 5;
-	string expirationDate = 6;
-}
-
-message InventoryResponse {
-	repeated GrpcInventoryModel item = 1;
 }
 
 message OrderSnapshotRequest {

@@ -170,14 +170,6 @@ public class CustomerApiTests(CustomerApiFactory factory) : IClassFixture<Custom
         (await _client.GetAsync($"/api/customers/{created.Id}", Ct)).StatusCode.ShouldBe(
             HttpStatusCode.NotFound
         );
-
-        await factory
-            .MessageBus.Received(1)
-            .PublishNewCustomerAsync(
-                Arg.Is<CustomerPublishedDto>(p =>
-                    p.Event == "Customer_Deleted" && p.ExternalId == created.Id
-                )
-            );
     }
 
     [Fact]

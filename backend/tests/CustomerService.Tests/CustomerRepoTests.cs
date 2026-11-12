@@ -41,17 +41,6 @@ public class CustomerRepoTests(MySqlFixture mySql) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetAllCustomersAsync_ReturnsAllCustomers()
-    {
-        await SeedAsync(CustomerBuilder.Customer("A"), CustomerBuilder.Customer("B"));
-
-        await using var context = _db.CreateContext();
-        var customers = await new CustomerRepo(context).GetAllCustomersAsync();
-
-        customers.Select(c => c.Name).ShouldBe(["A", "B"], ignoreOrder: true);
-    }
-
-    [Fact]
     public async Task GetCustomerAsync_Missing_ReturnsNull()
     {
         await using var context = _db.CreateContext();

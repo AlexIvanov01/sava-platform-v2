@@ -3,12 +3,9 @@ syntax = "proto3";
 option csharp_namespace = "CustomerService";
 
 service GrpcCustomer{
-	rpc GetAllCustomers (GetAllRequest) returns (CustomerResponse);
 	// Fails with NOT_FOUND when the customer doesn't exist.
 	rpc GetCustomer (GetCustomerRequest) returns (GrpcCustomerModel);
 }
-
-message GetAllRequest {}
 
 message GetCustomerRequest {
     string id = 1;
@@ -28,8 +25,4 @@ message GrpcCustomerModel{
     string BIC = 11;
     string VATNumber = 12;
     string UIC = 13;
-}
-
-message CustomerResponse {
-	repeated GrpcCustomerModel customers = 1;
 }

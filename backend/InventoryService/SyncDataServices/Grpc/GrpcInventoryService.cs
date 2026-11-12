@@ -19,27 +19,6 @@ public class GrpcInventoryService : GrpcInventory.GrpcInventoryBase
         _timeProvider = timeProvider;
     }
 
-    public override async Task<InventoryResponse> GetAllItems(
-        GetAllRequest request,
-        ServerCallContext context
-    )
-    {
-        var response = new InventoryResponse();
-
-        var products = await _repository.GetAllProductBatchesAsync();
-
-        foreach (var product in products)
-        {
-            foreach (var batch in product.Batches)
-            {
-                batch.Product = product;
-                var item = batch.ToGrpcModel();
-                response.Item.Add(item);
-            }
-        }
-        return response;
-    }
-
     public override async Task<OrderSnapshotResponse> GetOrderSnapshot(
         OrderSnapshotRequest request,
         ServerCallContext context
