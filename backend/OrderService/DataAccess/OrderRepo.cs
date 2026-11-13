@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -34,25 +34,12 @@ public class OrderRepo : IOrderRepo
 
     public async Task SaveChangesAsync() => await _context.SaveChangesAsync();
 
-    public async Task<(DeleteOrderStatus Status, Order? Order)> DeleteOrderAsync(Guid id)
+    public async Task DeleteOrderAsync(Order order)
     {
-        var dbOrder = await WithDetails(_context.Orders.AsNoTracking())
-            .SingleOrDefaultAsync(x => x.Id == id);
-
-        if (dbOrder == null)
-        {
-            return (DeleteOrderStatus.NotFound, null);
-        }
-
-        if (dbOrder.Invoice != null)
-        {
-            return (DeleteOrderStatus.HasInvoice, dbOrder);
-        }
-
-        // A single statement keeps the delete atomic; the database cascades it to the items.
-        await _context.Orders.Where(o => o.Id == id).ExecuteDeleteAsync();
-
-        return (DeleteOrderStatus.Deleted, dbOrder);
+        // The items and batches are tracked with the order, so they are deleted with it, in the
+        // same transaction as the outbox message for the order's raised events.
+        _context.Orders.Remove(order);
+        await _context.SaveChangesAsync();
     }
 
     public async Task<int> GetOrderCountAsync(OrderFilter filter) =>

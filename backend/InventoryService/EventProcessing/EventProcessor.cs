@@ -1,70 +1,49 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using InventoryService.DataAccess;
 using InventoryService.Dtos;
-using Microsoft.Extensions.DependencyInjection;
+using InventoryService.Messaging;
 using Serilog;
 
 namespace InventoryService.EventProcessing;
 
-public class EventProcessor : IEventProcessor
+// Scoped: InboxHandler resolves it in the scope (and DbContext transaction) that records the
+// inbox message, so the stock change and the record are committed together.
+public class EventProcessor(IStockRepo stock) : IEventProcessor
 {
-    private readonly IServiceScopeFactory _scopeFactory;
-
-    public EventProcessor(IServiceScopeFactory scopeFactory)
-    {
-        _scopeFactory = scopeFactory;
-    }
-
     public async Task ProcessEvent(string message)
     {
-        var eventType = DetermineEvent(message);
-
-        switch (eventType)
+        var dto = JsonSerializer.Deserialize<OrderPublishedDto>(message);
+        switch (dto?.Event)
         {
-            case EventType.OrderPublished:
-                await SetOrderStock(message, deleted: false);
+            case InboxHandler.OrderPublished:
+                await SetOrderStock(dto, deleted: false);
                 break;
-            case EventType.OrderDeleted:
-                await SetOrderStock(message, deleted: true);
+            case InboxHandler.OrderDeleted:
+                await SetOrderStock(dto, deleted: true);
                 break;
             default:
-                break;
+                throw new InvalidEventException($"Unknown event '{dto?.Event}'.");
         }
     }
 
     // Order_Published carries the order's full batch quantities, so it becomes the target of what is sold
     // to the order; Order_Deleted sets that target to nothing. The ledger posts only the difference,
     // which makes redelivered or repeated messages harmless.
-    private async Task SetOrderStock(string message, bool deleted)
+    private async Task SetOrderStock(OrderPublishedDto dto, bool deleted)
     {
-        var dto = JsonSerializer.Deserialize<OrderPublishedDto>(message);
-
-        if (dto == null)
-        {
-            Log.Error("--> Could not update stock because message was deserialized to null");
-            return;
-        }
         if (dto.OrderId is not { } orderId || orderId == Guid.Empty)
         {
-            Log.Error("--> Could not update stock because the message has no OrderId: {Dto}", dto);
-            return;
+            throw new InvalidEventException("The message has no OrderId.");
         }
         var batches = (dto.Items ?? []).SelectMany(l => l.Batches ?? []).ToList();
         // An order always has items, so an empty list is a broken message, not "sell nothing".
         if (!deleted && batches.Count == 0)
         {
-            Log.Error(
-                "--> Could not update stock because Order_Published has no items: {Dto}",
-                dto
-            );
-            return;
+            throw new InvalidEventException("Order_Published has no items.");
         }
-
-        using var scope = _scopeFactory.CreateScope();
-        var stock = scope.ServiceProvider.GetRequiredService<IStockRepo>();
 
         if (deleted && !await stock.OrderHasMovementsAsync(orderId))
         {
@@ -98,37 +77,4 @@ public class EventProcessor : IEventProcessor
                 : string.Join(", ", target.Select(t => $"{t.Key}: {t.Value}"))
         );
     }
-
-    private static EventType DetermineEvent(string notificationMessage)
-    {
-        Log.Information("--> Message: {Message} \n--> Determining Event...", notificationMessage);
-
-        var eventType = JsonSerializer.Deserialize<GenericEventDto>(notificationMessage);
-
-        if (eventType == null)
-        {
-            Log.Error("--> Notification message deserialized to null.");
-            return EventType.Undetermined;
-        }
-
-        switch (eventType.Event)
-        {
-            case "Order_Published":
-                Log.Information("--> Order published event detected");
-                return EventType.OrderPublished;
-            case "Order_Deleted":
-                Log.Information("--> Order deleted event detected");
-                return EventType.OrderDeleted;
-            default:
-                Log.Information("--> Could not determine event type");
-                return EventType.Undetermined;
-        }
-    }
-}
-
-enum EventType
-{
-    OrderPublished,
-    OrderDeleted,
-    Undetermined,
 }

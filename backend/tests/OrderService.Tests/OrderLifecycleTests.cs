@@ -1,5 +1,6 @@
 using OrderService.Models;
 using OrderService.Ordering;
+using Sava.Tests.Shared;
 
 namespace OrderService.Tests;
 
@@ -92,5 +93,38 @@ public class OrderLifecycleTests
             OrderStatus.Cancelled,
         ]);
         Matrix().Count.ShouldBe(statuses.Length * statuses.Length * 2);
+    }
+
+    // (from, to, the event Apply raises, or null).
+    [Theory]
+    [InlineData(OrderStatus.InProcess, OrderStatus.Pending, null)]
+    [InlineData(OrderStatus.Pending, OrderStatus.InProcess, null)]
+    [InlineData(OrderStatus.InProcess, OrderStatus.Completed, null)]
+    [InlineData(OrderStatus.Pending, OrderStatus.Completed, null)]
+    [InlineData(OrderStatus.InProcess, OrderStatus.Cancelled, "Order_Deleted")]
+    [InlineData(OrderStatus.Completed, OrderStatus.Cancelled, "Order_Deleted")]
+    [InlineData(OrderStatus.Cancelled, OrderStatus.Pending, "Order_Published")]
+    public void Apply_SetsStatusAndDatesAndRaisesTheStockEvent(
+        OrderStatus from,
+        OrderStatus to,
+        string? raised
+    )
+    {
+        var order = OrderIn(from, withInvoice: false);
+        var cancelledBefore =
+            from == OrderStatus.Cancelled ? TestData.Date(2025, 2026) : (DateTime?)null;
+        order.CancelledDate = cancelledBefore;
+        var now = TestData.Date(2026, 2027);
+
+        OrderLifecycle.Apply(order, to, now);
+
+        order.Status.ShouldBe(to);
+        order.CompletedDate.ShouldBe(to == OrderStatus.Completed ? now : null);
+        order.CancelledDate.ShouldBe(
+            to == OrderStatus.Cancelled ? now
+            : from == OrderStatus.Cancelled ? null
+            : cancelledBefore
+        );
+        order.Events.Select(e => e.Name).ShouldBe(raised == null ? [] : [raised]);
     }
 }

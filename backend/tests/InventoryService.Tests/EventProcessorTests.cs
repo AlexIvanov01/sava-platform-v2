@@ -2,15 +2,14 @@ using System.Text.Json;
 using InventoryService.DataAccess;
 using InventoryService.Dtos;
 using InventoryService.EventProcessing;
-using Microsoft.Extensions.DependencyInjection;
+using InventoryService.Messaging;
 using Sava.Tests.Shared;
 
 namespace InventoryService.Tests;
 
-public sealed class EventProcessorTests : IDisposable
+public sealed class EventProcessorTests
 {
     private readonly IStockRepo _stock = Substitute.For<IStockRepo>();
-    private readonly ServiceProvider _services;
     private readonly EventProcessor _processor;
 
     public EventProcessorTests()
@@ -18,11 +17,16 @@ public sealed class EventProcessorTests : IDisposable
         _stock
             .SetOrderStockAsync(Guid.Empty, default!)
             .ReturnsForAnyArgs(Task.FromResult<IReadOnlyList<Guid>>([]));
-        _services = new ServiceCollection().AddScoped(_ => _stock).BuildServiceProvider();
-        _processor = new EventProcessor(_services.GetRequiredService<IServiceScopeFactory>());
+        _processor = new EventProcessor(_stock);
     }
 
-    public void Dispose() => _services.Dispose();
+    private async Task ShouldBeRejectedAsync(string message, string reason)
+    {
+        (
+            await Should.ThrowAsync<InvalidEventException>(() => _processor.ProcessEvent(message))
+        ).Message.ShouldBe(reason);
+        _stock.ReceivedCalls().ShouldBeEmpty();
+    }
 
     private static string Message(
         string eventName,
@@ -106,54 +110,47 @@ public sealed class EventProcessorTests : IDisposable
     }
 
     [Fact]
-    public async Task OrderPublished_WithoutItems_IsRejected()
-    {
-        await _processor.ProcessEvent(Message("Order_Published", TestData.Faker.Random.Guid()));
-
-        _stock.ReceivedCalls().ShouldBeEmpty();
-    }
-
-    [Fact]
-    public async Task OrderPublished_ItemsWithoutBatches_IsRejected()
-    {
-        await _processor.ProcessEvent(
-            Message("Order_Published", TestData.Faker.Random.Guid(), Item(), Item())
+    public async Task OrderPublished_WithoutItems_IsRejected() =>
+        await ShouldBeRejectedAsync(
+            Message("Order_Published", TestData.Faker.Random.Guid()),
+            "Order_Published has no items."
         );
 
-        _stock.ReceivedCalls().ShouldBeEmpty();
-    }
+    [Fact]
+    public async Task OrderPublished_ItemsWithoutBatches_IsRejected() =>
+        await ShouldBeRejectedAsync(
+            Message("Order_Published", TestData.Faker.Random.Guid(), Item(), Item()),
+            "Order_Published has no items."
+        );
 
     [Fact]
-    public async Task OrderPublished_NullItems_IsRejected()
-    {
-        await _processor.ProcessEvent(
+    public async Task OrderPublished_NullItems_IsRejected() =>
+        await ShouldBeRejectedAsync(
             JsonSerializer.Serialize(
                 new OrderPublishedDto(TestData.Faker.Random.Guid(), null, "Order_Published")
-            )
+            ),
+            "Order_Published has no items."
         );
-
-        _stock.ReceivedCalls().ShouldBeEmpty();
-    }
 
     [Theory]
     [InlineData("Order_Published")]
     [InlineData("Order_Deleted")]
-    public async Task MessageWithoutOrderId_IsSkipped(string eventName)
+    public async Task MessageWithoutOrderId_IsRejected(string eventName)
     {
-        await _processor.ProcessEvent(Message(eventName, null, AnyItem()));
-        await _processor.ProcessEvent(Message(eventName, Guid.Empty, AnyItem()));
-
-        _stock.ReceivedCalls().ShouldBeEmpty();
+        await ShouldBeRejectedAsync(
+            Message(eventName, null, AnyItem()),
+            "The message has no OrderId."
+        );
+        await ShouldBeRejectedAsync(
+            Message(eventName, Guid.Empty, AnyItem()),
+            "The message has no OrderId."
+        );
     }
 
     [Theory]
-    [InlineData("{\"Event\":\"Customer_Published\"}")]
-    [InlineData("{\"Event\":\"\"}")]
-    [InlineData("null")]
-    public async Task ProcessEvent_UnknownEvent_IsIgnored(string message)
-    {
-        await _processor.ProcessEvent(message);
-
-        _stock.ReceivedCalls().ShouldBeEmpty();
-    }
+    [InlineData("{\"Event\":\"Customer_Published\"}", "Customer_Published")]
+    [InlineData("{\"Event\":\"\"}", "")]
+    [InlineData("null", "")]
+    public async Task ProcessEvent_UnknownEvent_IsRejected(string message, string eventName) =>
+        await ShouldBeRejectedAsync(message, $"Unknown event '{eventName}'.");
 }

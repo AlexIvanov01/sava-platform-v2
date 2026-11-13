@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Time.Testing;
 using NSubstitute.ExceptionExtensions;
-using OrderService.AsyncDataServices;
 using OrderService.Controllers;
 using OrderService.DataAccess;
 using OrderService.Dtos;
@@ -18,7 +17,6 @@ namespace OrderService.Tests;
 public class OrdersControllerTests
 {
     private readonly IOrderRepo _repo = Substitute.For<IOrderRepo>();
-    private readonly IMessageBusClient _bus = Substitute.For<IMessageBusClient>();
     private readonly IInventoryDataClient _inventory = Substitute.For<IInventoryDataClient>();
     private readonly ICustomerDataClient _customers = Substitute.For<ICustomerDataClient>();
     private readonly IInvoiceRepo _invoices = Substitute.For<IInvoiceRepo>();
@@ -26,7 +24,11 @@ public class OrdersControllerTests
     private readonly IDbContextTransaction _numbering = Substitute.For<IDbContextTransaction>();
     private readonly FakeTimeProvider _clock;
     private readonly OrdersController _controller;
+
+    // What OrderContext would write to the outbox when the substituted repo saves: the newest
+    // event raised on each saved order, built from its state at that point.
     private readonly List<OrderPublishedEvent> _published = [];
+    private readonly List<Order> _tracked = [];
 
     // Known to the substituted Customer and Inventory services.
     private readonly Guid _customerId = TestData.Faker.Random.Guid();
@@ -43,20 +45,48 @@ public class OrdersControllerTests
         _clock = new FakeTimeProvider(new DateTimeOffset(TestData.Date(2026, 2027), TimeSpan.Zero));
         _controller = new OrdersController(
             _repo,
-            _bus,
             _inventory,
             _customers,
             _clock,
             _invoices,
             _companySettings
         );
-        _bus.PublishNewOrderAsync(Arg.Do<OrderPublishedEvent>(_published.Add));
+        _repo
+            .CreateOrderAsync(Arg.Any<Order>())
+            .Returns(ci =>
+            {
+                Saved(ci.Arg<Order>());
+                return Task.CompletedTask;
+            });
+        _repo
+            .DeleteOrderAsync(Arg.Any<Order>())
+            .Returns(ci =>
+            {
+                Saved(ci.Arg<Order>());
+                return Task.CompletedTask;
+            });
+        _repo
+            .SaveChangesAsync()
+            .Returns(_ =>
+            {
+                _tracked.ForEach(Saved);
+                return Task.CompletedTask;
+            });
         _batches = [OrderBuilder.Batch(_product.Id), OrderBuilder.Batch(_product.Id)];
         _customers.GetCustomerAsync(_customerId).Returns(_customer);
         _inventory.Serves(OrderBuilder.Catalog([_product], _batches));
         _companySettings.GetAsync().Returns(_company);
         _invoices.NextNumberAsync().Returns(_nextNumber);
         _invoices.BeginNumberingAsync().Returns(_numbering);
+    }
+
+    private void Saved(Order order)
+    {
+        if (order.Events.Count > 0)
+        {
+            _published.Add(order.ToPublishedEvent(order.Events[^1].Name, Guid.Empty));
+        }
+        order.ClearEvents();
     }
 
     private static UpstreamUnavailableException Unavailable(string service) =>
@@ -74,6 +104,7 @@ public class OrdersControllerTests
         var order = OrderBuilder.OrderFor(_customerId, OrderBuilder.Item(batchCount: 2));
         order.Status = status;
         _repo.GetOrderForUpdateAsync(order.Id).Returns(order);
+        _tracked.Add(order);
         return order;
     }
 
@@ -178,7 +209,7 @@ public class OrdersControllerTests
     }
 
     [Fact]
-    public async Task CreateOrder_Valid_SnapshotsSavesAndPublishes()
+    public async Task CreateOrder_Valid_SnapshotsSavesAndRaisesOrderPublished()
     {
         var orderId = TestData.Faker.Random.Guid();
         Order? saved = null;
@@ -188,6 +219,7 @@ public class OrdersControllerTests
             {
                 saved = ci.Arg<Order>();
                 saved.Id = orderId;
+                Saved(saved);
                 return Task.CompletedTask;
             });
         var (q0, q1) = (TestData.Faker.Random.Int(1, 20), TestData.Faker.Random.Int(1, 20));
@@ -325,23 +357,6 @@ public class OrdersControllerTests
     }
 
     [Fact]
-    public async Task CreateOrder_PublishFails_StillReturnsCreated()
-    {
-        _bus.PublishNewOrderAsync(Arg.Any<OrderPublishedEvent>())
-            .ThrowsAsync(new InvalidOperationException());
-
-        var result = await _controller.CreateOrder(
-            OrderBuilder.CreateDto(
-                _customerId,
-                OrderBuilder.ItemDto(_product.Id, (_batches[0].Id, 1))
-            )
-        );
-
-        result.Result.ShouldBeOfType<CreatedAtRouteResult>();
-        await _repo.Received(1).CreateOrderAsync(Arg.Any<Order>());
-    }
-
-    [Fact]
     public async Task UpdateOrder_Missing_ReturnsNotFound()
     {
         (
@@ -402,6 +417,7 @@ public class OrdersControllerTests
     {
         var order = OrderBuilder.Order(OrderBuilder.Item());
         _repo.GetOrderForUpdateAsync(order.Id).Returns(order);
+        _tracked.Add(order);
 
         var body = (
             await _controller.UpdateOrder(order.Id, OrderBuilder.UpdateDto(customerId: _customerId))
@@ -943,36 +959,24 @@ public class OrdersControllerTests
     }
 
     [Fact]
-    public async Task ChangeStatus_PublishFails_StillReturnsOk()
-    {
-        var order = ExistingOrder(OrderStatus.Pending);
-        _bus.PublishNewOrderAsync(Arg.Any<OrderPublishedEvent>())
-            .ThrowsAsync(new InvalidOperationException());
-
-        (
-            await _controller.ChangeStatus(order.Id, OrderBuilder.StatusDto(OrderStatus.Cancelled))
-        ).Result.ShouldBeOfType<OkObjectResult>();
-        order.Status.ShouldBe(OrderStatus.Cancelled);
-    }
-
-    [Fact]
     public async Task DeleteOrder_Missing_ReturnsNotFound()
     {
-        _repo.DeleteOrderAsync(Arg.Any<Guid>()).Returns((DeleteOrderStatus.NotFound, (Order?)null));
-
         (
             await _controller.DeleteOrder(TestData.Faker.Random.Guid())
         ).ShouldBeOfType<NotFoundResult>();
+        await _repo.DidNotReceiveWithAnyArgs().DeleteOrderAsync(default!);
         _published.ShouldBeEmpty();
     }
 
     [Fact]
-    public async Task DeleteOrder_Existing_PublishesOrderDeletedWithItems()
+    public async Task DeleteOrder_Existing_DeletesAndRaisesOrderDeletedWithItems()
     {
         var order = OrderBuilder.Order(OrderBuilder.Item(batchCount: 2), OrderBuilder.Item());
-        _repo.DeleteOrderAsync(order.Id).Returns((DeleteOrderStatus.Deleted, order));
+        _repo.GetOrderForUpdateAsync(order.Id).Returns(order);
 
         (await _controller.DeleteOrder(order.Id)).ShouldBeOfType<NoContentResult>();
+
+        await _repo.Received(1).DeleteOrderAsync(order);
 
         var published = _published.ShouldHaveSingleItem();
         published.Event.ShouldBe("Order_Deleted");
@@ -985,7 +989,8 @@ public class OrdersControllerTests
     public async Task DeleteOrder_HasInvoice_Returns409WithMessageAndDoesNotPublish()
     {
         var order = OrderBuilder.Order(OrderBuilder.Item());
-        _repo.DeleteOrderAsync(order.Id).Returns((DeleteOrderStatus.HasInvoice, order));
+        order.Invoice = InvoiceOf(order);
+        _repo.GetOrderForUpdateAsync(order.Id).Returns(order);
 
         var result = (await _controller.DeleteOrder(order.Id)).ShouldBeOfType<ObjectResult>();
 
@@ -995,28 +1000,20 @@ public class OrdersControllerTests
         problem.Detail.ShouldBe(
             $"Order {order.Id} has an invoice. Delete the invoice before deleting the order."
         );
+        await _repo.DidNotReceiveWithAnyArgs().DeleteOrderAsync(default!);
         _published.ShouldBeEmpty();
     }
 
     [Fact]
     public async Task DeleteOrder_RepoThrows_Returns500()
     {
-        _repo.DeleteOrderAsync(Arg.Any<Guid>()).ThrowsAsync(new InvalidOperationException());
+        var order = OrderBuilder.Order(OrderBuilder.Item());
+        _repo.GetOrderForUpdateAsync(order.Id).Returns(order);
+        _repo.DeleteOrderAsync(order).ThrowsAsync(new InvalidOperationException());
 
-        (await _controller.DeleteOrder(TestData.Faker.Random.Guid()))
+        (await _controller.DeleteOrder(order.Id))
             .ShouldBeOfType<ObjectResult>()
             .StatusCode.ShouldBe(500);
         _published.ShouldBeEmpty();
-    }
-
-    [Fact]
-    public async Task DeleteOrder_PublishFails_StillReturnsNoContent()
-    {
-        var order = OrderBuilder.Order(OrderBuilder.Item());
-        _repo.DeleteOrderAsync(order.Id).Returns((DeleteOrderStatus.Deleted, order));
-        _bus.PublishNewOrderAsync(Arg.Any<OrderPublishedEvent>())
-            .ThrowsAsync(new InvalidOperationException());
-
-        (await _controller.DeleteOrder(order.Id)).ShouldBeOfType<NoContentResult>();
     }
 }

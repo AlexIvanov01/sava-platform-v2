@@ -51,18 +51,9 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
         return order;
     }
 
-    // The events published for the order so far, oldest first.
-    private List<OrderPublishedEvent> PublishedFor(Guid orderId) =>
-        [
-            .. factory
-                .MessageBus.ReceivedCalls()
-                .Where(c =>
-                    c.GetMethodInfo().Name == nameof(IMessageBusClient.PublishNewOrderAsync)
-                )
-                .Select(c => c.GetArguments()[0])
-                .OfType<OrderPublishedEvent>()
-                .Where(e => e.OrderId == orderId),
-        ];
+    // The events written to the outbox for the order so far, oldest first.
+    private Task<List<OrderPublishedEvent>> PublishedForAsync(Guid orderId) =>
+        factory.OutboxFor(orderId);
 
     private static async Task<ProblemDetails> ShouldBeProblemAsync(
         HttpResponseMessage response,
@@ -121,17 +112,13 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
         order.Totals.Net.ShouldBe(item.Net);
         order.Totals.Gross.ShouldBe(item.Gross);
         (await GetOrderAsync(order.Id)).Items.ShouldHaveSingleItem().Batches.Count.ShouldBe(2);
-        await factory
-            .MessageBus.Received(1)
-            .PublishNewOrderAsync(
-                Arg.Is<OrderPublishedEvent>(e =>
-                    e.Event == "Order_Published"
-                    && e.OrderId == order.Id
-                    && e.CustomerId == factory.CustomerId
-                    && e.Items.Single().ProductId == product.Id
-                    && e.Items.Single().Batches.Sum(b => b.Quantity) == q0 + q1
-                )
-            );
+        var published = (await PublishedForAsync(order.Id)).ShouldHaveSingleItem();
+        published.Event.ShouldBe("Order_Published");
+        published.MessageId.ShouldNotBe(Guid.Empty);
+        published.CustomerId.ShouldBe(factory.CustomerId);
+        var publishedItem = published.Items.ShouldHaveSingleItem();
+        publishedItem.ProductId.ShouldBe(product.Id);
+        publishedItem.Batches.Sum(b => b.Quantity).ShouldBe(q0 + q1);
     }
 
     [Fact]
@@ -460,6 +447,7 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
             TestTokens.Bearer(creator)
         );
         var order = await CreateOrderAsync();
+        (await PublishedForAsync(order.Id)).Count.ShouldBe(1);
         order.Status.ShouldBe(OrderStatus.InProcess);
         order.Invoice.ShouldBeNull();
         order.Audit.ShouldNotBeNull().CreatedBy.ShouldBe(creator);
@@ -491,7 +479,7 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
         (await ChangeStatusOkAsync(order.Id, OrderStatus.Pending)).Invoice.ShouldBeNull();
         (await GetOrderAsync(order.Id)).Status.ShouldBe(OrderStatus.Pending);
         await ChangeStatusOkAsync(order.Id, OrderStatus.InProcess);
-        PublishedFor(order.Id).Count.ShouldBe(2);
+        (await PublishedForAsync(order.Id)).Count.ShouldBe(2);
 
         // Completing creates the invoice and locks the order.
         var completed = await ChangeStatusOkAsync(order.Id, OrderStatus.Completed);
@@ -503,7 +491,7 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
         invoice.DueDate.ShouldNotBeNull().ShouldBeGreaterThanOrEqualTo(completedDate.Date);
         invoice.PaymentStatus.ShouldBe(PaymentStatus.Unpaid);
         invoice.Gross.ShouldBe(updated.Totals.Gross);
-        PublishedFor(order.Id).Count.ShouldBe(2);
+        (await PublishedForAsync(order.Id)).Count.ShouldBe(2);
         var saved = await GetOrderAsync(order.Id);
         saved.Status.ShouldBe(OrderStatus.Completed);
         saved.Invoice.ShouldNotBeNull().Id.ShouldBe(invoice.Id);
@@ -581,6 +569,7 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
         // Cancelling releases the stock; reopening takes it again.
         var cancelled = await ChangeStatusOkAsync(order.Id, OrderStatus.Cancelled);
         cancelled.CancelledDate.ShouldNotBeNull();
+        (await PublishedForAsync(order.Id)).Count.ShouldBe(3);
         (
             await _client.PutAsJsonAsync(
                 $"/api/orders/{order.Id}",
@@ -591,6 +580,7 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
         var pending = await ChangeStatusOkAsync(order.Id, OrderStatus.Pending);
         pending.CancelledDate.ShouldBeNull();
         pending.CompletedDate.ShouldBeNull();
+        (await PublishedForAsync(order.Id)).Count.ShouldBe(4);
 
         _client.DefaultRequestHeaders.Authorization = null;
         (await _client.DeleteAsync($"/api/orders/{order.Id}", Ct)).StatusCode.ShouldBe(
@@ -601,7 +591,7 @@ public class OrderApiTests(OrderApiFactory factory) : IClassFixture<OrderApiFact
         );
 
         // create, update, cancel, reopen, delete; every later event carries the updated items.
-        var events = PublishedFor(order.Id);
+        var events = await PublishedForAsync(order.Id);
         events
             .Select(e => e.Event)
             .ShouldBe([

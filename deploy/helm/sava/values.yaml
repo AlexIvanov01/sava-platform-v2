@@ -100,8 +100,12 @@ backup:
     limits: { memory: 1Gi }
 
 # In-cluster RabbitMQ. Credentials come from the Secret (rabbitmq-user / rabbitmq-password).
+# Its data lives on its own PVC, which Helm keeps on uninstall.
 rabbitmq:
   image: rabbitmq:4.3-management
+  storage: 1Gi
+  # Uses the cluster's default StorageClass unless set.
+  storageClassName: ""
   # Optional LoadBalancer for the management UI.
   expose:
     enabled: false

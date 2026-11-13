@@ -1,3 +1,4 @@
+using System;
 using OrderService.Models;
 
 namespace OrderService.Ordering;
@@ -29,4 +30,27 @@ public static class OrderLifecycle
                 : "A cancelled order with an invoice can't be reopened; delete the invoice first.",
             _ => $"An order can't go from {order.Status} to {target}.",
         };
+
+    // Makes an allowed change (see CheckTransition) and raises the event it implies: cancelling
+    // releases the stock (OrderDeleted), reopening a cancelled order takes it again
+    // (OrderPublished). Completing creates no event; the caller adds the invoice.
+    public static void Apply(Order order, OrderStatus target, DateTime now)
+    {
+        var previous = order.Status;
+        switch (target)
+        {
+            case OrderStatus.Completed:
+                order.CompletedDate = now;
+                break;
+            case OrderStatus.Cancelled:
+                order.CancelledDate = now;
+                order.Raise(new OrderDeleted());
+                break;
+            case OrderStatus.Pending when previous == OrderStatus.Cancelled:
+                order.CancelledDate = null;
+                order.Raise(new OrderPublished());
+                break;
+        }
+        order.Status = target;
+    }
 }

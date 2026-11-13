@@ -3,36 +3,32 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using CustomerService.DataAccess;
 using CustomerService.Dtos;
-using Microsoft.Extensions.DependencyInjection;
+using CustomerService.Messaging;
 using Serilog;
 
 namespace CustomerService.EventProcessing;
 
 // Tracks which customer each order belongs to. Both events carry the order's current state,
-// so applying one twice, or out of order with an update, leaves the right reference.
-public class EventProcessor(IServiceScopeFactory scopeFactory) : IEventProcessor
+// so applying one twice leaves the right reference. Scoped: InboxHandler resolves it in the scope
+// (and DbContext transaction) that records the inbox message.
+public class EventProcessor(ICustomerRepo repo) : IEventProcessor
 {
-    public const string OrderPublished = "Order_Published";
-    public const string OrderDeleted = "Order_Deleted";
+    public const string OrderPublished = InboxHandler.OrderPublished;
+    public const string OrderDeleted = InboxHandler.OrderDeleted;
 
     public async Task ProcessEvent(string message)
     {
-        var eventName = JsonSerializer.Deserialize<GenericEventDto>(message)?.Event;
+        var dto = JsonSerializer.Deserialize<OrderPublishedDto>(message);
+        var eventName = dto?.Event;
         if (eventName is not (OrderPublished or OrderDeleted))
         {
-            Log.Information("--> Ignoring event {Event}.", eventName);
-            return;
+            throw new InvalidEventException($"Unknown event '{eventName}'.");
         }
 
-        var dto = JsonSerializer.Deserialize<OrderPublishedDto>(message);
         if (dto?.OrderId is not { } orderId || orderId == Guid.Empty)
         {
-            Log.Error("--> Could not process {Event}: the message has no OrderId.", eventName);
-            return;
+            throw new InvalidEventException($"{eventName} has no OrderId.");
         }
-
-        using var scope = scopeFactory.CreateScope();
-        var repo = scope.ServiceProvider.GetRequiredService<ICustomerRepo>();
 
         if (eventName == OrderDeleted)
         {
@@ -43,8 +39,7 @@ public class EventProcessor(IServiceScopeFactory scopeFactory) : IEventProcessor
 
         if (dto.CustomerId is not { } customerId || customerId == Guid.Empty)
         {
-            Log.Error("--> Could not process {Event}: the message has no CustomerId.", eventName);
-            return;
+            throw new InvalidEventException($"{eventName} has no CustomerId.");
         }
 
         await repo.SetOrderCustomerAsync(orderId, customerId);

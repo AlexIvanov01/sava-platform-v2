@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using InventoryService.Auditing;
+using InventoryService.Messaging;
 using InventoryService.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,6 +22,7 @@ public class ProductContext : DbContext
     public DbSet<ProductBatch> ProductBatches { get; set; }
     public DbSet<Category> Categories { get; set; }
     public DbSet<StockMovement> StockMovements { get; set; }
+    public DbSet<InboxMessage> InboxMessages { get; set; }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -74,6 +76,15 @@ public class ProductContext : DbContext
             movement.Property(m => m.Reason).HasConversion<string>().HasMaxLength(20);
             // Order events reconcile per (order, batch).
             movement.HasIndex(m => new { m.OrderId, m.BatchId });
+        });
+
+        modelBuilder.Entity<InboxMessage>(message =>
+        {
+            message.Property(m => m.Status).HasConversion<string>();
+            message.Property(m => m.Sequence).ValueGeneratedOnAdd();
+            message.HasIndex(m => m.Sequence).IsUnique();
+            message.HasIndex(m => new { m.Status, m.CreatedAt });
+            message.HasIndex(m => m.AggregateId);
         });
     }
 }

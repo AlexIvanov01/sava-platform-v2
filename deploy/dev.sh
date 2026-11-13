@@ -9,8 +9,8 @@ Usage: deploy/dev.sh [--reset] [service...]
 Builds the images and installs or upgrades the dev release on Docker Desktop Kubernetes.
 
   service   auth, customer, inventory, order or gateway. Default: all of them.
-  --reset   Uninstall first and delete the MySQL volume, so the databases are re-created
-            and re-seeded with sample data.
+  --reset   Uninstall first and delete the MySQL and RabbitMQ volumes, so the databases are
+            re-created and re-seeded with sample data and no old messages are delivered.
 EOF
 }
 
@@ -67,9 +67,9 @@ for service in $services; do
 done
 
 if $reset; then
-  echo "==> Removing the release and the MySQL volume"
+  echo "==> Removing the release and the MySQL and RabbitMQ volumes"
   helm uninstall "$RELEASE" -n "$NAMESPACE" --wait 2>/dev/null || true
-  kubectl delete pvc data-mysql-0 -n "$NAMESPACE" --ignore-not-found
+  kubectl delete pvc data-mysql-0 data-rabbitmq-0 -n "$NAMESPACE" --ignore-not-found
 fi
 
 upgrade=false

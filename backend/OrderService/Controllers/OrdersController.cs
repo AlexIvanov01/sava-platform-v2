@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using OrderService.AsyncDataServices;
 using OrderService.DataAccess;
 using OrderService.Dtos;
 using OrderService.Invoicing;
@@ -22,7 +21,6 @@ namespace OrderService.Controllers;
 public class OrdersController : ControllerBase
 {
     private readonly IOrderRepo _repository;
-    private readonly IMessageBusClient _messageBusClient;
     private readonly IInventoryDataClient _inventory;
     private readonly ICustomerDataClient _customers;
     private readonly TimeProvider _timeProvider;
@@ -31,7 +29,6 @@ public class OrdersController : ControllerBase
 
     public OrdersController(
         IOrderRepo orderRepo,
-        IMessageBusClient messageBusClient,
         IInventoryDataClient inventory,
         ICustomerDataClient customers,
         TimeProvider timeProvider,
@@ -43,7 +40,6 @@ public class OrdersController : ControllerBase
         _invoices = invoices;
         _companySettings = companySettings;
         _repository = orderRepo;
-        _messageBusClient = messageBusClient;
         _inventory = inventory;
         _customers = customers;
     }
@@ -155,6 +151,7 @@ public class OrdersController : ControllerBase
                 return problem;
             }
 
+            order.Raise(new OrderPublished());
             await _repository.CreateOrderAsync(order);
 
             Log.Information("--> Customer order created: {Id}", order.Id);
@@ -168,8 +165,6 @@ public class OrdersController : ControllerBase
             Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
             return StatusCode(500, "An internal server error occurred.");
         }
-
-        await PublishAsync(order, "Order_Published");
 
         var dto = order.ToReadDto();
         return CreatedAtRoute(nameof(GetOrderById), new { dto.Id }, dto);
@@ -237,6 +232,9 @@ public class OrdersController : ControllerBase
             order.OrderDate = orderUpdateDto.OrderDate ?? order.OrderDate;
             order.ShippingAddress = orderUpdateDto.ShippingAddress ?? order.ShippingAddress;
 
+            // Always the full current state: subscribers apply only what changed (Inventory moves
+            // stock for changed batches, CustomerService follows a change of customer).
+            order.Raise(new OrderPublished());
             await _repository.SaveChangesAsync();
 
             Log.Information("--> Order with id {Id} updated", id);
@@ -250,10 +248,6 @@ public class OrdersController : ControllerBase
             Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
             return StatusCode(500, "An internal server error occurred.");
         }
-
-        // Always the full current state: subscribers apply only what changed (Inventory moves
-        // stock for changed batches, CustomerService follows a change of customer).
-        await PublishAsync(order, "Order_Published");
 
         return Ok(order.ToReadDto());
     }
@@ -325,25 +319,16 @@ public class OrdersController : ControllerBase
             }
 
             var now = _timeProvider.GetUtcNow().UtcDateTime;
-            switch (target)
+            OrderLifecycle.Apply(order, target, now);
+            if (target == OrderStatus.Completed)
             {
-                case OrderStatus.Completed:
-                    order.CompletedDate = now;
-                    order.Invoice = InvoiceFactory.Create(
-                        order,
-                        company!,
-                        await _invoices.NextNumberAsync(),
-                        now
-                    );
-                    break;
-                case OrderStatus.Cancelled:
-                    order.CancelledDate = now;
-                    break;
-                case OrderStatus.Pending when previous == OrderStatus.Cancelled:
-                    order.CancelledDate = null;
-                    break;
+                order.Invoice = InvoiceFactory.Create(
+                    order,
+                    company!,
+                    await _invoices.NextNumberAsync(),
+                    now
+                );
             }
-            order.Status = target;
 
             await _repository.SaveChangesAsync();
             if (numbering != null)
@@ -358,15 +343,6 @@ public class OrdersController : ControllerBase
             return StatusCode(500, "An internal server error occurred.");
         }
 
-        if (order.Status == OrderStatus.Cancelled)
-        {
-            await PublishAsync(order, "Order_Deleted");
-        }
-        else if (previous == OrderStatus.Cancelled)
-        {
-            await PublishAsync(order, "Order_Published");
-        }
-
         return Ok(order.ToReadDto());
     }
 
@@ -376,20 +352,18 @@ public class OrdersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> DeleteOrder(Guid id)
     {
-        Order deletedOrder;
         try
         {
             Log.Information("--> Deleting an order...........");
 
-            var (status, order) = await _repository.DeleteOrderAsync(id);
-
-            if (status == DeleteOrderStatus.NotFound)
+            var order = await _repository.GetOrderForUpdateAsync(id);
+            if (order == null)
             {
                 Log.Warning("--> Order with id {Id} not found for deleting.", id);
                 return NotFound();
             }
 
-            if (status == DeleteOrderStatus.HasInvoice)
+            if (order.Invoice != null)
             {
                 Log.Warning("--> Order with id {Id} has an invoice and was not deleted.", id);
                 return Problem(
@@ -399,17 +373,16 @@ public class OrdersController : ControllerBase
                 );
             }
 
-            Log.Information("--> Order with id {Id} deleted", id);
+            order.Raise(new OrderDeleted());
+            await _repository.DeleteOrderAsync(order);
 
-            deletedOrder = order!;
+            Log.Information("--> Order with id {Id} deleted", id);
         }
         catch (Exception ex)
         {
             Log.Fatal(ex, "--> Internal server error: {Message}", ex.Message);
             return StatusCode(500, "An internal server error occurred.");
         }
-
-        await PublishAsync(deletedOrder, "Order_Deleted");
 
         return NoContent();
     }
@@ -461,26 +434,5 @@ public class OrdersController : ControllerBase
             title: $"{ex.Service} unavailable",
             detail: $"{ex.Service} did not respond, so the order was not saved. Try again."
         );
-    }
-
-    // After the database change; a bus failure doesn't fail the request.
-    private async Task PublishAsync(Order order, string eventName)
-    {
-        try
-        {
-            await _messageBusClient.PublishNewOrderAsync(
-                new OrderPublishedEvent
-                {
-                    OrderId = order.Id,
-                    CustomerId = order.CustomerId.GetValueOrDefault(),
-                    Items = order.Items.ToPublishedDtos(),
-                    Event = eventName,
-                }
-            );
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Error with publishing order message: {Message}", ex.Message);
-        }
     }
 }

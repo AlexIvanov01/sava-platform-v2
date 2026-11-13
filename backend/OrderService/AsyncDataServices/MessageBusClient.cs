@@ -1,28 +1,33 @@
-﻿using System;
+using System;
 using System.Text;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
-using OrderService.Dtos;
+using Microsoft.Extensions.Options;
+using OrderService.Messaging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Serilog;
 
 namespace OrderService.AsyncDataServices;
 
+// Used only by OutboxPublisher. Publishes persistent messages with publisher confirms, so a
+// message counts as sent only once the broker has stored it.
 public sealed class MessageBusClient : IMessageBusClient, IAsyncDisposable
 {
-    private const string Exchange = "order_exchange";
-    private const string RoutingKey = "order.published";
+    // Also declared by the chart's RabbitMQ definitions and by the subscribers.
+    public const string Exchange = "order_events";
+    public const string RoutingKey = "order.published";
 
     private readonly ConnectionFactory _factory;
+    private readonly TimeSpan _publishTimeout;
     private readonly SemaphoreSlim _lock = new(1, 1);
     private IConnection? _connection;
     private IChannel? _channel;
 
-    public MessageBusClient(IConfiguration configuration)
+    public MessageBusClient(IConfiguration configuration, IOptions<MessagingOptions> options)
     {
+        _publishTimeout = TimeSpan.FromSeconds(options.Value.PublishTimeoutSeconds);
         _factory = new ConnectionFactory()
         {
             HostName = configuration["RabbitMQHost"]!,
@@ -32,23 +37,41 @@ public sealed class MessageBusClient : IMessageBusClient, IAsyncDisposable
         };
     }
 
-    public async Task PublishNewOrderAsync(OrderPublishedEvent order)
+    public async Task PublishAsync(
+        Guid messageId,
+        string eventType,
+        string payload,
+        CancellationToken ct
+    )
     {
-        var message = JsonSerializer.Serialize(order);
-        var body = Encoding.UTF8.GetBytes(message);
+        var body = Encoding.UTF8.GetBytes(payload);
+        var properties = new BasicProperties
+        {
+            MessageId = messageId.ToString(),
+            Type = eventType,
+            ContentType = "application/json",
+            Persistent = true,
+            Timestamp = new AmqpTimestamp(DateTimeOffset.UtcNow.ToUnixTimeSeconds()),
+        };
 
-        await _lock.WaitAsync();
+        await _lock.WaitAsync(ct);
         try
         {
-            var channel = await GetChannelAsync();
-            if (channel is null)
-            {
-                Log.Warning("--> RabbitMQ connection unavailable, not sending.");
-                return;
-            }
+            var channel = await GetChannelAsync(ct);
 
-            await channel.BasicPublishAsync(exchange: Exchange, routingKey: RoutingKey, body: body);
-            Log.Information("--> We have sent {Message}", message);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(_publishTimeout);
+            // With confirmation tracking this waits for the broker's ack and throws on a nack or,
+            // because of mandatory, when no queue is bound to take the message.
+            await channel.BasicPublishAsync(
+                exchange: Exchange,
+                routingKey: RoutingKey,
+                mandatory: true,
+                basicProperties: properties,
+                body: body,
+                cancellationToken: timeout.Token
+            );
+            Log.Information("--> Sent {Type} {MessageId}", eventType, messageId);
         }
         finally
         {
@@ -57,7 +80,7 @@ public sealed class MessageBusClient : IMessageBusClient, IAsyncDisposable
     }
 
     // Connects lazily so the service can start before RabbitMQ is up, and reconnects if the channel was closed.
-    private async Task<IChannel?> GetChannelAsync()
+    private async Task<IChannel> GetChannelAsync(CancellationToken ct)
     {
         if (_channel is { IsOpen: true })
         {
@@ -68,18 +91,30 @@ public sealed class MessageBusClient : IMessageBusClient, IAsyncDisposable
         {
             await DisposeConnectionAsync();
 
-            _connection = await _factory.CreateConnectionAsync();
+            _connection = await _factory.CreateConnectionAsync(ct);
             _connection.ConnectionShutdownAsync += RabbitMQ_ConnectionShutdownAsync;
-            _channel = await _connection.CreateChannelAsync();
-            await _channel.ExchangeDeclareAsync(exchange: Exchange, type: ExchangeType.Direct);
+            _channel = await _connection.CreateChannelAsync(
+                new CreateChannelOptions(
+                    publisherConfirmationsEnabled: true,
+                    publisherConfirmationTrackingEnabled: true
+                ),
+                ct
+            );
+            await _channel.ExchangeDeclareAsync(
+                exchange: Exchange,
+                type: ExchangeType.Direct,
+                durable: true,
+                autoDelete: false,
+                cancellationToken: ct
+            );
             Log.Information("--> Connected to MessageBus");
             return _channel;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            Log.Error(ex, "Could not connect to a message bus: {Message}", ex.Message);
+            Log.Warning(ex, "--> Could not connect to the message bus: {Message}", ex.Message);
             await DisposeConnectionAsync();
-            return null;
+            throw new MessageBusUnavailableException(ex);
         }
     }
 

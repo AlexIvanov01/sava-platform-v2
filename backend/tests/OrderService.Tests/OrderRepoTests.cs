@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using OrderService.DataAccess;
 using OrderService.Dtos;
@@ -360,7 +361,7 @@ public class OrderRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
     }
 
     [Fact]
-    public async Task DeleteOrderAsync_RemovesOrderWithItsItemsAndBatches()
+    public async Task DeleteOrderAsync_RemovesOrderWithItsItemsAndBatchesAndWritesTheEvent()
     {
         var order = OrderBuilder.Order(OrderBuilder.Item(batchCount: 2), OrderBuilder.Item());
         var other = await SeedOrderAsync(1);
@@ -369,22 +370,30 @@ public class OrderRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
         await using (var context = Db.CreateContext())
         {
             var repo = new OrderRepo(context);
-            var (status, deleted) = await repo.DeleteOrderAsync(order.Id);
-            status.ShouldBe(DeleteOrderStatus.Deleted);
-            // Returned with its items, for the Order_Deleted event.
-            Batches(deleted.ShouldNotBeNull()).ShouldBe(Batches(order));
-            (await repo.DeleteOrderAsync(order.Id)).ShouldBe((DeleteOrderStatus.NotFound, null));
+            var tracked = (await repo.GetOrderForUpdateAsync(order.Id)).ShouldNotBeNull();
+            tracked.Raise(new OrderDeleted());
+            await repo.DeleteOrderAsync(tracked);
+            (await repo.GetOrderForUpdateAsync(order.Id)).ShouldBeNull();
         }
 
         await using var assert = Db.CreateContext();
         (await assert.Orders.SingleAsync(Ct)).Id.ShouldBe(other.Id);
         (await assert.OrderItems.SingleAsync(Ct)).OrderId.ShouldBe(other.Id);
         (await assert.OrderItemBatches.CountAsync(Ct)).ShouldBe(1);
+        // The event still describes the items the order had.
+        var message = await assert.OutboxMessages.SingleAsync(Ct);
+        message.Type.ShouldBe("Order_Deleted");
+        var published = JsonSerializer.Deserialize<OrderPublishedEvent>(message.Payload!)!;
+        published
+            .Items.SelectMany(i => i.Batches.Select(b => (i.ProductId, b.BatchId, b.Quantity)))
+            .OrderBy(b => b.BatchId)
+            .ShouldBe(Batches(order).Select(b => (b.ProductId, b.BatchId, b.Quantity)));
     }
 
-    // An invoiced order is reported, not deleted; its items stay intact.
+    // EF refuses to delete an order whose invoice is loaded (the invoice's foreign key restricts
+    // the delete); nothing is written, not even the event.
     [Fact]
-    public async Task DeleteOrderAsync_InvoicedOrder_ReturnsHasInvoiceWithoutDeleting()
+    public async Task DeleteOrderAsync_InvoicedOrder_IsRefused()
     {
         var order = await SeedOrderAsync(2);
         await using (var seed = Db.CreateContext())
@@ -397,14 +406,18 @@ public class OrderRepoTests(MySqlFixture mySql) : OrderDbTestBase(mySql)
 
         await using (var context = Db.CreateContext())
         {
-            var (status, returned) = await new OrderRepo(context).DeleteOrderAsync(order.Id);
-            status.ShouldBe(DeleteOrderStatus.HasInvoice);
-            returned.ShouldNotBeNull().Invoice.ShouldNotBeNull();
+            var repo = new OrderRepo(context);
+            var tracked = (await repo.GetOrderForUpdateAsync(order.Id)).ShouldNotBeNull();
+            tracked.Raise(new OrderDeleted());
+            await Should.ThrowAsync<InvalidOperationException>(() =>
+                repo.DeleteOrderAsync(tracked)
+            );
         }
 
         await using var assert = Db.CreateContext();
         (await assert.Orders.AnyAsync(o => o.Id == order.Id, Ct)).ShouldBeTrue();
         (await assert.OrderItems.CountAsync(l => l.OrderId == order.Id, Ct)).ShouldBe(2);
         (await assert.OrderItemBatches.CountAsync(Ct)).ShouldBe(2);
+        (await assert.OutboxMessages.AnyAsync(Ct)).ShouldBeFalse();
     }
 }

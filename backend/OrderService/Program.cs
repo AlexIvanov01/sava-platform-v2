@@ -9,6 +9,7 @@ using Microsoft.Extensions.Hosting;
 using OrderService.AsyncDataServices;
 using OrderService.Auditing;
 using OrderService.DataAccess;
+using OrderService.Messaging;
 using OrderService.SyncDataServices.Grpc;
 using Serilog;
 
@@ -38,6 +39,15 @@ builder.Services.AddSingleton<IInventoryDataClient, InventoryDataClient>();
 builder.Services.AddSingleton<ICustomerDataClient, CustomerDataClient>();
 builder.Services.AddSingleton<IMessageBusClient, MessageBusClient>();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.Configure<MessagingOptions>(
+    builder.Configuration.GetSection(MessagingOptions.Section)
+);
+builder.Services.AddSingleton<OutboxSignal>();
+if (!isOpenApiGeneration)
+{
+    builder.Services.AddHostedService<OutboxPublisher>();
+    builder.Services.AddHostedService<OutboxCleanup>();
+}
 
 Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration).CreateLogger();
 

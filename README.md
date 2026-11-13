@@ -27,6 +27,17 @@ A scalable and modern platform designed for distribution companies, built using 
 
 The platform follows a microservices architecture, with each service having its own database and clear responsibilities. Communication between services is achieved through gRPC for synchronous operations and RabbitMQ for asynchronous messaging.
 
+### Order events (outbox and inbox)
+
+OrderService tells InventoryService (stock) and CustomerService (which customer an order belongs to) about order changes through RabbitMQ, without losing events:
+
+1. Saving an order also writes an `OutboxMessages` row in the same transaction, so the change and its event are stored together or not at all.
+2. A background publisher in OrderService sends the row right away to the `order_events` exchange and marks it `Sent` once the broker confirms it. If RabbitMQ is down or the pod restarts, the row stays `Pending` and is sent by a sweep every 15 minutes (or sooner, by the next order save). A MySQL lock lets only one pod send at a time, which keeps events in order. A send that keeps failing is retried with backoff and marked `Failed` after 10 attempts.
+3. Each consumer receives one message at a time (single active consumer), processes it and records it in its `InboxMessages` table in one transaction, then acknowledges it. A message already recorded is skipped. If processing fails, the message goes back to the queue and is retried; after 5 attempts, or straight away for a message that can't be processed, it is recorded as `Failed`.
+
+Each event carries the order's full state, so when several unsent events of one order are waiting, only the newest is sent (the others become `Superseded`). A nightly cleanup (01:00 UTC) deletes sent and completed rows older than 7 days; `Failed` rows stay until handled. The `Messaging` section of each service's `appsettings.json` holds these limits.
+
+Both tables keep the payload, attempts and last error, and the outbox `Id` is the inbox `Id` (the message's `MessageId`), so an event can be followed from OrderService to each consumer. To replay a failed event: in the outbox, `UPDATE OutboxMessages SET Status='Pending', Attempts=0, NextAttemptAt=NULL WHERE Id='<id>'`; for the inbox, delete its row and resend it from the outbox the same way.
 
 ## Getting Started
 
@@ -63,7 +74,7 @@ dotnet build --no-incremental 2>&1 | grep -E "warning [A-Z]+[0-9]+" | sort -u
 
 ### Tests
 
-Each business service has a test project in `backend/tests/<Service>.Tests` (xUnit v3, Shouldly, NSubstitute). Unit tests cover controllers, mappings, and event processing with substituted dependencies. Integration tests, marked with the `Category=Integration` trait, run repositories and the HTTP API (`WebApplicationFactory`) against a real MySQL 9.7 database. [Testcontainers](https://dotnet.testcontainers.org) starts the database in Docker. RabbitMQ and gRPC clients are always substituted.
+Each business service has a test project in `backend/tests/<Service>.Tests` (xUnit v3, Shouldly, NSubstitute). Unit tests cover controllers, mappings, and event processing with substituted dependencies. Integration tests, marked with the `Category=Integration` trait, run repositories and the HTTP API (`WebApplicationFactory`) against a real MySQL 9.7 database. [Testcontainers](https://dotnet.testcontainers.org) starts the database in Docker. The RabbitMQ and gRPC clients are always substituted; consumer tests hand messages to the inbox the way the subscriber does.
 
 Run from the repository root:
 
@@ -169,7 +180,7 @@ Requires Docker Desktop with Kubernetes enabled and [Helm](https://helm.sh/docs/
 ```bash
 deploy/dev.sh                  # build and deploy everything
 deploy/dev.sh order customer   # rebuild and redeploy only these services
-deploy/dev.sh --reset          # also wipe MySQL, so the databases are re-seeded
+deploy/dev.sh --reset          # also wipe MySQL and RabbitMQ, so the databases are re-seeded
 ```
 
 It refuses to run unless the kubectl context is `docker-desktop`. The manual steps are:
@@ -201,7 +212,7 @@ It refuses to run unless the kubectl context is `docker-desktop`. The manual ste
 
 3. After changing code, rebuild the image and restart its deployment (for example `kubectl rollout restart deploy/orderservice-depl -n sava`).
 
-4. To remove everything, run `helm uninstall sava -n sava`. The MySQL volume survives an uninstall; delete it with `kubectl delete pvc data-mysql-0 -n sava` to start from an empty database.
+4. To remove everything, run `helm uninstall sava -n sava`. The MySQL and RabbitMQ volumes survive an uninstall; delete them with `kubectl delete pvc data-mysql-0 data-rabbitmq-0 -n sava` to start from an empty database and broker.
 
 #### Production (hosting provider)
 
@@ -251,7 +262,7 @@ The cluster needs an ingress controller (the chart defaults to the `nginx` class
      --set image.tag=$TAG --set ingress.host=<your domain>
    ```
 
-   Roll back with `helm rollback sava -n sava`. RabbitMQ runs in the cluster without persistence; Order's periodic gRPC sync repairs anything lost on a restart.
+   Roll back with `helm rollback sava -n sava`. RabbitMQ keeps its queues and undelivered messages on its own 1Gi PersistentVolumeClaim (`data-rabbitmq-0`; `rabbitmq.storage`, `rabbitmq.storageClassName`), so a restart loses nothing. The exchange and queues come from the chart (`templates/rabbitmq.yaml`) and are imported when the broker starts.
 
 #### Backups
 

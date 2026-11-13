@@ -1,33 +1,50 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using CustomerService.EventProcessing;
+using CustomerService.Messaging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using RabbitMQ.Client.Exceptions;
 using Serilog;
 
 namespace CustomerService.AsyncDataServices;
 
 public class MessageBusSubscriber : BackgroundService
 {
-    private const string Exchange = "order_exchange";
+    // Also declared by the chart's RabbitMQ definitions, with the same arguments.
+    private const string Exchange = "order_events";
     private const string RoutingKey = "order.published";
 
-    // Durable and named, so messages published while this service is down wait for it.
-    public const string Queue = "customer.order-events";
+    // Durable and named, so messages published while this service is down wait for it. With a
+    // single active consumer only one pod receives at a time, so messages reach the inbox in
+    // the order they were published.
+    public const string Queue = "customer.order-events.v2";
+
+    public static readonly Dictionary<string, object?> QueueArguments = new()
+    {
+        ["x-single-active-consumer"] = true,
+    };
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(5);
 
     private readonly ConnectionFactory _factory;
-    private readonly IEventProcessor _eventProcessor;
+    private readonly IInboxHandler _inbox;
+    private readonly TimeSpan _retryDelay;
     private IConnection? _connection;
     private IChannel? _channel;
 
-    public MessageBusSubscriber(IConfiguration configuration, IEventProcessor eventProcessor)
+    public MessageBusSubscriber(
+        IConfiguration configuration,
+        IInboxHandler inbox,
+        IOptions<MessagingOptions> options
+    )
     {
-        _eventProcessor = eventProcessor;
+        _inbox = inbox;
+        _retryDelay = TimeSpan.FromSeconds(options.Value.RetryDelaySeconds);
         _factory = new ConnectionFactory()
         {
             HostName = configuration["RabbitMQHost"]!,
@@ -80,6 +97,8 @@ public class MessageBusSubscriber : BackgroundService
         await _channel.ExchangeDeclareAsync(
             exchange: Exchange,
             type: ExchangeType.Direct,
+            durable: true,
+            autoDelete: false,
             cancellationToken: stoppingToken
         );
         await _channel.QueueDeclareAsync(
@@ -87,6 +106,7 @@ public class MessageBusSubscriber : BackgroundService
             durable: true,
             exclusive: false,
             autoDelete: false,
+            arguments: QueueArguments,
             cancellationToken: stoppingToken
         );
         await _channel.QueueBindAsync(
@@ -96,7 +116,7 @@ public class MessageBusSubscriber : BackgroundService
             cancellationToken: stoppingToken
         );
 
-        // One unacknowledged message at a time keeps events in order.
+        // One unacknowledged message at a time keeps the inbox in publish order.
         await _channel.BasicQosAsync(
             prefetchSize: 0,
             prefetchCount: 1,
@@ -107,7 +127,7 @@ public class MessageBusSubscriber : BackgroundService
         var channel = _channel;
         var consumer = new AsyncEventingBasicConsumer(channel);
         consumer.ReceivedAsync += (_, ea) =>
-            HandleDeliveryAsync(channel, _eventProcessor, ea, RetryDelay, stoppingToken);
+            HandleDeliveryAsync(channel, _inbox, ea, _retryDelay, stoppingToken);
 
         await _channel.BasicConsumeAsync(
             queue: Queue,
@@ -119,35 +139,36 @@ public class MessageBusSubscriber : BackgroundService
         Log.Information("--> Listening on the Message Bus....");
     }
 
-    // Acknowledges a message only after it was processed. A failure is retried once (after
-    // retryDelay, to ride out e.g. a database restart); if the redelivery fails too, the message is
-    // dropped and logged so it can't block the queue. Messages the processor rejects as invalid
-    // don't throw, so they are acknowledged and not retried.
+    // Acknowledges a message once the inbox has processed it (or given up on it, or seen it
+    // before). Otherwise it goes back to the queue after retryDelay, so it is never lost; with
+    // prefetch 1 and a single active consumer, the messages after it wait meanwhile.
     public static async Task HandleDeliveryAsync(
         IChannel channel,
-        IEventProcessor eventProcessor,
+        IInboxHandler inbox,
         BasicDeliverEventArgs ea,
         TimeSpan retryDelay,
         CancellationToken cancellationToken
     )
     {
-        Log.Information("--> Event Received!");
         var message = Encoding.UTF8.GetString(ea.Body.Span);
 
+        DeliveryOutcome outcome;
         try
         {
-            await eventProcessor.ProcessEvent(message);
+            outcome = await inbox.HandleAsync(
+                message,
+                ea.BasicProperties.MessageId,
+                cancellationToken
+            );
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
-            if (ea.Redelivered)
-            {
-                Log.Error(ex, "--> Could not process event again; dropping it: {Message}", message);
-                await channel.BasicNackAsync(ea.DeliveryTag, false, false, cancellationToken);
-                return;
-            }
+            Log.Warning(ex, "--> Could not record the message in the inbox: {Message}", message);
+            outcome = DeliveryOutcome.Retry;
+        }
 
-            Log.Warning(ex, "--> Could not process event; retrying it once: {Message}", message);
+        if (outcome == DeliveryOutcome.Retry)
+        {
             await Task.Delay(retryDelay, cancellationToken);
             await channel.BasicNackAsync(ea.DeliveryTag, false, true, cancellationToken);
             return;
@@ -166,15 +187,20 @@ public class MessageBusSubscriber : BackgroundService
     {
         await base.StopAsync(cancellationToken);
 
-        if (_channel is { IsOpen: true })
+        // The host may stop twice (e.g. a test host); the second close finds it already closed.
+        try
         {
-            await _channel.CloseAsync(cancellationToken);
-        }
+            if (_channel is { IsOpen: true })
+            {
+                await _channel.CloseAsync(cancellationToken);
+            }
 
-        if (_connection is { IsOpen: true })
-        {
-            await _connection.CloseAsync(cancellationToken);
+            if (_connection is { IsOpen: true })
+            {
+                await _connection.CloseAsync(cancellationToken);
+            }
         }
+        catch (AlreadyClosedException) { }
 
         await DisposeConnectionAsync();
     }

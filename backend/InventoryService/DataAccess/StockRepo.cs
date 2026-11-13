@@ -22,7 +22,11 @@ public class StockRepo(ProductContext context) : IStockRepo
             .ProductBatches.Where(b => batchIds.Contains(b.Id))
             .ToDictionaryAsync(b => b.Id);
 
-        await using var transaction = await context.Database.BeginTransactionAsync();
+        // Joins the caller's transaction (InboxHandler's) when there is one.
+        await using var transaction =
+            context.Database.CurrentTransaction == null
+                ? await context.Database.BeginTransactionAsync()
+                : null;
 
         var unknown = new List<Guid>();
         foreach (var batchId in batchIds)
@@ -47,7 +51,10 @@ public class StockRepo(ProductContext context) : IStockRepo
 
         await context.SaveChangesAsync();
         await RefreshHasOrdersAsync(batches.Values);
-        await transaction.CommitAsync();
+        if (transaction != null)
+        {
+            await transaction.CommitAsync();
+        }
 
         return unknown;
     }

@@ -83,11 +83,10 @@ public class CustomerApiTests(CustomerApiFactory factory) : IClassFixture<Custom
             ).Content.ReadFromJsonAsync<CustomerReadDto>(Ct)
         ).ShouldNotBeNull();
         created.HasOrders.ShouldBeFalse();
-        var processor = factory.Services.GetRequiredService<IEventProcessor>();
         var orderId = TestData.Faker.Random.Guid();
 
-        await processor.ProcessEvent(
-            OrderEvent(EventProcessor.OrderPublished, orderId, created.Id)
+        await factory.DeliverAsync(
+            Inbox.OrderEvent(EventProcessor.OrderPublished, orderId, created.Id)
         );
 
         (await _client.GetFromJsonAsync<CustomerReadDto>($"/api/customers/{created.Id}", Ct))
@@ -99,15 +98,14 @@ public class CustomerApiTests(CustomerApiFactory factory) : IClassFixture<Custom
             .ShouldNotBeNull()
             .Title.ShouldBe("Customer has orders");
 
-        await processor.ProcessEvent(OrderEvent(EventProcessor.OrderDeleted, orderId, created.Id));
+        await factory.DeliverAsync(
+            Inbox.OrderEvent(EventProcessor.OrderDeleted, orderId, created.Id)
+        );
 
         (await _client.DeleteAsync($"/api/customers/{created.Id}", Ct)).StatusCode.ShouldBe(
             HttpStatusCode.NoContent
         );
     }
-
-    private static string OrderEvent(string eventName, Guid orderId, Guid customerId) =>
-        JsonSerializer.Serialize(new OrderPublishedDto(orderId, customerId, eventName));
 
     [Fact]
     public async Task CustomerLifecycle_CreateGetUpdateDelete()

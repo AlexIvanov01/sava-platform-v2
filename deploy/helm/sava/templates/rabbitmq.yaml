@@ -1,12 +1,43 @@
-# Messages are not persisted; Order's periodic gRPC sync recovers anything lost on a restart.
-apiVersion: apps/v1
-kind: Deployment
+# The broker's state (durable exchanges, queues and persistent messages) lives on its own volume,
+# so a restart keeps messages that are published but not yet consumed. A StatefulSet gives the pod
+# a stable hostname, which RabbitMQ uses to name its data directory.
+{{- define "sava.rabbitmqDefinitions" -}}
+{
+  "exchanges": [
+    { "name": "order_events", "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "internal": false, "arguments": {} }
+  ],
+  "queues": [
+    { "name": "inventory.order-events.v2", "vhost": "/", "durable": true, "auto_delete": false, "arguments": { "x-single-active-consumer": true } },
+    { "name": "customer.order-events.v2", "vhost": "/", "durable": true, "auto_delete": false, "arguments": { "x-single-active-consumer": true } }
+  ],
+  "bindings": [
+    { "source": "order_events", "vhost": "/", "destination": "inventory.order-events.v2", "destination_type": "queue", "routing_key": "order.published", "arguments": {} },
+    { "source": "order_events", "vhost": "/", "destination": "customer.order-events.v2", "destination_type": "queue", "routing_key": "order.published", "arguments": {} }
+  ]
+}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: rabbitmq-depl
+  name: rabbitmq-definitions
+  labels:
+    {{- include "sava.labels" . | nindent 4 }}
+data:
+  # The order events topology. The services declare the same exchange and their own queue with
+  # identical arguments, so the import and the declarations agree. Importing after startup (see
+  # postStart) keeps the default user from the Secret; an import at boot would skip creating it.
+  definitions.json: |
+    {{- include "sava.rabbitmqDefinitions" . | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
   labels:
     {{- include "sava.labels" . | nindent 4 }}
     app.kubernetes.io/name: rabbitmq
 spec:
+  serviceName: rabbitmq-clusterip-srv
   replicas: 1
   selector:
     matchLabels:
@@ -16,7 +47,17 @@ spec:
       labels:
         {{- include "sava.labels" . | nindent 8 }}
         app.kubernetes.io/name: rabbitmq
+      annotations:
+        # Restart (and re-import) when the topology changes.
+        checksum/definitions: {{ include "sava.rabbitmqDefinitions" . | sha256sum }}
     spec:
+      # Everything runs as the image's rabbitmq user (999), the postStart hook included: run as
+      # root, the hook's rabbitmqctl would create a root-owned Erlang cookie on an empty volume
+      # before the server does, and the server would fail to read it.
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
       containers:
         - name: rabbitmq
           image: {{ .Values.rabbitmq.image }}
@@ -28,12 +69,47 @@ spec:
           env:
             {{- include "sava.secretEnv" (dict "root" . "name" "RABBITMQ_DEFAULT_USER" "key" "rabbitmq-user") | nindent 12 }}
             {{- include "sava.secretEnv" (dict "root" . "name" "RABBITMQ_DEFAULT_PASS" "key" "rabbitmq-password") | nindent 12 }}
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - sh
+                  - -c
+                  # Runs while the node is still starting; await_startup fails at once until
+                  # the node process exists, so retry it (up to 5 minutes).
+                  - >-
+                    for i in $(seq 60); do
+                    rabbitmqctl await_startup --timeout 60 >/dev/null 2>&1 && break; sleep 5;
+                    done;
+                    rabbitmqctl import_definitions /etc/rabbitmq/definitions/definitions.json
           readinessProbe:
             tcpSocket:
               port: amqp
             periodSeconds: 10
           resources:
             {{- toYaml .Values.rabbitmq.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/rabbitmq
+            - name: definitions
+              mountPath: /etc/rabbitmq/definitions
+              readOnly: true
+      volumes:
+        - name: definitions
+          configMap:
+            name: rabbitmq-definitions
+  # Helm keeps this PVC on uninstall; delete it to start with an empty broker.
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.rabbitmq.storageClassName }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.rabbitmq.storage }}
 ---
 apiVersion: v1
 kind: Service

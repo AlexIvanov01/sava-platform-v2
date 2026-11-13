@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using OrderService.Dtos;
@@ -87,6 +88,20 @@ public static class OrderMappings
             OrderDate = dto.OrderDate,
             ShippingAddress = dto.ShippingAddress,
             CustomerId = dto.CustomerId,
+        };
+
+    public static OrderPublishedEvent ToPublishedEvent(
+        this Order order,
+        string eventName,
+        Guid messageId
+    ) =>
+        new()
+        {
+            MessageId = messageId,
+            OrderId = order.Id,
+            CustomerId = order.CustomerId.GetValueOrDefault(),
+            Items = order.Items.ToPublishedDtos(),
+            Event = eventName,
         };
 
     public static List<OrderItemPublishedDto> ToPublishedDtos(this IEnumerable<OrderItem> items) =>

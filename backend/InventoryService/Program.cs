@@ -5,6 +5,7 @@ using InventoryService.AsyncDataServices;
 using InventoryService.Auditing;
 using InventoryService.DataAccess;
 using InventoryService.EventProcessing;
+using InventoryService.Messaging;
 using InventoryService.SyncDataServices.Grpc;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -26,6 +27,7 @@ builder.Services.AddControllers();
 if (!isOpenApiGeneration)
 {
     builder.Services.AddHostedService<MessageBusSubscriber>();
+    builder.Services.AddHostedService<InboxCleanup>();
 }
 
 builder.Services.AddOpenApi();
@@ -44,7 +46,11 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 builder.Services.AddGrpc();
-builder.Services.AddSingleton<IEventProcessor, EventProcessor>();
+builder.Services.AddScoped<IEventProcessor, EventProcessor>();
+builder.Services.AddSingleton<IInboxHandler, InboxHandler>();
+builder.Services.Configure<MessagingOptions>(
+    builder.Configuration.GetSection(MessagingOptions.Section)
+);
 
 Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration).CreateLogger();
 

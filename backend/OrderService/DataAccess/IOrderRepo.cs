@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using OrderService.Dtos;
@@ -23,13 +23,7 @@ public interface IOrderRepo
     Task<Order?> GetOrderForUpdateAsync(Guid id);
     Task SaveChangesAsync();
 
-    // Refused (HasInvoice) while the order has an invoice.
-    Task<(DeleteOrderStatus Status, Order? Order)> DeleteOrderAsync(Guid id);
-}
-
-public enum DeleteOrderStatus
-{
-    NotFound,
-    Deleted,
-    HasInvoice,
+    // Deletes an order loaded with GetOrderForUpdateAsync, with its items; check for an invoice
+    // first, the database refuses to delete an order that has one.
+    Task DeleteOrderAsync(Order order);
 }

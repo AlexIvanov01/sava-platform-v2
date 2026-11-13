@@ -1,31 +1,74 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using OrderService.Auditing;
+using OrderService.Messaging;
 using OrderService.Models;
 
 namespace OrderService.DataAccess;
 
-// currentUser is optional so tests and tooling can construct the context from options alone.
-public class OrderContext(DbContextOptions options, ICurrentUser? currentUser = null)
-    : DbContext(options)
+// currentUser and outboxSignal are optional so tests and tooling can construct the context from
+// options alone.
+public class OrderContext(
+    DbContextOptions options,
+    ICurrentUser? currentUser = null,
+    OutboxSignal? outboxSignal = null
+) : DbContext(options)
 {
     public DbSet<Order> Orders { get; set; }
     public DbSet<Invoice> Invoices { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<OrderItemBatch> OrderItemBatches { get; set; }
     public DbSet<CompanySettings> CompanySettings { get; set; }
+    public DbSet<OutboxMessage> OutboxMessages { get; set; }
 
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         AuditStamper.Stamp(ChangeTracker, currentUser);
-        return base.SaveChangesAsync(cancellationToken);
+        var raised = AddOutboxMessages();
+        var result = await base.SaveChangesAsync(cancellationToken);
+        Raised(raised);
+        return result;
     }
 
     public override int SaveChanges()
     {
         AuditStamper.Stamp(ChangeTracker, currentUser);
-        return base.SaveChanges();
+        var raised = AddOutboxMessages();
+        var result = base.SaveChanges();
+        Raised(raised);
+        return result;
+    }
+
+    // Wakes OutboxPublisher. A save inside an explicit transaction may signal before the commit;
+    // its message is then sent by the next sweep.
+    private void Raised(List<Order> raised)
+    {
+        raised.ForEach(o => o.ClearEvents());
+        if (raised.Count > 0)
+        {
+            outboxSignal?.Notify();
+        }
+    }
+
+    // Each order with raised events gets one outbox message, for the newest event, in the same
+    // transaction as the order change. A deleted order's items are still loaded at this point.
+    private List<Order> AddOutboxMessages()
+    {
+        var raised = ChangeTracker
+            .Entries<Order>()
+            .Select(e => e.Entity)
+            .Where(o => o.Events.Count > 0)
+            .ToList();
+        var now = DateTime.UtcNow;
+        foreach (var order in raised)
+        {
+            OutboxMessages.Add(order.ToOutboxMessage(order.Events[^1], now));
+        }
+        return raised;
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -88,5 +131,14 @@ public class OrderContext(DbContextOptions options, ICurrentUser? currentUser = 
             .HasOne(o => o.Invoice)
             .WithOne(i => i.Order)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<OutboxMessage>(message =>
+        {
+            message.Property(m => m.Status).HasConversion<string>();
+            message.Property(m => m.Sequence).ValueGeneratedOnAdd();
+            message.HasIndex(m => m.Sequence).IsUnique();
+            message.HasIndex(m => new { m.Status, m.NextAttemptAt });
+            message.HasIndex(m => m.AggregateId);
+        });
     }
 }

@@ -180,11 +180,10 @@ public class StockApiTests(InventoryApiFactory factory) : IClassFixture<Inventor
             .ShouldNotBeNull()
             .Batches.Single();
         batch.HasOrders.ShouldBeFalse();
-        var processor = factory.Services.GetRequiredService<IEventProcessor>();
         var orderId = TestData.Faker.Random.Guid();
 
-        await processor.ProcessEvent(
-            OrderEvent(
+        await factory.DeliverAsync(
+            Inbox.OrderEvent(
                 "Order_Published",
                 orderId,
                 product.Id,
@@ -206,8 +205,8 @@ public class StockApiTests(InventoryApiFactory factory) : IClassFixture<Inventor
             HttpStatusCode.Conflict
         );
 
-        await processor.ProcessEvent(
-            OrderEvent(
+        await factory.DeliverAsync(
+            Inbox.OrderEvent(
                 "Order_Deleted",
                 orderId,
                 product.Id,
@@ -238,16 +237,14 @@ public class StockApiTests(InventoryApiFactory factory) : IClassFixture<Inventor
             new DateTime(2032, 1, 1, 0, 0, 0, DateTimeKind.Utc)
         );
         var orderId = TestData.Faker.Random.Guid();
-        await factory
-            .Services.GetRequiredService<IEventProcessor>()
-            .ProcessEvent(
-                OrderEvent(
-                    "Order_Published",
-                    orderId,
-                    product.Id,
-                    new OrderItemBatchPublishedDto(early.Id, 5)
-                )
-            );
+        await factory.DeliverAsync(
+            Inbox.OrderEvent(
+                "Order_Published",
+                orderId,
+                product.Id,
+                new OrderItemBatchPublishedDto(early.Id, 5)
+            )
+        );
 
         var holding = new BatchOrderReadDto(orderId, early.Id, 5);
         (
@@ -358,20 +355,6 @@ public class StockApiTests(InventoryApiFactory factory) : IClassFixture<Inventor
             .ShouldNotBeNull()
             .Batches.Single(b => b.Lot == dto.Lot);
     }
-
-    private static string OrderEvent(
-        string eventName,
-        Guid orderId,
-        Guid productId,
-        params OrderItemBatchPublishedDto[] batches
-    ) =>
-        JsonSerializer.Serialize(
-            new OrderPublishedDto(
-                orderId,
-                [new OrderItemPublishedDto(productId, batches)],
-                eventName
-            )
-        );
 
     private async Task<ProductReadDto> CreateProductAsync()
     {

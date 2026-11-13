@@ -35,4 +35,14 @@ public class Order : AuditableEntity
 
     // One item per product.
     public List<OrderItem> Items { get; set; } = [];
+
+    private readonly List<OrderEvent> _events = [];
+
+    // Raised since the last save; OrderContext writes the newest one to the outbox.
+    [NotMapped]
+    public IReadOnlyList<OrderEvent> Events => _events;
+
+    public void Raise(OrderEvent orderEvent) => _events.Add(orderEvent);
+
+    public void ClearEvents() => _events.Clear();
 }
